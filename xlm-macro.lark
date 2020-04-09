@@ -1,0 +1,18 @@
+start: "=" command
+command: function_call | binary_operator | method_call
+function_call: NAME "(" arglist ")"
+arglist: (argument* ",")* argument*
+argument: cell | INT | string | binary_expression | function_call | method_call | boolean
+method_call: NAME "." NAME "(" arglist ")"
+cell: absolute_cell | relative_cell
+absolute_cell: /\$?[a-zA-Z]+\$?\d+/i
+relative_cell: "R" /\[-?\d+\]/i "C" /\[-?\d+\]/i | "R" /\[-?\d+\]/i "C" | "R" "C" /\[-?\d+\]/i
+binary_expression:  argument binary_operator binary_expression | argument binary_operator argument
+binary_operator: "&" | arithmetic_operator | logical_operator
+arithmetic_operator: "+" | "-" | "*" | "/"
+logical_operator: "<" | ">" | "=" | "<>"
+string: "\"" /[^"]+/i "\""
+boolean: "TRUE" | "FALSE"
+%import common.CNAME -> NAME
+%import common.INT -> INT
+%ignore " "   // Disregard spaces in text
