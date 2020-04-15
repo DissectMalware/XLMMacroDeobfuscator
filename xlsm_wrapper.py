@@ -1,8 +1,9 @@
 from zipfile import ZipFile
 from glob import fnmatch
-from xml.etree import  ElementTree
+from xml.etree import ElementTree
 
-class XLSM_Wrapper:
+
+class XLSMWrapper:
     def __init__(self, xlsm_doc_path):
         self.xlsm_doc_path = xlsm_doc_path
         self.workbook = None
@@ -53,7 +54,8 @@ class XLSM_Wrapper:
                 sheet_path = relationship.attrib['Target']
                 if relationship.attrib['Type'] == "http://schemas.microsoft.com/office/2006/relationships/xlMacrosheet":
                     sheet_type = 'Macrosheet'
-                elif relationship.attrib['Type'] == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet":
+                elif relationship.attrib[
+                    'Type'] == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet":
                     sheet_type = 'Worksheet'
                 else:
                     sheet_type = 'Unknown'
@@ -83,9 +85,9 @@ class XLSM_Wrapper:
             rId = sheet.attrib['{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id']
             name = sheet.attrib['name']
             sheet_type, rel_path = self.get_sheet_info(rId)
-            path = 'xl/'+ rel_path
+            path = 'xl/' + rel_path
             if sheet_type == 'Macrosheet':
-                result.append({'sheet_name':name,
+                result.append({'sheet_name': name,
                                'sheet_type': sheet_type,
                                'sheet_path': path,
                                'sheet_xml': self.get_xml_file(path)})
@@ -106,21 +108,21 @@ class XLSM_Wrapper:
             location = cell.attrib['r']
             if formula_text is not None:
                 formula_cells[location] = {'formula': formula_text,
-                                    'value': value_text}
+                                           'value': value_text}
             else:
                 value_cells[location] = {'formula': formula_text,
-                                           'value': value_text}
+                                         'value': value_text}
         return formula_cells, value_cells
 
     def get_xlm_macros(self):
         result = {}
-        auto_open_label= self.get_defined_name('auto_open')
+        auto_open_label = self.get_defined_name('auto_open')
         print('auto_open: {}'.format(auto_open_label))
         macrosheets = self.get_macrosheets()
         for macrosheet in macrosheets:
             print('SHEET: {}\t{}\t{}'.format(macrosheet['sheet_name'],
-                                      macrosheet['sheet_type'],
-                                      macrosheet['sheet_path']))
+                                             macrosheet['sheet_type'],
+                                             macrosheet['sheet_path']))
             formula_cells, value_cells = self.get_xlm_macro(macrosheet['sheet_xml'])
             result[macrosheet['sheet_name']] = {'formulas': formula_cells,
                                                 'values': value_cells}
@@ -128,21 +130,15 @@ class XLSM_Wrapper:
 
 
 if __name__ == '__main__':
-    path = r"samples\01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606.xlsm"
-    xlsm_doc = XLSM_Wrapper(path)
-    macros= xlsm_doc.get_xlm_macros()
+    path = r"C:\InQuest\malware analysis\poc-auto_open_calc\poc-auto_open_calc.zip1.xlsm"
+    xlsm_doc = XLSMWrapper(path)
+    macros = xlsm_doc.get_xlm_macros()
 
     for macro in macros:
         print(macro)
 
         for formula_loc, info in macros[macro]['formulas'].items():
-            print('{}\t{}\t{}'.format(formula_loc, info['formula'], info['value'] ))
+            print('{}\t{}\t{}'.format(formula_loc, info['formula'], info['value']))
 
         for formula_loc, info in macros[macro]['values'].items():
-            print('{}\t{}\t{}'.format(formula_loc, info['formula'], info['value'] ))
-
-
-
-
-
-
+            print('{}\t{}\t{}'.format(formula_loc, info['formula'], info['value']))
