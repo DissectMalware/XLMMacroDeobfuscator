@@ -17,10 +17,6 @@ class XLMInterpreter:
         self.xlm_parser = Lark(macro_grammar)
 
     def parse_cell_address(self, cell_addr):
-        sheet_name = None
-        row = None
-        col = None
-        absolute_addr = True
         res = self.cell_addr_regex.match(cell_addr)
         sheet_name = res['sheetname'] if 'sheetname' in res.re.groupindex else None
         col = res['column'] if 'column' in res.re.groupindex else None
@@ -66,12 +62,11 @@ class XLMInterpreter:
         return res_sheet, res_col, res_row
 
     def evaluate_parse_tree(self, macros, current_sheet_name, col, row, parse_tree_root):
-
         next_sheet = current_sheet_name
         next_col = col
         next_row = row
         text = None
-        raw = macros[current_sheet_name]['cells'][col + str(row)]['formula']
+
         if type(parse_tree_root) is Token:
             text = str(parse_tree_root)
         elif parse_tree_root.data == 'function_call':
@@ -151,36 +146,25 @@ class XLMInterpreter:
 
         return next_sheet, next_col, next_row, text
 
-    def interpret_cell(self, macros, current_sheetname, col, row, cell):
-        next_sheet = None
-        next_col = None
-        next_row = None
-        cell_addr = None
-        text = None
-        if cell['formula'] is not None:
-            parse_tree = self.xlm_parser.parse(cell['formula'])
-            next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, current_sheetname, col, row,
-                                                                            parse_tree)
-
-        return next_sheet, next_col, next_row, text
-
     def deobfuscate_macro(self):
         result = []
         auto_open = self.XLMWrapper.get_defined_name('auto_open')
-        sheetname, col, row = self.parse_cell_address(auto_open)
+        sheet_name, col, row = self.parse_cell_address(auto_open)
         macros = self.XLMWrapper.get_xlm_macros()
-        current_col, current_row, current_cell = self.get_cell(macros[sheetname], col, row)
-        if current_cell is not None:
-            while True:
-                next_sheet, next_col, next_row, text = self.interpret_cell(macros, sheetname, current_col, current_row,
-                                                                           current_cell)
-                if text is not None:
-                    result.append((sheetname, current_col, current_row, current_cell['formula'], text))
-                if next_sheet is not None:
-                    current_col, current_row, current_cell = self.get_cell(macros[next_sheet], next_col, next_row)
-                    sheetname = next_sheet
-                else:
-                    break
+        current_col, current_row, current_cell = self.get_cell(macros[sheet_name], col, row)
+
+        while current_cell is not None:
+            parse_tree = self.xlm_parser.parse(current_cell['formula'])
+            next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, sheet_name, current_col,
+                                                                            current_row,
+                                                                            parse_tree)
+            result.append((sheet_name, current_col, current_row, current_cell['formula'], text))
+            if next_sheet is not None:
+                current_col, current_row, current_cell = self.get_cell(macros[next_sheet], next_col, next_row)
+                sheet_name = next_sheet
+            else:
+                break
+
         return result
 
 
@@ -217,4 +201,3 @@ if __name__ == '__main__':
     for step in result:
         # print('RAW:\t{}\t\t{}'.format(step[1]+ str(step[2]), step[3]))
         print('Interpreted:{}\t\t{}'.format(step[1] + str(step[2]), step[4]))
-
