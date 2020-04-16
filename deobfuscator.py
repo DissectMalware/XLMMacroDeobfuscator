@@ -221,31 +221,6 @@ def interpret_char_function(line):
     return exist, char_replace_res
 
 
-def interpret_formula_function(line, cells):
-    regex_formula = "FORMULA\((?P<arg1>[^,]+),(?P<arg2>[^\)]+)\)"
-    exist = False
-    matches = re.finditer(regex_formula, line, re.MULTILINE)
-    result = line[1:]
-    for matchNum, match in enumerate(matches, start=1):
-        exist = True
-        arg1 = match['arg1']
-        params = arg1.split('&')
-        start = match.regs[match.pos][0]
-        end = match.regs[match.pos][1]
-
-        tmp = ''
-        for param in params:
-            absolute_name = param.replace('$', '')
-            if absolute_name in cells:
-                tmp += cells[absolute_name][1:]
-            else:
-                tmp += param
-
-        result = result.replace(match.string[start:end], tmp)
-
-    return exist, result
-
-
 def test_parser():
     macro_grammar = open('xlm-macro.lark', 'r', encoding='utf_8').read()
     xlm_parser = Lark(macro_grammar)
@@ -279,4 +254,5 @@ if __name__ == '__main__':
     path = r"C:\Users\user\Downloads\samples\analyze\01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606.xlsm"
     xlsm_doc = XLSMWrapper(path)
     interpreter = XLMInterpreter(xlsm_doc)
-    interpreter.deobfuscate_macro()
+    result = interpreter.deobfuscate_macro()
+
