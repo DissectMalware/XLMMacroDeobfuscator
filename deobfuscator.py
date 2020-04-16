@@ -102,24 +102,20 @@ class XLMInterpreter:
                 res_sheet, res_col, res_row = self.get_cell_addr(current_sheet_name, col, row, second_arg)
                 macros[res_sheet]['cells'][res_col + str(res_row)] = {'formula': None, 'value': text}
                 next_row += 1
-                print(raw)
-                print("FORMULA('{}',{})".format(text, '{}!{}{}'.format(res_sheet, res_col, res_row)))
-                text = 'FORMULA'
+                text = "FORMULA('{}',{})".format(text, '{}!{}{}'.format(res_sheet, res_col, res_row))
             elif function_name == 'CALL':
                 arguments = []
                 for argument in function_arguments.children:
                     next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, current_sheet_name, col,
                                                                                     row, argument)
                     arguments.append(text)
-                print(raw)
-                print('CALL({})'.format(','.join(arguments)))
                 next_row += 1
-                text = 'CALL'
+                text = 'CALL({})'.format(','.join(arguments))
             elif function_name == 'HALT':
                 next_row = None
                 next_col = None
                 next_sheet = None
-                text = 'HALT'
+                text = 'HALT()'
             else:
                 raise Exception('Not implemented')
 
@@ -179,7 +175,7 @@ class XLMInterpreter:
                 next_sheet, next_col, next_row, text = self.interpret_cell(macros, sheetname, current_col, current_row,
                                                                            current_cell)
                 if text is not None:
-                    result.append((sheetname, current_col, current_row, text))
+                    result.append((sheetname, current_col, current_row, current_cell['formula'], text))
                 if next_sheet is not None:
                     current_col, current_row, current_cell = self.get_cell(macros[next_sheet], next_col, next_row)
                     sheetname = next_sheet
@@ -213,11 +209,12 @@ def test_parser():
 
 
 if __name__ == '__main__':
-    # excel = Dispatch("Excel.Application")
-    # wb = excel.Workbooks.Open(os.path.join(zloader_samples_dir, excel_file))
-    # macrosheet = get_entry_macrosheet(wb)
-
     path = r"C:\Users\user\Downloads\samples\analyze\01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606.xlsm"
     xlsm_doc = XLSMWrapper(path)
     interpreter = XLMInterpreter(xlsm_doc)
     result = interpreter.deobfuscate_macro()
+
+    for step in result:
+        # print('RAW:\t{}\t\t{}'.format(step[1]+ str(step[2]), step[3]))
+        print('Interpreted:{}\t\t{}'.format(step[1] + str(step[2]), step[4]))
+
