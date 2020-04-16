@@ -45,9 +45,6 @@ class XLMInterpreter:
 
         return col, current_row, result
 
-    def get_next_cell(self, macrosheet, cur_col, cur_row):
-        return self.get_cell(macrosheet, cur_col, cur_row+1)
-
     def get_argument_length(self, arglist_node):
         result = None
         if arglist_node.data == 'arglist':
@@ -68,28 +65,13 @@ class XLMInterpreter:
 
         return res_sheet, res_col, res_row
 
-    def get_cell_value(self, macros, sheet, cell_parse_tree):
-        result = None
-        cell = cell_parse_tree.children[0]
-        if cell.data == 'absolute_cell':
-            sheet_name, col, row = self.parse_cell_address(cell.children[0])
-            if sheet_name is None:
-                sheet_name = sheet
-            result = macros[sheet_name]['cells'][col+str(row)]
-        elif cell.data == 'relative_cell':
-            raise Exception('Not implemented')
-        else:
-            raise Exception('Cell addresss, Syntax Error')
-
-        return result
-
     def evaluate_parse_tree(self, macros, current_sheet_name, col, row, parse_tree_root):
 
         next_sheet = current_sheet_name
         next_col = col
         next_row = row
         text = None
-        raw = macros[current_sheet_name]['cells'][col+str(row)]['formula']
+        raw = macros[current_sheet_name]['cells'][col + str(row)]['formula']
         if type(parse_tree_root) is Token:
             text = str(parse_tree_root)
         elif parse_tree_root.data == 'function_call':
@@ -98,28 +80,30 @@ class XLMInterpreter:
             size = self.get_argument_length(function_arguments)
             if function_name == 'RUN':
                 if size == 1:
-                    next_sheet, next_col, next_row = self.get_cell_addr(current_sheet_name, col, row, function_arguments.children[0].children[0])
-                    text='RUN({}!{}{})'.format(next_sheet, next_col, next_row)
+                    next_sheet, next_col, next_row = self.get_cell_addr(current_sheet_name, col, row,
+                                                                        function_arguments.children[0].children[0])
+                    text = 'RUN({}!{}{})'.format(next_sheet, next_col, next_row)
                 elif size == 2:
                     raise Exception('RUN(reference, step) is not implemented')
                 else:
                     raise Exception('RUN() is incorrect')
             elif function_name == 'CHAR':
-                next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, current_sheet_name, col, row, function_arguments.children[0])
+                next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, current_sheet_name, col, row,
+                                                                                function_arguments.children[0])
                 text = chr(int(text))
-                cell_col,cell_row, cell = self.get_cell(macros[current_sheet_name], col, row)
+                cell_col, cell_row, cell = self.get_cell(macros[current_sheet_name], col, row)
                 cell['value'] = text
                 next_row += 1
             elif function_name == 'FORMULA':
                 first_arg = function_arguments.children[0]
                 next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, current_sheet_name, col,
-                                                                                     row, first_arg)
+                                                                                row, first_arg)
                 second_arg = function_arguments.children[1].children[0]
-                res_sheet, res_col, res_row = self.get_cell_addr(current_sheet_name,col,row, second_arg)
-                macros[res_sheet]['cells'][res_col+str(res_row)] = {'formula':None, 'value':text}
+                res_sheet, res_col, res_row = self.get_cell_addr(current_sheet_name, col, row, second_arg)
+                macros[res_sheet]['cells'][res_col + str(res_row)] = {'formula': None, 'value': text}
                 next_row += 1
                 print(raw)
-                print("FORMULA('{}',{})".format(text, '{}!{}{}'.format(res_sheet,res_col,res_row)))
+                print("FORMULA('{}',{})".format(text, '{}!{}{}'.format(res_sheet, res_col, res_row)))
                 text = 'FORMULA'
             elif function_name == 'CALL':
                 arguments = []
@@ -137,18 +121,22 @@ class XLMInterpreter:
                 next_sheet = None
                 text = 'HALT'
             else:
-                t = 10
+                raise Exception('Not implemented')
 
         elif parse_tree_root.data == 'method_call':
-            t =11
+            raise Exception('Not Implemented')
         elif parse_tree_root.data == 'cell':
-            text = self.get_cell_value(macros, current_sheet_name, parse_tree_root)['value']
+            sheet_name, col, row = self.get_cell_addr(current_sheet_name, col, row, parse_tree_root)
+            cell = macros[sheet_name]['cells'][col + str(row)]
+            text = cell['value']
         elif parse_tree_root.data == 'binary_expression':
             left_arg = parse_tree_root.children[0]
-            next_sheet, next_col, next_row, text_left = self.evaluate_parse_tree(macros, current_sheet_name, col, row, left_arg)
+            next_sheet, next_col, next_row, text_left = self.evaluate_parse_tree(macros, current_sheet_name, col, row,
+                                                                                 left_arg)
             operator = str(parse_tree_root.children[1].children[0])
             right_arg = parse_tree_root.children[2]
-            next_sheet, next_col, next_row, text_right = self.evaluate_parse_tree(macros, current_sheet_name, col, row, right_arg)
+            next_sheet, next_col, next_row, text_right = self.evaluate_parse_tree(macros, current_sheet_name, col, row,
+                                                                                  right_arg)
             if operator == '-':
                 text = str(int(text_left) - int(text_right))
             elif operator == '+':
@@ -156,27 +144,27 @@ class XLMInterpreter:
             elif operator == '*':
                 text = str(int(text_left) * int(text_right))
             elif operator == '&':
-                text = text_left+text_right
+                text = text_left + text_right
             else:
                 raise Exception('Not implemented')
-        elif parse_tree_root.data == 'binary_operator':
-            t = 10
         else:
             for child_node in parse_tree_root.children:
                 if child_node is not None:
-                    next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, current_sheet_name, col, row, child_node)
+                    next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, current_sheet_name, col,
+                                                                                    row, child_node)
 
         return next_sheet, next_col, next_row, text
 
     def interpret_cell(self, macros, current_sheetname, col, row, cell):
         next_sheet = None
-        next_col= None
+        next_col = None
         next_row = None
         cell_addr = None
         text = None
         if cell['formula'] is not None:
             parse_tree = self.xlm_parser.parse(cell['formula'])
-            next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, current_sheetname, col, row, parse_tree)
+            next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, current_sheetname, col, row,
+                                                                            parse_tree)
 
         return next_sheet, next_col, next_row, text
 
@@ -188,7 +176,8 @@ class XLMInterpreter:
         current_col, current_row, current_cell = self.get_cell(macros[sheetname], col, row)
         if current_cell is not None:
             while True:
-                next_sheet, next_col, next_row, text = self.interpret_cell(macros, sheetname, current_col, current_row, current_cell)
+                next_sheet, next_col, next_row, text = self.interpret_cell(macros, sheetname, current_col, current_row,
+                                                                           current_cell)
                 if text is not None:
                     result.append((sheetname, current_col, current_row, text))
                 if next_sheet is not None:
@@ -197,28 +186,6 @@ class XLMInterpreter:
                 else:
                     break
         return result
-
-
-
-def interpret_char_function(line):
-    char_replace_res = line
-    exist = False
-    if 'FORMULA' not in line:
-        char_replace_res = char_replace_res.replace('&', '')
-        regex_char = "CHAR\((?P<number>\d{,3})\)"
-
-        regex_char_compiled = re.compile(regex_char, re.MULTILINE)
-
-        matches = regex_char_compiled.finditer(line)
-
-        for matchNum, match in enumerate(matches, start=1):
-            exist = True
-            character = chr(int(match['number']))
-            start = match.regs[match.pos][0]
-            end = match.regs[match.pos][1]
-            char_replace_res = char_replace_res.replace(match.string[start:end], character)
-
-    return exist, char_replace_res
 
 
 def test_parser():
@@ -246,7 +213,6 @@ def test_parser():
 
 
 if __name__ == '__main__':
-
     # excel = Dispatch("Excel.Application")
     # wb = excel.Workbooks.Open(os.path.join(zloader_samples_dir, excel_file))
     # macrosheet = get_entry_macrosheet(wb)
@@ -255,4 +221,3 @@ if __name__ == '__main__':
     xlsm_doc = XLSMWrapper(path)
     interpreter = XLMInterpreter(xlsm_doc)
     result = interpreter.deobfuscate_macro()
-
