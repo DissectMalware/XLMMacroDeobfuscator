@@ -1,5 +1,5 @@
 class XLMWrapper:
-    def get_defined_name(self, label_name):
+    def get_defined_names(self):
         pass
 
     def get_xlm_macros(self):

@@ -15,10 +15,11 @@ class XLMInterpreter:
         self.cell_addr_regex = re.compile(self.cell_addr_regex_str)
         macro_grammar = open('xlm-macro.lark', 'r', encoding='utf_8').read()
         self.xlm_parser = Lark(macro_grammar)
+        self.defined_names = self.XLMWrapper.get_defined_names()
 
     def parse_cell_address(self, cell_addr):
         res = self.cell_addr_regex.match(cell_addr)
-        sheet_name = res['sheetname'] if 'sheetname' in res.re.groupindex else None
+        sheet_name = (res['sheetname'].strip('\'')) if (res['sheetname'] is not None) else None
         col = res['column'] if 'column' in res.re.groupindex else None
         row = res['row'] if 'row' in res.re.groupindex else None
         return sheet_name, col, int(row)
@@ -28,7 +29,7 @@ class XLMInterpreter:
         current_row = row
         not_found = False
 
-        while (col + str(current_row)) not in macrosheet['cells']:
+        while (col + str(current_row)) not in macrosheet['cells'] or macrosheet['cells'][col + str(current_row)]['formula'] is None:
             if (current_row - row) < 50:
                 current_row += 1
             else:
@@ -111,11 +112,22 @@ class XLMInterpreter:
                 next_col = None
                 next_sheet = None
                 text = 'HALT()'
+            elif function_name.lower() in self.defined_names:
+                cell_text = self.defined_names[function_name.lower()]
+                next_sheet, next_col, next_row = self.parse_cell_address(cell_text)
+                text = 'Label ' + function_name
+            elif function_name == 'ERROR':
+                next_row += 1
+                text = 'ERROR'
             else:
-                raise Exception('Not implemented')
+                text = 'Not Implemented ' + function_name
+                next_sheet = None
+                # raise Exception('Not implemented')
 
         elif parse_tree_root.data == 'method_call':
-            raise Exception('Not Implemented')
+            text = '{}.{}'.format(parse_tree_root.children[0], parse_tree_root.children[1])
+            next_row += 1
+            # raise Exception('Not Implemented')
         elif parse_tree_root.data == 'cell':
             sheet_name, col, row = self.get_cell_addr(current_sheet_name, col, row, parse_tree_root)
             cell = macros[sheet_name]['cells'][col + str(row)]
@@ -148,7 +160,8 @@ class XLMInterpreter:
 
     def deobfuscate_macro(self):
         result = []
-        auto_open = self.XLMWrapper.get_defined_name('auto_open')
+
+        auto_open = self.defined_names['_xlnm.auto_open']
         sheet_name, col, row = self.parse_cell_address(auto_open)
         macros = self.XLMWrapper.get_xlm_macros()
         current_col, current_row, current_cell = self.get_cell(macros[sheet_name], col, row)
@@ -158,14 +171,12 @@ class XLMInterpreter:
             next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, sheet_name, current_col,
                                                                             current_row,
                                                                             parse_tree)
-            result.append((sheet_name, current_col, current_row, current_cell['formula'], text))
+            yield (sheet_name, current_col, current_row, current_cell['formula'], text)
             if next_sheet is not None:
                 current_col, current_row, current_cell = self.get_cell(macros[next_sheet], next_col, next_row)
                 sheet_name = next_sheet
             else:
                 break
-
-        return result
 
 
 def test_parser():
@@ -196,8 +207,7 @@ if __name__ == '__main__':
     path = r"C:\Users\user\Downloads\samples\analyze\01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606.xlsm"
     xlsm_doc = XLSMWrapper(path)
     interpreter = XLMInterpreter(xlsm_doc)
-    result = interpreter.deobfuscate_macro()
 
-    for step in result:
+    for step in interpreter.deobfuscate_macro():
         # print('RAW:\t{}\t\t{}'.format(step[1]+ str(step[2]), step[3]))
         print('Interpreted:{}\t\t{}'.format(step[1] + str(step[2]), step[4]))

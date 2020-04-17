@@ -63,16 +63,15 @@ class XLSMWrapper(xlm_wrapper.XLMWrapper):
 
         return sheet_type, sheet_path
 
-    def get_defined_name(self, label_name):
-        result = None
+    def get_defined_names(self):
+        result = {}
         nsmap = {'main': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
         workbook = self.get_workbook()
         names = workbook.findall('.//main:definedName', namespaces=nsmap)
 
         for name in names:
-            if label_name in name.attrib['name'].lower():
-                result = name.text
-                break
+            result[name.attrib['name'].lower()] = name.text
+
         return result
 
     def get_macrosheets(self):
@@ -80,17 +79,18 @@ class XLSMWrapper(xlm_wrapper.XLMWrapper):
         nsmap = {'main': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
         workbook = self.get_workbook()
         sheets = workbook.findall('.//main:sheet', namespaces=nsmap)
-
+        sheet_names = set()
         for sheet in sheets:
             rId = sheet.attrib['{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id']
             name = sheet.attrib['name']
             sheet_type, rel_path = self.get_sheet_info(rId)
             path = 'xl/' + rel_path
-            if sheet_type == 'Macrosheet':
+            if sheet_type == 'Macrosheet' and name not in sheet_names:
                 result.append({'sheet_name': name,
                                'sheet_type': sheet_type,
                                'sheet_path': path,
                                'sheet_xml': self.get_xml_file(path)})
+                sheet_names.add(name)
 
         return result
 
@@ -119,7 +119,7 @@ class XLSMWrapper(xlm_wrapper.XLMWrapper):
 
     def get_xlm_macros(self):
         result = {}
-        auto_open_label = self.get_defined_name('auto_open')
+        auto_open_label = self.get_defined_names()['_xlnm.auto_open']
         print('auto_open: {}'.format(auto_open_label))
         macrosheets = self.get_macrosheets()
         for macrosheet in macrosheets:
