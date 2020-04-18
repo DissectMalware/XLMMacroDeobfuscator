@@ -205,7 +205,7 @@ def test_parser():
 
 
 if __name__ == '__main__':
-
+    
     path = r"C:\Users\user\Downloads\samples\analyze\01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606.xlsm"
 
     xlsm_doc = XLSMWrapper(path)

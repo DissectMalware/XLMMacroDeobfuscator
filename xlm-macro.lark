@@ -2,7 +2,7 @@ start: "=" command
 command: function_call | binary_operator | method_call
 function_call: NAME "(" arglist ")"
 arglist: (argument* ",")* argument*
-argument: cell | INT | string | binary_expression | function_call | method_call | BOOLEAN
+argument: cell | INT | STRING | binary_expression | function_call | method_call | BOOLEAN
 method_call: NAME "." NAME "(" arglist ")"
 cell: absolute_cell | relative_cell
 absolute_cell: /\$?[a-zA-Z]+\$?\d+/i
@@ -12,7 +12,7 @@ binary_operator: CONCATOP | ARITHMETICOP | LOGICALOP
 ARITHMETICOP: "+" | "-" | "*" | "/"
 LOGICALOP: "<" | ">" | "=" | "<>"
 CONCATOP: "&"
-string:  /\"[^"]*?\"/i
+STRING:  /\"[^"]*?\"/i
 BOOLEAN: "TRUE" | "FALSE"
 %import common.CNAME -> NAME
 %import common.INT -> INT
