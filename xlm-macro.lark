@@ -7,7 +7,7 @@ method_call: NAME "." NAME "(" arglist ")"
 cell: absolute_cell | relative_cell
 absolute_cell: /\$?[a-zA-Z]+\$?\d+/i
 relative_cell: "R" /\[-?\d+\]/i "C" /\[-?\d+\]/i | "R" /\[-?\d+\]/i "C" | "R" "C" /\[-?\d+\]/i
-binary_expression:  argument binary_operator binary_expression | argument binary_operator argument
+binary_expression:  argument binary_operator argument
 binary_operator: CONCATOP | ARITHMETICOP | LOGICALOP
 ARITHMETICOP: "+" | "-" | "*" | "/"
 LOGICALOP: "<" | ">" | "=" | "<>"
@@ -16,4 +16,5 @@ STRING:  /\"[^"]*?\"/i
 BOOLEAN: "TRUE" | "FALSE"
 %import common.CNAME -> NAME
 %import common.INT -> INT
+%import common.FLOAT -> FLOAT
 %ignore " "   // Disregard spaces in text

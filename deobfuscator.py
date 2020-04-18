@@ -6,6 +6,13 @@ from lark.lexer import Token
 from utils import *
 from xlm_wrapper import XLMWrapper
 from xlsm_wrapper import XLSMWrapper
+from enum import Enum
+
+class EvalStatus(Enum):
+    FullEvaluation = 1
+    PartialEvaluation = 2
+    Error = 3
+    NotImplemented = 4
 
 
 class XLMInterpreter:
@@ -14,7 +21,7 @@ class XLMInterpreter:
         self.cell_addr_regex_str = r"((?P<sheetname>[^\s]+?|'.+?')!)?\$?(?P<column>[a-zA-Z]+)\$?(?P<row>\d+)"
         self.cell_addr_regex = re.compile(self.cell_addr_regex_str)
         macro_grammar = open('xlm-macro.lark', 'r', encoding='utf_8').read()
-        self.xlm_parser = Lark(macro_grammar)
+        self.xlm_parser = Lark(macro_grammar,  parser='lalr')
         self.defined_names = self.xlm_wrapper.get_defined_names()
 
     def parse_cell_address(self, cell_addr):
@@ -66,6 +73,7 @@ class XLMInterpreter:
         next_sheet = current_sheet_name
         next_col = col
         next_row = row
+        evaluate = False
         text = None
 
         if type(parse_tree_root) is Token:
@@ -140,6 +148,7 @@ class XLMInterpreter:
             right_arg = parse_tree_root.children[2]
             next_sheet, next_col, next_row, text_right = self.evaluate_parse_tree(macros, current_sheet_name, col, row,
                                                                                   right_arg)
+
             if operator == '-':
                 text = str(int(text_left) - int(text_right))
             elif operator == '+':
@@ -205,12 +214,17 @@ def test_parser():
 
 
 if __name__ == '__main__':
-    
+
     path = r"C:\Users\user\Downloads\samples\analyze\01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606.xlsm"
 
+    import time
+    start = time.time()
     xlsm_doc = XLSMWrapper(path)
     interpreter = XLMInterpreter(xlsm_doc)
 
     for step in interpreter.deobfuscate_macro():
         # print('RAW:\t{}\t\t{}'.format(step[1]+ str(step[2]), step[3]))
         print('Interpreted:{}\t\t{}'.format(step[1] + str(step[2]), step[4]))
+
+    end = time.time()
+    print('time elapsed: '+ str(end - start))
