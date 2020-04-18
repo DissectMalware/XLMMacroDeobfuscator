@@ -12,7 +12,7 @@ binary_operator: CONCATOP | ARITHMETICOP | LOGICALOP
 ARITHMETICOP: "+" | "-" | "*" | "/"
 LOGICALOP: "<" | ">" | "=" | "<>"
 CONCATOP: "&"
-string: "\"" /[^"]+/i "\""
+string:  /\"[^"]*?\"/i
 BOOLEAN: "TRUE" | "FALSE"
 %import common.CNAME -> NAME
 %import common.INT -> INT

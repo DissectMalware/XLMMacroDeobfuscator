@@ -9,13 +9,13 @@ from xlsm_wrapper import XLSMWrapper
 
 
 class XLMInterpreter:
-    def __init__(self, XLMWrapper):
-        self.XLMWrapper = XLMWrapper
+    def __init__(self, xlm_wrapper):
+        self.xlm_wrapper = xlm_wrapper
         self.cell_addr_regex_str = r"((?P<sheetname>[^\s]+?|'.+?')!)?\$?(?P<column>[a-zA-Z]+)\$?(?P<row>\d+)"
         self.cell_addr_regex = re.compile(self.cell_addr_regex_str)
         macro_grammar = open('xlm-macro.lark', 'r', encoding='utf_8').read()
         self.xlm_parser = Lark(macro_grammar)
-        self.defined_names = self.XLMWrapper.get_defined_names()
+        self.defined_names = self.xlm_wrapper.get_defined_names()
 
     def parse_cell_address(self, cell_addr):
         res = self.cell_addr_regex.match(cell_addr)
@@ -161,22 +161,23 @@ class XLMInterpreter:
     def deobfuscate_macro(self):
         result = []
 
-        auto_open = self.defined_names['_xlnm.auto_open']
-        sheet_name, col, row = self.parse_cell_address(auto_open)
-        macros = self.XLMWrapper.get_xlm_macros()
-        current_col, current_row, current_cell = self.get_cell(macros[sheet_name], col, row)
+        auto_open_labels = self.xlm_wrapper.get_defined_name('_xlnm.auto_open', full_match=False)
+        for auto_open_label in auto_open_labels:
+            sheet_name, col, row = self.parse_cell_address(auto_open_label[1])
+            macros = self.xlm_wrapper.get_xlm_macros()
+            current_col, current_row, current_cell = self.get_cell(macros[sheet_name], col, row)
 
-        while current_cell is not None:
-            parse_tree = self.xlm_parser.parse(current_cell['formula'])
-            next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, sheet_name, current_col,
-                                                                            current_row,
-                                                                            parse_tree)
-            yield (sheet_name, current_col, current_row, current_cell['formula'], text)
-            if next_sheet is not None:
-                current_col, current_row, current_cell = self.get_cell(macros[next_sheet], next_col, next_row)
-                sheet_name = next_sheet
-            else:
-                break
+            while current_cell is not None:
+                parse_tree = self.xlm_parser.parse(current_cell['formula'])
+                next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, sheet_name, current_col,
+                                                                                current_row,
+                                                                                parse_tree)
+                yield (sheet_name, current_col, current_row, current_cell['formula'], text)
+                if next_sheet is not None:
+                    current_col, current_row, current_cell = self.get_cell(macros[next_sheet], next_col, next_row)
+                    sheet_name = next_sheet
+                else:
+                    break
 
 
 def test_parser():
@@ -204,7 +205,9 @@ def test_parser():
 
 
 if __name__ == '__main__':
+
     path = r"C:\Users\user\Downloads\samples\analyze\01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606.xlsm"
+
     xlsm_doc = XLSMWrapper(path)
     interpreter = XLMInterpreter(xlsm_doc)
 

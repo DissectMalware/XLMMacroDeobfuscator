@@ -3,11 +3,13 @@ from glob import fnmatch
 from xml.etree import ElementTree
 import xlm_wrapper
 
+
 class XLSMWrapper(xlm_wrapper.XLMWrapper):
     def __init__(self, xlsm_doc_path):
         self.xlsm_doc_path = xlsm_doc_path
-        self.workbook = None
-        self.workbook_rels = None
+        self._workbook = None
+        self._workbook_rels = None
+        self._defined_names = None
 
     def get_files(self, file_name_filters=None):
         input_zip = ZipFile(self.xlsm_doc_path)
@@ -31,16 +33,16 @@ class XLSMWrapper(xlm_wrapper.XLMWrapper):
         return result
 
     def get_workbook(self):
-        if not self.workbook:
+        if not self._workbook:
             workbook = self.get_xml_file('xl/workbook.xml')
-            self.workbook = workbook
-        return self.workbook
+            self._workbook = workbook
+        return self._workbook
 
     def get_workbook_rels(self):
-        if not self.workbook_rels:
+        if not self._workbook_rels:
             workbook = self.get_xml_file('xl/_rels/workbook.xml.rels')
-            self.workbook_rels = workbook
-        return self.workbook_rels
+            self._workbook_rels = workbook
+        return self._workbook_rels
 
     def get_sheet_info(self, rId):
         sheet_type = None
@@ -52,7 +54,10 @@ class XLSMWrapper(xlm_wrapper.XLMWrapper):
         for relationship in relationships:
             if relationship.attrib['Id'] == rId:
                 sheet_path = relationship.attrib['Target']
-                if relationship.attrib['Type'] == "http://schemas.microsoft.com/office/2006/relationships/xlMacrosheet":
+                if relationship.attrib[
+                    'Type'] == "http://schemas.microsoft.com/office/2006/relationships/xlMacrosheet" or \
+                        relationship.attrib[
+                            'Type'] == 'http://schemas.microsoft.com/office/2006/relationships/xlIntlMacrosheet':
                     sheet_type = 'Macrosheet'
                 elif relationship.attrib[
                     'Type'] == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet":
@@ -82,15 +87,16 @@ class XLSMWrapper(xlm_wrapper.XLMWrapper):
         sheet_names = set()
         for sheet in sheets:
             rId = sheet.attrib['{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id']
-            name = sheet.attrib['name']
-            sheet_type, rel_path = self.get_sheet_info(rId)
-            path = 'xl/' + rel_path
-            if sheet_type == 'Macrosheet' and name not in sheet_names:
-                result.append({'sheet_name': name,
-                               'sheet_type': sheet_type,
-                               'sheet_path': path,
-                               'sheet_xml': self.get_xml_file(path)})
-                sheet_names.add(name)
+            if rId:
+                name = sheet.attrib['name']
+                sheet_type, rel_path = self.get_sheet_info(rId)
+                path = 'xl/' + rel_path
+                if sheet_type == 'Macrosheet' and name not in sheet_names:
+                    result.append({'sheet_name': name,
+                                   'sheet_type': sheet_type,
+                                   'sheet_path': path,
+                                   'sheet_xml': self.get_xml_file(path)})
+                    sheet_names.add(name)
 
         return result
 
@@ -103,7 +109,7 @@ class XLSMWrapper(xlm_wrapper.XLMWrapper):
 
         for cell in cells:
             formula = cell.find('./main:f', namespaces=nsmap)
-            formula_text =  ('=' + formula.text) if formula is not None else None
+            formula_text = ('=' + formula.text) if formula is not None else None
             value = cell.find('./main:v', namespaces=nsmap)
             value_text = value.text if value is not None else None
             location = cell.attrib['r']
@@ -114,13 +120,30 @@ class XLSMWrapper(xlm_wrapper.XLMWrapper):
             #     value_cells[location] = {'formula': formula_text,
             #                              'value': value_text}
             result_cells[location] = {'formula': formula_text,
-                                'value': value_text}
+                                      'value': value_text}
         return result_cells
+
+    def get_defined_name(self, name, full_match=True):
+        result = []
+        name = name.lower()
+        if self._defined_names is None:
+            self._defined_names = self.get_defined_names()
+
+        if full_match:
+            if name in self._defined_names:
+                result = self._defined_names[name]
+        else:
+            for defined_name, cell_address in self._defined_names.items():
+                if defined_name.startswith(name):
+                    result.append((defined_name, cell_address))
+
+        return result
 
     def get_xlm_macros(self):
         result = {}
-        auto_open_label = self.get_defined_names()['_xlnm.auto_open']
-        print('auto_open: {}'.format(auto_open_label))
+        auto_open_labels = self.get_defined_name('_xlnm.auto_open', full_match=False)
+        for label in auto_open_labels:
+            print('auto_open: {}->{}'.format(label[0], label[1]))
         macrosheets = self.get_macrosheets()
         for macrosheet in macrosheets:
             print('SHEET: {}\t{}\t{}'.format(macrosheet['sheet_name'],
@@ -135,8 +158,9 @@ class XLSMWrapper(xlm_wrapper.XLMWrapper):
 
 
 if __name__ == '__main__':
-    path = r"C:\InQuest\malware analysis\poc-auto_open_calc\poc-auto_open_calc.zip1.xlsm"
+
     path = r"C:\Users\user\Downloads\samples\analyze\01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606.xlsm"
+    
     xlsm_doc = XLSMWrapper(path)
     macros = xlsm_doc.get_xlm_macros()
 
