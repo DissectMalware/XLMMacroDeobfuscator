@@ -191,8 +191,10 @@ class XLMInterpreter:
 
 def test_parser():
     macro_grammar = open('xlm-macro.lark', 'r', encoding='utf_8').read()
-    xlm_parser = Lark(macro_grammar)
+    xlm_parser = Lark(macro_grammar, parser='lalr')
 
+    print("\n=171*GET.CELL(19,A81)")
+    print(xlm_parser.parse("=171*GET.CELL(19,A81)"))
     print("\n=FORMULA($ET$1796&$BE$1701&$DB$1527&$BU$714&$CT$1605)")
     print(xlm_parser.parse("=FORMULA($ET$1796&$BE$1701&$DB$1527&$BU$714&$CT$1605)"))
     print("\n=RUN($DC$240)")
