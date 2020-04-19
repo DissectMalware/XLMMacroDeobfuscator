@@ -1,3 +1,5 @@
+import argparse
+
 from win32com.client import Dispatch
 import re
 import os
@@ -7,6 +9,8 @@ from utils import *
 from xlm_wrapper import XLMWrapper
 from xlsm_wrapper import XLSMWrapper
 from enum import Enum
+import time
+import datetime
 
 class EvalStatus(Enum):
     FullEvaluation = 1
@@ -30,6 +34,14 @@ class XLMInterpreter:
         col = res['column'] if 'column' in res.re.groupindex else None
         row = res['row'] if 'row' in res.re.groupindex else None
         return sheet_name, col, int(row)
+
+    def is_float(self, text):
+        try:
+            float(text)
+            return True
+        except ValueError:
+            return False
+
 
     def get_cell(self, macrosheet, col, row):
         result = None
@@ -73,11 +85,12 @@ class XLMInterpreter:
         next_sheet = current_sheet_name
         next_col = col
         next_row = row
-        evaluate = False
+        status = EvalStatus.NotImplemented
         text = None
 
         if type(parse_tree_root) is Token:
             text = str(parse_tree_root)
+            status = EvalStatus.FullEvaluation
         elif parse_tree_root.data == 'function_call':
             function_name = parse_tree_root.children[0]
             function_arguments = parse_tree_root.children[1]
@@ -87,32 +100,44 @@ class XLMInterpreter:
                     next_sheet, next_col, next_row = self.get_cell_addr(current_sheet_name, col, row,
                                                                         function_arguments.children[0].children[0])
                     text = 'RUN({}!{}{})'.format(next_sheet, next_col, next_row)
+                    status = EvalStatus.FullEvaluation
                 elif size == 2:
-                    raise Exception('RUN(reference, step) is not implemented')
+                    text = 'RUN(reference, step)'
+                    status = EvalStatus.NotImplemented
                 else:
-                    raise Exception('RUN() is incorrect')
+                    text = 'RUN() is incorrect'
+                    status = status = EvalStatus.Error
             elif function_name == 'CHAR':
-                next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, current_sheet_name, col, row,
+                next_sheet, next_col, next_row, status, text = self.evaluate_parse_tree(macros, current_sheet_name, col, row,
                                                                                 function_arguments.children[0])
-                text = chr(int(text))
-                cell_col, cell_row, cell = self.get_cell(macros[current_sheet_name], col, row)
-                cell['value'] = text
+                if status == EvalStatus.FullEvaluation:
+                    text = chr(int(text))
+                    cell_col, cell_row, cell = self.get_cell(macros[current_sheet_name], col, row)
+                    cell['value'] = text
                 next_row += 1
             elif function_name == 'FORMULA':
                 first_arg = function_arguments.children[0]
-                next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, current_sheet_name, col,
+                next_sheet, next_col, next_row, status, text = self.evaluate_parse_tree(macros, current_sheet_name, col,
                                                                                 row, first_arg)
                 second_arg = function_arguments.children[1].children[0]
                 res_sheet, res_col, res_row = self.get_cell_addr(current_sheet_name, col, row, second_arg)
-                macros[res_sheet]['cells'][res_col + str(res_row)] = {'formula': None, 'value': text}
-                next_row += 1
+                if status == EvalStatus.FullEvaluation:
+                    macros[res_sheet]['cells'][res_col + str(res_row)] = {'formula': None, 'value': text}
                 text = "FORMULA('{}',{})".format(text, '{}!{}{}'.format(res_sheet, res_col, res_row))
+                next_row += 1
+
             elif function_name == 'CALL':
                 arguments = []
+                status = EvalStatus.FullEvaluation
                 for argument in function_arguments.children:
-                    next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, current_sheet_name, col,
+                    next_sheet, next_col, next_row, tmp_status, text = self.evaluate_parse_tree(macros, current_sheet_name, col,
                                                                                     row, argument)
-                    arguments.append(text)
+                    if tmp_status == EvalStatus.FullEvaluation:
+                        arguments.append(text)
+                    else:
+                        status = tmp_status
+                        arguments.append('not evaluated')
+
                 next_row += 1
                 text = 'CALL({})'.format(','.join(arguments))
             elif function_name == 'HALT':
@@ -120,52 +145,105 @@ class XLMInterpreter:
                 next_col = None
                 next_sheet = None
                 text = 'HALT()'
+                status = EvalStatus.FullEvaluation
+            elif function_name == 'GOTO':
+                status = EvalStatus.NotImplemented
+                text = 'GOTO()'
+                next_sheet = None
             elif function_name.lower() in self.defined_names:
                 cell_text = self.defined_names[function_name.lower()]
                 next_sheet, next_col, next_row = self.parse_cell_address(cell_text)
                 text = 'Label ' + function_name
+                status = EvalStatus.FullEvaluation
             elif function_name == 'ERROR':
                 next_row += 1
                 text = 'ERROR'
+                status = EvalStatus.FullEvaluation
+            elif function_name == 'IF':
+                if size == 3:
+                    second_arg = function_arguments.children[1]
+                    next_sheet, next_col, next_row, status, text = self.evaluate_parse_tree(macros, current_sheet_name, col,
+                                                                                    row, second_arg)
+                    if status == EvalStatus.FullEvaluation:
+                        third_arg = function_arguments.children[2]
+
+                else:
+                    next_row +=1
+                    status = EvalStatus.FullEvaluation
+
+                text = 'IF'
+            elif function_name == 'NOW':
+                text = datetime.datetime.now()
+                status = EvalStatus.FullEvaluation
+            elif function_name == 'DAY':
+                first_arg = function_arguments.children[0]
+                next_sheet, next_col, next_row, status, text = self.evaluate_parse_tree(macros, current_sheet_name, col,
+                                                                                row, first_arg)
+                if status == EvalStatus.FullEvaluation:
+                    if type(text) is datetime.datetime:
+                        text= str(text.day)
+                        status = EvalStatus.FullEvaluation
+                    elif self.is_float(text):
+                        text = 'DAY(Serial Date)'
+                        status = EvalStatus.NotImplemented
+
             else:
-                text = 'Not Implemented ' + function_name
+                text = function_name
                 next_sheet = None
+                status = EvalStatus.NotImplemented
                 # raise Exception('Not implemented')
 
         elif parse_tree_root.data == 'method_call':
-            text = '{}.{}'.format(parse_tree_root.children[0], parse_tree_root.children[1])
+            text = '{}.{}()'.format(parse_tree_root.children[0], parse_tree_root.children[1])
             next_row += 1
+            status = EvalStatus.NotImplemented
             # raise Exception('Not Implemented')
         elif parse_tree_root.data == 'cell':
             sheet_name, col, row = self.get_cell_addr(current_sheet_name, col, row, parse_tree_root)
-            cell = macros[sheet_name]['cells'][col + str(row)]
-            text = cell['value']
+            cell_addr = col + str(row)
+            if cell_addr in macros[sheet_name]['cells']:
+                cell = macros[sheet_name]['cells'][col + str(row)]
+                text = cell['value']
+                status = EvalStatus.FullEvaluation
+            else:
+                status = EvalStatus.PartialEvaluation
+                text = "{}!{}".format(sheet_name,cell_addr)
         elif parse_tree_root.data == 'binary_expression':
             left_arg = parse_tree_root.children[0]
-            next_sheet, next_col, next_row, text_left = self.evaluate_parse_tree(macros, current_sheet_name, col, row,
+            next_sheet, next_col, next_row, l_status, text_left = self.evaluate_parse_tree(macros, current_sheet_name, col, row,
                                                                                  left_arg)
             operator = str(parse_tree_root.children[1].children[0])
             right_arg = parse_tree_root.children[2]
-            next_sheet, next_col, next_row, text_right = self.evaluate_parse_tree(macros, current_sheet_name, col, row,
-                                                                                  right_arg)
-
-            if operator == '-':
-                text = str(int(text_left) - int(text_right))
-            elif operator == '+':
-                text = str(int(text_left) + int(text_right))
-            elif operator == '*':
-                text = str(int(text_left) * int(text_right))
-            elif operator == '&':
-                text = text_left + text_right
+            next_sheet, next_col, next_row, r_status, text_right = self.evaluate_parse_tree(macros, current_sheet_name,
+                                                                                          col, row,
+                                                                                          right_arg)
+            if l_status == EvalStatus.FullEvaluation and r_status == EvalStatus.FullEvaluation:
+                status = EvalStatus.FullEvaluation
+                if operator == '-':
+                    text = str(int(text_left) - int(text_right))
+                elif operator == '+':
+                    text = str(int(text_left) + int(text_right))
+                elif operator == '*':
+                    text = str(int(text_left) * int(text_right))
+                elif operator == '&':
+                    text = text_left + text_right
+                else:
+                    text = 'Operator ' + operator
+                    status = EvalStatus.NotImplemented
             else:
-                raise Exception('Not implemented')
+                status = EvalStatus.PartialEvaluation
+                text = '{}{}{}'.format(text_left,operator, text_right)
         else:
+            status = EvalStatus.FullEvaluation
             for child_node in parse_tree_root.children:
                 if child_node is not None:
-                    next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, current_sheet_name, col,
+                    next_sheet, next_col, next_row, tmp_status, text = self.evaluate_parse_tree(macros, current_sheet_name, col,
                                                                                     row, child_node)
+                    if tmp_status != EvalStatus.FullEvaluation:
+                        status = tmp_status
 
-        return next_sheet, next_col, next_row, text
+
+        return next_sheet, next_col, next_row, status, text
 
     def deobfuscate_macro(self):
         result = []
@@ -178,10 +256,10 @@ class XLMInterpreter:
 
             while current_cell is not None:
                 parse_tree = self.xlm_parser.parse(current_cell['formula'])
-                next_sheet, next_col, next_row, text = self.evaluate_parse_tree(macros, sheet_name, current_col,
+                next_sheet, next_col, next_row, status, text = self.evaluate_parse_tree(macros, sheet_name, current_col,
                                                                                 current_row,
                                                                                 parse_tree)
-                yield (sheet_name, current_col, current_row, current_cell['formula'], text)
+                yield (sheet_name, current_col, current_row, current_cell['formula'], status, text)
                 if next_sheet is not None:
                     current_col, current_row, current_cell = self.get_cell(macros[next_sheet], next_col, next_row)
                     sheet_name = next_sheet
@@ -217,16 +295,37 @@ def test_parser():
 
 if __name__ == '__main__':
 
-    path = r"C:\Users\user\Downloads\samples\analyze\01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606.xlsm"
+    # path = r"C:\Users\user\Downloads\xlsmtest.xlsm"
+    # 01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606
+    # 63bacd873beeca6692142df432520614a1641ea395adaabc705152c55ab8c1d7
+    # b5cd024106fa2e571b8050915bcf85a95882ee54173a7a8020bfe69d1dea39c7
+    # 4dcee9176ca1241b6a25182f778db235a23a65b86161d0319318c4923c3dc6e6
 
-    import time
-    start = time.time()
-    xlsm_doc = XLSMWrapper(path)
-    interpreter = XLMInterpreter(xlsm_doc)
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("-f", "--file", type=str, help="The path of a XLSM file")
+    args = arg_parser.parse_known_args()
+    if args[0].file is not None:
+        file_path = args[0].file
 
-    for step in interpreter.deobfuscate_macro():
-        # print('RAW:\t{}\t\t{}'.format(step[1]+ str(step[2]), step[3]))
-        print('Interpreted:{}\t\t{}'.format(step[1] + str(step[2]), step[4]))
+        start = time.time()
+        xlsm_doc = XLSMWrapper(file_path)
+        interpreter = XLMInterpreter(xlsm_doc)
 
-    end = time.time()
-    print('time elapsed: '+ str(end - start))
+        for step in interpreter.deobfuscate_macro():
+            # print('RAW:\t{}\t\t{}'.format(step[1]+ str(step[2]), step[3]))
+            desc = ''
+            if step[4] == EvalStatus.FullEvaluation:
+                desc = 'FE'
+            elif step[4] == EvalStatus.PartialEvaluation:
+                desc = 'PE'
+            elif step[4] == EvalStatus.NotImplemented:
+                desc = 'NI'
+            else:
+                desc = 'ERR'
+
+            print('CELL:{}\t\t{}\t{}'.format(step[1] + str(step[2]), desc, step[5]))
+
+        end = time.time()
+        print('time elapsed: '+ str(end - start))
+    else:
+        arg_parser.print_help()
