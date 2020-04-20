@@ -1,10 +1,13 @@
 # XLMMacroDeobfuscator
-This deobfuscator is mainly developed to deobfuscate XLM macros used in Zloader campaign. Malicious macros in this campaign are obfuscated using CHAR and FORMULA functions.
+XLMMacroDeobfuscator can be used to decode obfuscated XLM macros (also known as Excel 4.0 macros). It utilizes an internal XLM emulator to interpret the macros, without fully performing the code.
 
-# Requirements
-MS Excel must be installed on the system.
+Currenly, it only supports xlsm format. XLS format will be added soon.
 
-You also need to install pypiwin32:
+# Running the script
+To run the script 
+
 ```
-pip install pypiwin32
+python  XLMMacroDeobfuscator.py --file document.xlsm
 ```
+
+* This code is heavyly under development. Expect to see radical changes in the code.
