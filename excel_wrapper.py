@@ -1,6 +1,6 @@
-class XLMWrapper:
+class ExcelWrapper:
     def get_defined_names(self):
         pass
 
-    def get_xlm_macros(self):
+    def get_macrosheets(self):
         pass

@@ -1,7 +1,7 @@
-import xlm_wrapper
+import excel_wrapper
 from utils import *
 
-class XLSWrapper(xlm_wrapper.XLMWrapper):
+class XLSWrapper(excel_wrapper.ExcelWrapper):
     pass
 
 

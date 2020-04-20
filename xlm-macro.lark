@@ -1,8 +1,8 @@
 start: "=" command
 command: function_call | binary_expression | method_call
 function_call: NAME "(" arglist ")"
-arglist: (argument* ",")* argument*
-argument: cell | INT | STRING | binary_expression | function_call | method_call | BOOLEAN
+arglist: (argument ",")* argument
+argument: cell | INT | STRING | binary_expression | function_call | method_call | BOOLEAN |
 method_call: NAME "." NAME "(" arglist ")"
 cell: absolute_cell | relative_cell
 absolute_cell: /\$?[a-zA-Z]+\$?\d+/i | NAME     // NAME here is a hack to make it work with LALR parser, A9 is a valid NAME and matches with the CELL regex

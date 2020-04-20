@@ -1,15 +1,20 @@
 from zipfile import ZipFile
 from glob import fnmatch
 from xml.etree import ElementTree
-import xlm_wrapper
+
+from rdflib.tools.csv2rdf import column
+
+import excel_wrapper
+from boundsheet import  *
 
 
-class XLSMWrapper(xlm_wrapper.XLMWrapper):
+class XLSMWrapper(excel_wrapper.ExcelWrapper):
     def __init__(self, xlsm_doc_path):
         self.xlsm_doc_path = xlsm_doc_path
         self._workbook = None
         self._workbook_rels = None
         self._defined_names = None
+        self._macrosheets = None
 
     def get_files(self, file_name_filters=None):
         input_zip = ZipFile(self.xlsm_doc_path)
@@ -79,49 +84,42 @@ class XLSMWrapper(xlm_wrapper.XLMWrapper):
 
         return result
 
-    def get_macrosheets(self):
+    def get_macrosheet_infos(self):
         result = []
         nsmap = {'main': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
         workbook = self.get_workbook()
         sheets = workbook.findall('.//main:sheet', namespaces=nsmap)
         sheet_names = set()
-        for sheet in sheets:
-            rId = sheet.attrib['{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id']
+        for sheet_elm in sheets:
+            rId = sheet_elm.attrib['{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id']
             if rId:
-                name = sheet.attrib['name']
+                name = sheet_elm.attrib['name']
                 sheet_type, rel_path = self.get_sheet_info(rId)
                 path = 'xl/' + rel_path
                 if sheet_type == 'Macrosheet' and name not in sheet_names:
-                    result.append({'sheet_name': name,
-                                   'sheet_type': sheet_type,
+                    sheet = Boundsheet(name, sheet_type)
+                    result.append({'sheet': sheet,
                                    'sheet_path': path,
                                    'sheet_xml': self.get_xml_file(path)})
                     sheet_names.add(name)
 
         return result
 
-    def get_xlm_macro(self, macrosheet_xml):
-        # formula_cells = {}
-        # value_cells = {}
-        result_cells = {}
+    def load_cells(self, macrosheet, macrosheet_xml):
         nsmap = {'main': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
         cells = macrosheet_xml.findall('.//main:c', namespaces=nsmap)
-
-        for cell in cells:
-            formula = cell.find('./main:f', namespaces=nsmap)
+        for cell_elm in cells:
+            formula = cell_elm.find('./main:f', namespaces=nsmap)
             formula_text = ('=' + formula.text) if formula is not None else None
-            value = cell.find('./main:v', namespaces=nsmap)
+            value = cell_elm.find('./main:v', namespaces=nsmap)
             value_text = value.text if value is not None else None
-            location = cell.attrib['r']
-            # if formula_text is not None:
-            #     formula_cells[location] = {'formula': formula_text,
-            #                                'value': value_text}
-            # else:
-            #     value_cells[location] = {'formula': formula_text,
-            #                              'value': value_text}
-            result_cells[location] = {'formula': formula_text,
-                                      'value': value_text}
-        return result_cells
+            location = cell_elm.attrib['r']
+            cell = Cell()
+            sheet_name, cell.column, cell.row = Cell.parse_cell_addr(location)
+            cell.sheet = macrosheet
+            cell.formula = formula_text
+            cell.value = value_text
+            macrosheet.cells[location] = cell
 
     def get_defined_name(self, name, full_match=True):
         result = []
@@ -139,22 +137,15 @@ class XLSMWrapper(xlm_wrapper.XLMWrapper):
 
         return result
 
-    def get_xlm_macros(self):
-        result = {}
-        auto_open_labels = self.get_defined_name('_xlnm.auto_open', full_match=False)
-        for label in auto_open_labels:
-            print('auto_open: {}->{}'.format(label[0], label[1]))
-        macrosheets = self.get_macrosheets()
-        for macrosheet in macrosheets:
-            print('SHEET: {}\t{}\t{}'.format(macrosheet['sheet_name'],
-                                             macrosheet['sheet_type'],
-                                             macrosheet['sheet_path']))
-            # formula_cells, value_cells = self.get_xlm_macro(macrosheet['sheet_xml'])
-            # result[macrosheet['sheet_name']] = {'formulas': formula_cells,
-            #                                     'values': value_cells}
-            cells = self.get_xlm_macro(macrosheet['sheet_xml'])
-            result[macrosheet['sheet_name']] = {'cells': cells}
-        return result
+    def get_macrosheets(self):
+        if self._macrosheets is None:
+            self._macrosheets = {}
+            macrosheets = self.get_macrosheet_infos()
+            for macrosheet in macrosheets:
+                self.load_cells(macrosheet['sheet'], macrosheet['sheet_xml'])
+                self._macrosheets[macrosheet['sheet'].name] = macrosheet['sheet']
+
+        return self._macrosheets
 
 
 if __name__ == '__main__':
@@ -162,14 +153,19 @@ if __name__ == '__main__':
     path = r"C:\Users\user\Downloads\samples\analyze\01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606.xlsm"
 
     xlsm_doc = XLSMWrapper(path)
-    macros = xlsm_doc.get_xlm_macros()
+    macrosheets = xlsm_doc.get_macrosheets()
 
-    for macrosheet_name in macros:
-        print(macrosheet_name)
-        for formula_loc, info in macros[macrosheet_name]['cells'].items():
-            if info['formula'] is not None:
-                print('{}\t{}\t{}'.format(formula_loc, info['formula'], info['value']))
+    auto_open_labels = xlsm_doc.get_defined_name('_xlnm.auto_open', full_match=False)
+    for label in auto_open_labels:
+        print('auto_open: {}->{}'.format(label[0], label[1]))
 
-        for formula_loc, info in macros[macrosheet_name]['cells'].items():
-            if info['formula'] is None:
-                print('{}\t{}\t{}'.format(formula_loc, info['formula'], info['value']))
+    for macrosheet_name in macrosheets:
+        print('SHEET: {}\t{}'.format(macrosheets[macrosheet_name].name,
+                                     macrosheets[macrosheet_name].type))
+        for formula_loc, info in macrosheets[macrosheet_name].cells.items():
+            if info.formula is not None:
+                print('{}\t{}\t{}'.format(formula_loc, info.formula, info.value))
+
+        for formula_loc, info in macrosheets[macrosheet_name].cells.items():
+            if info.formula is None:
+                print('{}\t{}\t{}'.format(formula_loc, info.formula, info.value))
