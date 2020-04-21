@@ -150,7 +150,7 @@ class XLSMWrapper(excel_wrapper.ExcelWrapper):
 
 if __name__ == '__main__':
 
-    path = r"C:\Users\user\Downloads\samples\analyze\01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606.xlsm"
+    path = r"tmp\4dcee9176ca1241b6a25182f778db235a23a65b86161d0319318c4923c3dc6e6.xlsm"
 
     xlsm_doc = XLSMWrapper(path)
     macrosheets = xlsm_doc.get_macrosheets()

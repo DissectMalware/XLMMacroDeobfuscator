@@ -1,5 +1,5 @@
 start: "=" command
-command: function_call | binary_expression | method_call | STRING | NUMBER
+command: function_call | binary_expression | method_call | STRING | NUMBER | cell
 function_call: NAME "(" arglist ")"
 arglist: (argument ",")* argument
 argument: cell | INT | STRING | binary_expression | function_call | method_call | BOOLEAN |

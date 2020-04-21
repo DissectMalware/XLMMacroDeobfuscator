@@ -4,6 +4,7 @@ from win32com.client import Dispatch
 import re
 import os
 from lark import Lark
+from lark.exceptions import  ParseError
 from lark.reconstruct import Reconstructor
 from lark.lexer import Token
 from excel_wrapper import ExcelWrapper
@@ -127,7 +128,7 @@ class XLMInterpreter:
             else:
                 cell.value = text
 
-    def evaluate_parse_tree(self, current_cell, parse_tree_root):
+    def evaluate_parse_tree(self, current_cell, parse_tree_root, interactive=True):
         next_cell = None
         status = EvalStatus.NotImplemented
         text = None
@@ -166,7 +167,7 @@ class XLMInterpreter:
 
             elif function_name == 'CHAR':
                 next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell,
-                                                                               function_arguments.children[0])
+                                                                               function_arguments.children[0], interactive)
                 if status == EvalStatus.FullEvaluation:
                     text = chr(int(text))
                     cell = self.get_formula_cell(current_cell.sheet, current_cell.column, current_cell.row)
@@ -175,7 +176,7 @@ class XLMInterpreter:
 
             elif function_name == 'FORMULA':
                 first_arg = function_arguments.children[0]
-                next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, first_arg)
+                next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, first_arg, interactive)
                 second_arg = function_arguments.children[1].children[0]
                 dst_sheet, dst_col, dst_row = self.get_cell(current_cell, second_arg)
                 if status == EvalStatus.FullEvaluation:
@@ -187,7 +188,7 @@ class XLMInterpreter:
                 arguments = []
                 status = EvalStatus.FullEvaluation
                 for argument in function_arguments.children:
-                    next_cell, tmp_status, return_val, text = self.evaluate_parse_tree(current_cell, argument)
+                    next_cell, tmp_status, return_val, text = self.evaluate_parse_tree(current_cell, argument, interactive)
                     if tmp_status == EvalStatus.FullEvaluation:
                         if text is not None:
                             arguments.append(text)
@@ -230,7 +231,7 @@ class XLMInterpreter:
             elif function_name == 'IF':
                 if size == 3:
                     second_arg = function_arguments.children[1]
-                    next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, second_arg)
+                    next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, second_arg, interactive)
                     if status == EvalStatus.FullEvaluation:
                         third_arg = function_arguments.children[2]
                     status = EvalStatus.PartialEvaluation
@@ -244,7 +245,7 @@ class XLMInterpreter:
 
             elif function_name == 'DAY':
                 first_arg = function_arguments.children[0]
-                next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, first_arg)
+                next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, first_arg, interactive)
                 if status == EvalStatus.FullEvaluation:
                     if type(text) is datetime.datetime:
                         text = str(text.day)
@@ -256,7 +257,7 @@ class XLMInterpreter:
             else:
                 # args_str =''
                 # for argument in function_arguments.children:
-                #     next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, argument)
+                #     next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, argument, interactive)
                 #     args_str += str(return_val) +','
                 # args_str.strip(',')
                 # text = '{}({})'.format(function_name, args_str)
@@ -272,43 +273,30 @@ class XLMInterpreter:
             cell_addr = col + str(row)
             sheet = self.xlm_wrapper.get_macrosheets()[sheet_name]
             missing = True
+            if cell_addr not in sheet.cells or sheet.cells[cell_addr].value is None:
+                if interactive:
+                    self.interactive_shell(current_cell,
+                                           '{} is not populated, what should be its value (don\'t know? (enter))'.format(cell_addr))
+
             if cell_addr in sheet.cells:
                 cell = sheet.cells[cell_addr]
                 if cell.value is not None:
                     text = cell.value
                     status = EvalStatus.FullEvaluation
+                    return_val = text
                     missing = False
+
                 else:
-                    text = "{}".format( cell_addr)
-                    print('\nProcess Interruption:')
-                    print('CELL:{:10}{}'.format(current_cell.get_local_address(), current_cell.formula))
-                    print('CELL:{:10}formula: {}'.format(text, cell.formula))
-                    print('{} is not populated, what should be its value (don\'t know? (enter))'.format(text))
-
-
+                    text = "{}".format(cell_addr)
             else:
                 text = "{}".format(cell_addr)
-                print('\nProcess Interruption:')
-                print('CELL:{:10}{}'.format(current_cell.get_local_address(), current_cell.formula))
-                print('{} is not populated, what should be its value (don\'t know? (enter))'.format(text))
-
-
-            if missing:
-                result = input()
-                result = result.strip()
-                if result:
-                    text = result
-                    self.set_cell(sheet_name, col, row, text)
-                    status = EvalStatus.FullEvaluation
-                else:
-                    status = EvalStatus.PartialEvaluation
 
         elif parse_tree_root.data == 'binary_expression':
             left_arg = parse_tree_root.children[0]
-            next_cell, l_status, return_val, text_left = self.evaluate_parse_tree(current_cell, left_arg)
+            next_cell, l_status, return_val, text_left = self.evaluate_parse_tree(current_cell, left_arg, interactive)
             operator = str(parse_tree_root.children[1].children[0])
             right_arg = parse_tree_root.children[2]
-            next_cell, r_status, return_val, text_right = self.evaluate_parse_tree(current_cell, right_arg)
+            next_cell, r_status, return_val, text_right = self.evaluate_parse_tree(current_cell, right_arg, interactive)
             if l_status == EvalStatus.FullEvaluation and r_status == EvalStatus.FullEvaluation:
                 status = EvalStatus.FullEvaluation
                 if operator == '&':
@@ -334,11 +322,32 @@ class XLMInterpreter:
             status = EvalStatus.FullEvaluation
             for child_node in parse_tree_root.children:
                 if child_node is not None:
-                    next_cell, tmp_status, return_val, text = self.evaluate_parse_tree(current_cell, child_node)
+                    next_cell, tmp_status, return_val, text = self.evaluate_parse_tree(current_cell, child_node, interactive)
                     if tmp_status != EvalStatus.FullEvaluation:
                         status = tmp_status
 
         return next_cell, status, return_val, text
+
+    def interactive_shell(self, current_cell, message):
+        print('\nProcess Interruption:')
+        print('CELL:{:10}{}'.format(current_cell.get_local_address(), current_cell.formula))
+        print(message)
+        print('MACRO')
+
+        while True:
+            line = input()
+            line = '='+ line.strip('= ')
+            if line:
+                try:
+                    parse_tree = self.xlm_parser.parse(line)
+                    next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, parse_tree, interactive=False)
+                    print(return_val)
+                    if status == EvalStatus.End:
+                        break
+                except ParseError:
+                    print("Invalid XLM macro")
+            else:
+                break
 
     def deobfuscate_macro(self):
         result = []
