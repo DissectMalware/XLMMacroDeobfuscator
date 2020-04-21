@@ -411,7 +411,7 @@ if __name__ == '__main__':
 
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-f", "--file", type=str, help="The path of a XLSM file")
-    arg_parser.add_argument("-n", "--noninteractive", default=False, action='store_true', help="Launch interactive shell if necessary")
+    arg_parser.add_argument("-n", "--noninteractive", default=False, action='store_true', help="Disable interactive shell")
     args = arg_parser.parse_known_args()
     if args[0].file is not None:
         file_path = args[0].file
