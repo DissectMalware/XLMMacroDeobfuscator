@@ -23,6 +23,7 @@ class EvalStatus(Enum):
     End = 5
 
 
+
 class XLMInterpreter:
     def __init__(self, xlm_wrapper):
         self.xlm_wrapper = xlm_wrapper
@@ -232,6 +233,7 @@ class XLMInterpreter:
                     next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, second_arg)
                     if status == EvalStatus.FullEvaluation:
                         third_arg = function_arguments.children[2]
+                    status = EvalStatus.PartialEvaluation
                 else:
                     status = EvalStatus.FullEvaluation
                 text = self.tree_reconstructor.reconstruct(parse_tree_root)
@@ -278,14 +280,16 @@ class XLMInterpreter:
                     missing = False
                 else:
                     text = "{}".format( cell_addr)
-                    print('\nCell[{}] {}'.format(current_cell.get_local_address(), current_cell.formula))
+                    print('\nProcess Interruption:')
+                    print('CELL:{:10}{}'.format(current_cell.get_local_address(), current_cell.formula))
+                    print('CELL:{:10}formula: {}'.format(text, cell.formula))
                     print('{} is not populated, what should be its value (don\'t know? (enter))'.format(text))
-                    print('Current Cell {}'.format(current_cell.formula))
-                    print('{} formula: {}'.format(text, cell.formula))
+
 
             else:
                 text = "{}".format(cell_addr)
-                print('\nCell[{}] {}'.format(current_cell.get_local_address(), current_cell.formula))
+                print('\nProcess Interruption:')
+                print('CELL:{:10}{}'.format(current_cell.get_local_address(), current_cell.formula))
                 print('{} is not populated, what should be its value (don\'t know? (enter))'.format(text))
 
 
@@ -406,20 +410,7 @@ if __name__ == '__main__':
         interpreter = XLMInterpreter(xlsm_doc)
 
         for step in interpreter.deobfuscate_macro():
-            # print('RAW:\t{}\t\t{}'.format(step[1]+ str(step[2]), step[3]))
-            desc = ''
-            if step[1] == EvalStatus.FullEvaluation:
-                desc = 'FEv'
-            elif step[1] == EvalStatus.PartialEvaluation:
-                desc = 'PEv'
-            elif step[1] == EvalStatus.NotImplemented:
-                desc = 'NIm'
-            elif step[1] == EvalStatus.End:
-                desc = 'End'
-            else:
-                desc = 'Err'
-
-            print('CELL:{}\t\t{}\t{}'.format(step[0].get_local_address(), desc, step[2]))
+            print('CELL:{:10}{:20}{}'.format(step[0].get_local_address(), step[1].name, step[2]))
 
         end = time.time()
         print('time elapsed: ' + str(end - start))
