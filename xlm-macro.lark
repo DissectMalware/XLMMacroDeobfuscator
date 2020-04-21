@@ -1,20 +1,24 @@
 start: "=" command
-command: function_call | binary_expression | method_call
+command: function_call | binary_expression | method_call | STRING | NUMBER
 function_call: NAME "(" arglist ")"
 arglist: (argument ",")* argument
 argument: cell | INT | STRING | binary_expression | function_call | method_call | BOOLEAN |
 method_call: NAME "." NAME "(" arglist ")"
 cell: absolute_cell | relative_cell
 absolute_cell: /\$?[a-zA-Z]+\$?\d+/i | NAME     // NAME here is a hack to make it work with LALR parser, A9 is a valid NAME and matches with the CELL regex
-relative_cell: "R" /\[-?\d+\]/i "C" /\[-?\d+\]/i | "R" /\[-?\d+\]/i "C" | "R" "C" /\[-?\d+\]/i
+relative_cell: ROW "[" INT  "]" COL "[" INT  "]" | ROW "[" INT  "]" COL | ROW COL "[" INT  "]"
 binary_expression:  argument binary_operator argument
 binary_operator: CONCATOP | ARITHMETICOP | LOGICALOP
 ARITHMETICOP: "+" | "-" | "*" | "/"
 LOGICALOP: "<" | ">" | "=" | "<>"
 CONCATOP: "&"
+ROW: "R"
+COL: "C"
 STRING:  /\"[^"]*?\"/i
 BOOLEAN: "TRUE" | "FALSE"
 %import common.CNAME -> NAME
-%import common.INT -> INT
+%import common.INT -> UINT
+%import common.SIGNED_INT -> INT
+%import common.SIGNED_NUMBER -> NUMBER
 %import common.FLOAT -> FLOAT
 %ignore " "   // Disregard spaces in text

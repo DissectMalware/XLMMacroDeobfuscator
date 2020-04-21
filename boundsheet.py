@@ -15,6 +15,25 @@ class Cell:
     def get_local_address(self):
         return self.column + str(self.row)
 
+    @staticmethod
+    def convert_to_column_index(s):
+        number = 0
+        power = 1
+        for character in s:
+            character = character.upper()
+            digit = (ord(character) - ord('A')) * power
+            number = number + digit
+            power = power * 26
+
+        return number + 1
+
+    @staticmethod
+    def convert_to_column_name(n):
+        string = ""
+        while n > 0:
+            n, remainder = divmod(n - 1, 26)
+            string = chr(65 + remainder) + string
+        return string
 
     @staticmethod
     def parse_cell_addr(cell_addr_str):

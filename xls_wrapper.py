@@ -1,5 +1,5 @@
 import excel_wrapper
-from utils import *
+from boundsheet import *
 
 class XLSWrapper(excel_wrapper.ExcelWrapper):
     pass
@@ -10,7 +10,7 @@ def get_formula_cells(sheet):
     for cell in sheet.UsedRange:
         formula = cell.FormulaLocal
         if formula and formula.startswith('='):
-            formulas[column_string(cell.column) + str(cell.row)] = formula
+            formulas[Cell.convert_to_column_name(cell.column) + str(cell.row)] = formula
     return formulas
 
 
@@ -65,5 +65,5 @@ def get_auto_open_cell(workbook, auto_run_obj):
 def get_cell(sheet, cell_name):
     column, row = filter(None, cell_name.split('$'))
 
-    return sheet.Cells(int(row), column_number(column))
+    return sheet.Cells(int(row), Cell.convert_to_column_index(column))
 
