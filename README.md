@@ -10,4 +10,4 @@ To run the script
 python  XLMMacroDeobfuscator.py --file document.xlsm
 ```
 
-* This code is heavyly under development. Expect to see radical changes in the code.
+* This code is heavily under development. Expect to see radical changes in the code.
