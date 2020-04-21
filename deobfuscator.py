@@ -276,7 +276,7 @@ class XLMInterpreter:
             if cell_addr not in sheet.cells or sheet.cells[cell_addr].value is None:
                 if interactive:
                     self.interactive_shell(current_cell,
-                                           '{} is not populated, what should be its value (don\'t know? (enter))'.format(cell_addr))
+                                           '{} is not populated, what should be its value?'.format(cell_addr))
 
             if cell_addr in sheet.cells:
                 cell = sheet.cells[cell_addr]
@@ -332,11 +332,12 @@ class XLMInterpreter:
         print('\nProcess Interruption:')
         print('CELL:{:10}{}'.format(current_cell.get_local_address(), current_cell.formula))
         print(message)
-        print('MACRO')
+        print('Enter XLM macro:')
+        print('Tip: CLOSE() or HALT() to exist')
 
         while True:
             line = input()
-            line = '='+ line.strip('= ')
+            line = '='+ line.strip().strip('"')
             if line:
                 try:
                     parse_tree = self.xlm_parser.parse(line)
@@ -349,7 +350,7 @@ class XLMInterpreter:
             else:
                 break
 
-    def deobfuscate_macro(self):
+    def deobfuscate_macro(self, interactive):
         result = []
 
         auto_open_labels = self.xlm_wrapper.get_defined_name('_xlnm.auto_open', full_match=False)
@@ -360,7 +361,7 @@ class XLMInterpreter:
             self.branches = []
             while current_cell is not None:
                 parse_tree = self.xlm_parser.parse(current_cell.formula)
-                next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, parse_tree)
+                next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, parse_tree, interactive)
                 if return_val is not None:
                     current_cell.value = str(return_val)
                 if next_cell is None and status != EvalStatus.Error:
@@ -410,6 +411,7 @@ if __name__ == '__main__':
 
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-f", "--file", type=str, help="The path of a XLSM file")
+    arg_parser.add_argument("-n", "--noninteractive", default=False, action='store_true', help="Launch interactive shell if necessary")
     args = arg_parser.parse_known_args()
     if args[0].file is not None:
         file_path = args[0].file
@@ -418,7 +420,7 @@ if __name__ == '__main__':
         xlsm_doc = XLSMWrapper(file_path)
         interpreter = XLMInterpreter(xlsm_doc)
 
-        for step in interpreter.deobfuscate_macro():
+        for step in interpreter.deobfuscate_macro(not args[0].noninteractive):
             print('CELL:{:10}{:20}{}'.format(step[0].get_local_address(), step[1].name, step[2]))
 
         end = time.time()
