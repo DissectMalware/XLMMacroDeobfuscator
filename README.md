@@ -9,6 +9,8 @@ Note: Processing XLSM files are much faster than XLS files (in two orders of mag
 
 Soon, an XLS parser will be included to make it independent of MS Excel
 
+WARNING: files in tmp are real malicious excel documents. Please only run them in a testing environment.
+
 # Running the script
 To run the script 
 
