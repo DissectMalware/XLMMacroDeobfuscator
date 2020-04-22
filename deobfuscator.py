@@ -1,19 +1,15 @@
 import argparse
-
-from win32com.client import Dispatch
-import re
-import os
 from lark import Lark
 from lark.exceptions import  ParseError
 from lark.reconstruct import Reconstructor
 from lark.lexer import Token
-from excel_wrapper import ExcelWrapper
 from xlsm_wrapper import XLSMWrapper
+from xls_wrapper import XLSWrapper
 from enum import Enum
 import time
 import datetime
-import copy
 from boundsheet import *
+import os
 
 
 class EvalStatus(Enum):
@@ -353,26 +349,29 @@ class XLMInterpreter:
     def deobfuscate_macro(self, interactive):
         result = []
 
-        auto_open_labels = self.xlm_wrapper.get_defined_name('_xlnm.auto_open', full_match=False)
-        for auto_open_label in auto_open_labels:
-            sheet_name, col, row = Cell.parse_cell_addr(auto_open_label[1])
+        auto_open_labels = self.xlm_wrapper.get_defined_name('auto_open', full_match=False)
+        if auto_open_labels is not None and len(auto_open_labels)>0:
             macros = self.xlm_wrapper.get_macrosheets()
-            current_cell = self.get_formula_cell(macros[sheet_name], col, row)
-            self.branches = []
-            while current_cell is not None:
-                parse_tree = self.xlm_parser.parse(current_cell.formula)
-                next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, parse_tree, interactive)
-                if return_val is not None:
-                    current_cell.value = str(return_val)
-                if next_cell is None and status != EvalStatus.Error:
-                    next_cell = self.get_formula_cell(current_cell.sheet,
-                                                      current_cell.column,
-                                                      str(int(current_cell.row) + 1))
-                yield (current_cell, status, text)
-                if next_cell is not None:
-                    current_cell = next_cell
-                else:
-                    break
+
+            print('Starting Deobfuscation')
+            for auto_open_label in auto_open_labels:
+                sheet_name, col, row = Cell.parse_cell_addr(auto_open_label[1])
+                current_cell = self.get_formula_cell(macros[sheet_name], col, row)
+                self.branches = []
+                while current_cell is not None:
+                    parse_tree = self.xlm_parser.parse(current_cell.formula)
+                    next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, parse_tree, interactive)
+                    if return_val is not None:
+                        current_cell.value = str(return_val)
+                    if next_cell is None and status != EvalStatus.Error:
+                        next_cell = self.get_formula_cell(current_cell.sheet,
+                                                          current_cell.column,
+                                                          str(int(current_cell.row) + 1))
+                    yield (current_cell, status, text)
+                    if next_cell is not None:
+                        current_cell = next_cell
+                    else:
+                        break
 
 
 def test_parser():
@@ -404,26 +403,58 @@ def test_parser():
 if __name__ == '__main__':
 
     # path = r"C:\Users\user\Downloads\xlsmtest.xlsm"
-    # 01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606
-    # 63bacd873beeca6692142df432520614a1641ea395adaabc705152c55ab8c1d7
-    # b5cd024106fa2e571b8050915bcf85a95882ee54173a7a8020bfe69d1dea39c7
-    # 4dcee9176ca1241b6a25182f778db235a23a65b86161d0319318c4923c3dc6e6
+    # tmp\01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606.xlsm
+    # tmp\63bacd873beeca6692142df432520614a1641ea395adaabc705152c55ab8c1d7.xlsm
+    # tmp\b5cd024106fa2e571b8050915bcf85a95882ee54173a7a8020bfe69d1dea39c7.xlsm
+    # tmp\4dcee9176ca1241b6a25182f778db235a23a65b86161d0319318c4923c3dc6e6.xlsm
+
+    # xls
+    # tmp\xls\1ed44778fbb022f6ab1bb8bd30849c9e4591dc16f9c0ac9d99cbf2fa3195b326.xls
+    # tmp\xls\edd554502033d78ac18e4bd917d023da2fd64843c823c1be8bc273f48a5f3f5f.xls
+
+    def get_file_type(path):
+        type = None
+        with open(path, 'rb') as input_file:
+            start_marker = input_file.read(2)
+            if start_marker == b'\xD0\xCF':
+                type = 'xls'
+            elif start_marker == b'\x50\x4B':
+                type = 'xlsm'
+        return type
+
+
 
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-f", "--file", type=str, help="The path of a XLSM file")
     arg_parser.add_argument("-n", "--noninteractive", default=False, action='store_true', help="Disable interactive shell")
     args = arg_parser.parse_known_args()
     if args[0].file is not None:
-        file_path = args[0].file
+        if os.path.exists(args[0].file):
+            file_path = os.path.abspath(args[0].file)
+            file_type = get_file_type(file_path)
+            if file_type is not None:
+                try:
+                    start = time.time()
+                    print('[Loading Cells]')
+                    if file_type == 'xls':
+                        excel_doc = XLSWrapper(file_path)
+                    elif file_type == 'xlsm':
+                        excel_doc = XLSMWrapper(file_path)
 
-        start = time.time()
-        xlsm_doc = XLSMWrapper(file_path)
-        interpreter = XLMInterpreter(xlsm_doc)
+                    interpreter = XLMInterpreter(excel_doc)
 
-        for step in interpreter.deobfuscate_macro(not args[0].noninteractive):
-            print('CELL:{:10}{:20}{}'.format(step[0].get_local_address(), step[1].name, step[2]))
+                    for step in interpreter.deobfuscate_macro(not args[0].noninteractive):
+                        print('CELL:{:10}{:20}{}'.format(step[0].get_local_address(), step[1].name, step[2]))
 
-        end = time.time()
-        print('time elapsed: ' + str(end - start))
+                    end = time.time()
+                    print('time elapsed: ' + str(end - start))
+                finally:
+                    if type(excel_doc) is XLSWrapper:
+                        excel_doc._excel.Application.DisplayAlerts = False
+                        excel_doc._excel.Application.Quit()
+            else:
+                print('ERROR: input file type is not supported')
+        else:
+            print('Error: input file does not exist')
     else:
         arg_parser.print_help()

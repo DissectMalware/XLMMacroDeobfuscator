@@ -80,7 +80,7 @@ class XLSMWrapper(excel_wrapper.ExcelWrapper):
         names = workbook.findall('.//main:definedName', namespaces=nsmap)
 
         for name in names:
-            result[name.attrib['name'].lower()] = name.text
+            result[name.attrib['name'].replace('_xlnm.','').lower()] = name.text
 
         return result
 
@@ -155,7 +155,7 @@ if __name__ == '__main__':
     xlsm_doc = XLSMWrapper(path)
     macrosheets = xlsm_doc.get_macrosheets()
 
-    auto_open_labels = xlsm_doc.get_defined_name('_xlnm.auto_open', full_match=False)
+    auto_open_labels = xlsm_doc.get_defined_name('auto_open', full_match=False)
     for label in auto_open_labels:
         print('auto_open: {}->{}'.format(label[0], label[1]))
 
