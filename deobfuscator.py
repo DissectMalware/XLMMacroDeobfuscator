@@ -353,7 +353,7 @@ class XLMInterpreter:
         if auto_open_labels is not None and len(auto_open_labels)>0:
             macros = self.xlm_wrapper.get_macrosheets()
 
-            print('Starting Deobfuscation')
+            print('[Starting Deobfuscation]')
             for auto_open_label in auto_open_labels:
                 sheet_name, col, row = Cell.parse_cell_addr(auto_open_label[1])
                 current_cell = self.get_formula_cell(macros[sheet_name], col, row)
