@@ -9,7 +9,7 @@ Note: Processing xlsm and xlsb files are much faster than XLS files (in two orde
 
 Soon, an xls parser will be included to make it independent of MS Excel
 
-WARNING: files in tmp are real malicious excel documents. Please only run them in a testing environment.
+WARNING: tmp\tmp.zip contains real malicious excel documents (password: infected). Please only run them in a testing environment.
 
 # Running the script
 To run the script 
