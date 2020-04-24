@@ -3,9 +3,9 @@ XLMMacroDeobfuscator can be used to decode obfuscated XLM macros (also known as 
 
 It supports both xls, xlsm, and xlsb formats. 
 
-It uses pyxlsb and its own parser to extract cells and other information from xlsb and xlsm files. However, it relies on MS Excel to extract such information. As such, you need to have MS Excel on the machine if you want to process XLS files.
+It uses pyxlsb2 and its own parser to extract cells and other information from xlsb and xlsm files. However, it relies on MS Excel to extract such information. As such, you need to have MS Excel on the machine if you want to process xls files.
 
-Note: Processing xlsm and xlsb files are much faster than XLS files (in two orders of magnitude)
+Note: Processing xlsm and xlsb files are much faster than xls files (in two orders of magnitude)
 
 Soon, an xls parser will be included to make it independent of MS Excel
 
