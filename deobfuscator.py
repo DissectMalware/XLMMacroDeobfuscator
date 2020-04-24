@@ -5,6 +5,7 @@ from lark.reconstruct import Reconstructor
 from lark.lexer import Token
 from xlsm_wrapper import XLSMWrapper
 from xls_wrapper import XLSWrapper
+from xlsb_wrapper import XLSBWrapper
 from enum import Enum
 import time
 import datetime
@@ -419,6 +420,12 @@ if __name__ == '__main__':
             if start_marker == b'\xD0\xCF':
                 type = 'xls'
             elif start_marker == b'\x50\x4B':
+                type = 'xlsm/b'
+        if type == 'xlsm/b':
+            raw_bytes = open(path, 'rb').read()
+            if bytes('workbook.bin', 'ascii') in raw_bytes:
+                type = 'xlsb'
+            else:
                 type = 'xlsm'
         return type
 
@@ -440,6 +447,8 @@ if __name__ == '__main__':
                         excel_doc = XLSWrapper(file_path)
                     elif file_type == 'xlsm':
                         excel_doc = XLSMWrapper(file_path)
+                    elif file_type == 'xlsb':
+                        excel_doc = XLSBWrapper(file_path)
 
                     interpreter = XLMInterpreter(excel_doc)
 

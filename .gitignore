@@ -131,3 +131,7 @@ dmypy.json
 .idea/
 
 result/
+
+xyz/
+
+.xyz/
