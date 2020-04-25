@@ -3,7 +3,7 @@ XLMMacroDeobfuscator can be used to decode obfuscated XLM macros (also known as 
 
 It supports both xls, xlsm, and xlsb formats. 
 
-It uses pyxlsb2 and its own parser to extract cells and other information from xlsb and xlsm files. However, it relies on MS Excel to extract such information. As such, you need to have MS Excel on the machine if you want to process xls files.
+It uses [pyxlsb2](https://github.com/DissectMalware/pyxlsb2) and its own parser to extract cells and other information from xlsb and xlsm files. However, it relies on MS Excel to extract such information. As such, you need to have MS Excel on the machine if you want to process xls files.
 
 Note: Processing xlsm and xlsb files are much faster than xls files (in two orders of magnitude)
 
@@ -15,7 +15,19 @@ WARNING: tmp\tmp.zip contains real malicious excel documents (password: infected
 To run the script 
 
 ```
-python  XLMMacroDeobfuscator.py --file document.xlsm
+python  deobfuscator.py --file document.xlsm
+```
+
+# Usage
+
+```
+usage: deobfuscator.py [-h] [-f FILE] [-n] [-x]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -f FILE, --file FILE  The path of a XLSM file
+  -n, --noninteractive  Disable interactive shell
+  -x, --extract-only    Only extract cells without any emulation
 ```
 
 # Prerequisit

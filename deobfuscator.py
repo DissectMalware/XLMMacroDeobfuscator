@@ -430,10 +430,33 @@ if __name__ == '__main__':
         return type
 
 
+    def show_cells(excel_doc):
+        macrosheets = excel_doc.get_macrosheets()
+
+        auto_open_labels = excel_doc.get_defined_name('auto_open', full_match=False)
+        for label in auto_open_labels:
+            print('auto_open: {}->{}'.format(label[0], label[1]))
+
+        for macrosheet_name in macrosheets:
+            print('SHEET: {}, {}'.format(macrosheets[macrosheet_name].name,
+                                         macrosheets[macrosheet_name].type))
+            for formula_loc, info in macrosheets[macrosheet_name].cells.items():
+                if info.formula is not None:
+                    print('CELL:{:10}, {:20}, {}'.format(formula_loc, info.formula, info.value))
+
+            for formula_loc, info in macrosheets[macrosheet_name].cells.items():
+                if info.formula is None:
+                    print('CELL:{:10}, {:20}, {}'.format(formula_loc, str(info.formula), info.value))
+
+
 
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-f", "--file", type=str, help="The path of a XLSM file")
-    arg_parser.add_argument("-n", "--noninteractive", default=False, action='store_true', help="Disable interactive shell")
+    arg_parser.add_argument("-n", "--noninteractive", default=False, action='store_true',
+                            help="Disable interactive shell")
+    arg_parser.add_argument("-x", "--extract-only", default=False, action='store_true',
+                            help="Only extract cells without any emulation")
+
     args = arg_parser.parse_known_args()
     if args[0].file is not None:
         if os.path.exists(args[0].file):
@@ -450,10 +473,13 @@ if __name__ == '__main__':
                     elif file_type == 'xlsb':
                         excel_doc = XLSBWrapper(file_path)
 
-                    interpreter = XLMInterpreter(excel_doc)
+                    if not args[0].extract_only:
+                        interpreter = XLMInterpreter(excel_doc)
 
-                    for step in interpreter.deobfuscate_macro(not args[0].noninteractive):
-                        print('CELL:{:10}{:20}{}'.format(step[0].get_local_address(), step[1].name, step[2]))
+                        for step in interpreter.deobfuscate_macro(not args[0].noninteractive):
+                            print('CELL:{:10}, {:20}, {}'.format(step[0].get_local_address(), step[1].name, step[2]))
+                    else:
+                        show_cells(excel_doc)
 
                     end = time.time()
                     print('time elapsed: ' + str(end - start))
