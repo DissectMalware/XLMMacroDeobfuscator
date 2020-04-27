@@ -83,11 +83,11 @@ class XLMInterpreter:
                 res_sheet, res_col, res_row = Cell.parse_cell_addr(names[cell_parse_tree])
         else:
             cell = cell_parse_tree.children[0]
-            if cell.data == 'absolute_cell':
+            if cell.data == 'a1_notation_cell':
                 res_sheet, res_col, res_row = Cell.parse_cell_addr(cell.children[0])
                 if res_sheet is None:
                     res_sheet = current_cell.sheet.name
-            elif cell.data == 'relative_cell':
+            elif cell.data == 'r1c1_notation_cell':
                 first_child = cell.children[0]
                 second_child = cell.children[1]
                 res_sheet = current_cell.sheet.name
@@ -288,33 +288,55 @@ class XLMInterpreter:
             else:
                 text = "{}".format(cell_addr)
 
-        elif parse_tree_root.data == 'binary_expression':
-            left_arg = parse_tree_root.children[0]
-            next_cell, l_status, return_val, text_left = self.evaluate_parse_tree(current_cell, left_arg, interactive)
-            operator = str(parse_tree_root.children[1].children[0])
-            right_arg = parse_tree_root.children[2]
-            next_cell, r_status, return_val, text_right = self.evaluate_parse_tree(current_cell, right_arg, interactive)
-            if l_status == EvalStatus.FullEvaluation and r_status == EvalStatus.FullEvaluation:
-                status = EvalStatus.FullEvaluation
-                if operator == '&':
-                    text = text_left + text_right
-                elif self.is_int(text_left) and self.is_int(text_right):
-                    if operator == '-':
-                        text = str(int(text_left) - int(text_right))
-                    elif operator == '+':
-                        text = str(int(text_left) + int(text_right))
-                    elif operator == '*':
-                        text = str(int(text_left) * int(text_right))
+        elif parse_tree_root.data == 'expression' or \
+                parse_tree_root.data == 'concat_expression' or \
+                parse_tree_root.data == 'additive_expression' or \
+                parse_tree_root.data == 'multiplicative_expression':
+            if len(parse_tree_root.children) == 3:
+                left_arg = parse_tree_root.children[0]
+                next_cell, l_status, return_val, text_left = self.evaluate_parse_tree(current_cell, left_arg, interactive)
+                operator = str(parse_tree_root.children[1])
+                right_arg = parse_tree_root.children[2]
+                next_cell, r_status, return_val, text_right = self.evaluate_parse_tree(current_cell, right_arg, interactive)
+                if l_status == EvalStatus.FullEvaluation and r_status == EvalStatus.FullEvaluation:
+                    status = EvalStatus.FullEvaluation
+                    if operator == '&':
+                        text = text_left.strip('"') + text_right.strip('"')
+                    elif self.is_int(text_left) and self.is_int(text_right):
+                        if operator == '-':
+                            text = str(int(text_left) - int(text_right))
+                        elif operator == '+':
+                            text = str(int(text_left) + int(text_right))
+                        elif operator == '*':
+                            text = str(int(text_left) * int(text_right))
+                        elif operator == '/':
+                            text = str(int(text_left) / int(text_right))
+                        else:
+                            text = 'Operator ' + operator
+                            status = EvalStatus.NotImplemented
+                    elif self.is_float(text_left) and self.is_float(text_right):
+                        if operator == '-':
+                            text = str(float(text_left) - float(text_right))
+                        elif operator == '+':
+                            text = str(float(text_left) + float(text_right))
+                        elif operator == '*':
+                            text = str(float(text_left) * float(text_right))
+                        elif operator == '/':
+                            text = str(float(text_left) / float(text_right))
+                        else:
+                            text = 'Operator ' + operator
+                            status = EvalStatus.NotImplemented
                     else:
-                        text = 'Operator ' + operator
-                        status = EvalStatus.NotImplemented
+                        text = self.tree_reconstructor.reconstruct(parse_tree_root)
+                        status = EvalStatus.PartialEvaluation
                 else:
-                    text = self.tree_reconstructor.reconstruct(parse_tree_root)
                     status = EvalStatus.PartialEvaluation
-            else:
-                status = EvalStatus.PartialEvaluation
-                text = '{}{}{}'.format(text_left, operator, text_right)
-            return_val = text
+                    text = '{}{}{}'.format(text_left, operator, text_right)
+                return_val = text
+            elif len(parse_tree_root.children) == 1:
+                left_arg = parse_tree_root.children[0]
+                next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, left_arg,
+                                                                                      interactive)
         else:
             status = EvalStatus.FullEvaluation
             for child_node in parse_tree_root.children:
@@ -334,7 +356,7 @@ class XLMInterpreter:
 
         while True:
             line = input()
-            line = '='+ line.strip().strip('"')
+            line = '='+ line.strip()
             if line:
                 try:
                     parse_tree = self.xlm_parser.parse(line)
@@ -342,7 +364,7 @@ class XLMInterpreter:
                     print(return_val)
                     if status == EvalStatus.End:
                         break
-                except ParseError:
+                except ParseError as exp:
                     print("Invalid XLM macro")
             else:
                 break
@@ -403,6 +425,8 @@ def test_parser():
 
 if __name__ == '__main__':
 
+    test_parser()
+
     # path = r"C:\Users\user\Downloads\xlsmtest.xlsm"
     # tmp\01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606.xlsm
     # tmp\63bacd873beeca6692142df432520614a1641ea395adaabc705152c55ab8c1d7.xlsm
@@ -449,13 +473,15 @@ if __name__ == '__main__':
                     print('CELL:{:10}, {:20}, {}'.format(formula_loc, str(info.formula), info.value))
 
 
-
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-f", "--file", type=str, help="The path of a XLSM file")
     arg_parser.add_argument("-n", "--noninteractive", default=False, action='store_true',
                             help="Disable interactive shell")
     arg_parser.add_argument("-x", "--extract-only", default=False, action='store_true',
                             help="Only extract cells without any emulation")
+
+    arg_parser.add_argument("-s", "--start-with-shell", default=False, action='store_true',
+                            help="Open an XLM shell before interpreting the macros in the input")
 
     args = arg_parser.parse_known_args()
     if args[0].file is not None:
@@ -475,7 +501,13 @@ if __name__ == '__main__':
 
                     if not args[0].extract_only:
                         interpreter = XLMInterpreter(excel_doc)
-
+                        if args[0].start_with_shell:
+                            starting_points = interpreter.xlm_wrapper.get_defined_name('auto_open')
+                            if len(starting_points) > 0:
+                                sheet_name, col, row = Cell.parse_cell_addr(starting_points[0][1])
+                                macros = interpreter.xlm_wrapper.get_macrosheets()
+                                current_cell = interpreter.get_formula_cell(macros[sheet_name], col, row)
+                                interpreter.interactive_shell(current_cell, "")
                         for step in interpreter.deobfuscate_macro(not args[0].noninteractive):
                             print('CELL:{:10}, {:20}, {}'.format(step[0].get_local_address(), step[1].name, step[2]))
                     else:

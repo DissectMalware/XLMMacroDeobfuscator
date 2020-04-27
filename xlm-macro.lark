@@ -1,23 +1,26 @@
-start: "=" command
-command: function_call | binary_expression | method_call | STRING | NUMBER | cell
-function_call: NAME "(" arglist ")"
-arglist: (argument ",")* argument
-argument: cell | INT | STRING | binary_expression | function_call | method_call | BOOLEAN |
-method_call: NAME "." NAME "(" arglist ")"
-cell: absolute_cell | relative_cell
-absolute_cell: /\$?[a-zA-Z]+\$?\d+/i | NAME     // NAME here is a hack to make it work with LALR parser, A9 is a valid NAME and matches with the CELL regex
-relative_cell: ROW "[" INT  "]" COL "[" INT  "]" | ROW "[" INT  "]" COL | ROW COL "[" INT  "]"
-binary_expression:  argument binary_operator argument
-binary_operator: CONCATOP | ARITHMETICOP | LOGICALOP
-ARITHMETICOP: "+" | "-" | "*" | "/"
-LOGICALOP: "<" | ">" | "=" | "<>"
-CONCATOP: "&"
+start:  "=" expression
+function_call:  NAME "(" arglist ")"
+method_call:    NAME "." NAME "(" arglist ")"
+arglist:    (argument ",")* argument
+argument:   expression |
+cell:   a1_notation_cell | r1c1_notation_cell
+a1_notation_cell:   /\$?[a-z]+\$?\d+/i | NAME    // NAME here is a hack to make it work with LALR parser, A9 is a valid NAME and matches with the CELL regex
+r1c1_notation_cell: ROW "[" INT  "]" COL "[" INT  "]" | ROW "[" INT  "]" COL | ROW COL "[" INT  "]"
+?expression:    concat_expression CMPOP concat_expression | concat_expression
+?concat_expression: concat_expression CONCATOP additive_expression | additive_expression
+?additive_expression:   additive_expression ADDITIVEOP multiplicative_expression | multiplicative_expression
+?multiplicative_expression: multiplicative_expression MULTIOP final | final
+?final: "(" expression ")"  | function_call | method_call | cell | atom
+?atom: NUMBER | STRING | BOOLEAN
+ADDITIVEOP: "+" | "-"
+MULTIOP:    "*" | "/"
+CMPOP:      "<" | ">" | "=" | "<>"
+CONCATOP:   "&"
 ROW: "R"
 COL: "C"
 STRING:  /\"[^"]*?\"/i
 BOOLEAN: "TRUE" | "FALSE"
 %import common.CNAME -> NAME
-%import common.INT -> UINT
 %import common.SIGNED_INT -> INT
 %import common.SIGNED_NUMBER -> NUMBER
 %import common.FLOAT -> FLOAT
