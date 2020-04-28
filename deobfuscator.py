@@ -267,6 +267,7 @@ class XLMInterpreter:
                 if status == EvalStatus.FullEvaluation:
                     if type(text) is datetime.datetime:
                         text = str(text.day)
+                        return_val = text
                         status = EvalStatus.FullEvaluation
                     elif self.is_float(text):
                         text = 'DAY(Serial Date)'
