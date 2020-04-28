@@ -1,27 +1,32 @@
 start:  "=" expression
-function_call:  NAME "(" arglist ")"
-method_call:    NAME "." NAME "(" arglist ")"
-arglist:    (argument ",")* argument
+function_call:  NAME L_PRA arglist R_PRA
+method_call:    NAME DOT NAME L_PRA arglist R_PRA
+arglist:    (argument COMMA)* argument
 argument:   expression |
 cell:   a1_notation_cell | r1c1_notation_cell
 a1_notation_cell:   /\$?[a-z]+\$?\d+/i | NAME    // NAME here is a hack to make it work with LALR parser, A9 is a valid NAME and matches with the CELL regex
-r1c1_notation_cell: ROW "[" INT  "]" COL "[" INT  "]" | ROW "[" INT  "]" COL | ROW COL "[" INT  "]"
-?expression:    concat_expression CMPOP concat_expression | concat_expression
-?concat_expression: concat_expression CONCATOP additive_expression | additive_expression
-?additive_expression:   additive_expression ADDITIVEOP multiplicative_expression | multiplicative_expression
-?multiplicative_expression: multiplicative_expression MULTIOP final | final
-?final: "(" expression ")"  | function_call | method_call | cell | atom
+r1c1_notation_cell: ROW "[" SIGNED_INT  "]" COL "[" SIGNED_INT  "]" | ROW "[" SIGNED_INT  "]" COL | ROW COL "[" SIGNED_INT  "]"
+?expression:   concat_expression CMPOP concat_expression | concat_expression
+?concat_expression: additive_expression (CONCATOP additive_expression)*
+?additive_expression:   multiplicative_expression (ADDITIVEOP multiplicative_expression)*
+?multiplicative_expression: final (MULTIOP final)*
+?final: L_PRA expression R_PRA | function_call | method_call | cell | atom
 ?atom: NUMBER | STRING | BOOLEAN
 ADDITIVEOP: "+" | "-"
 MULTIOP:    "*" | "/"
 CMPOP:      "<" | ">" | "=" | "<>"
 CONCATOP:   "&"
+STRING:   /\"[^"]*?\"/i
+BOOLEAN: "TRUE" | "FALSE"
 ROW: "R"
 COL: "C"
-STRING:  /\"[^"]*?\"/i
-BOOLEAN: "TRUE" | "FALSE"
+L_PRA: "("
+R_PRA: ")"
+DOT: "."
+COMMA: ","
 %import common.CNAME -> NAME
-%import common.SIGNED_INT -> INT
-%import common.SIGNED_NUMBER -> NUMBER
-%import common.FLOAT -> FLOAT
+%import common.SIGNED_INT -> SIGNED_INT
+%import common.DECIMAL -> DECIMAL
+SIGNED_DECIMAL: ["+"|"-"] DECIMAL
+NUMBER: SIGNED_DECIMAL | SIGNED_INT
 %ignore " "   // Disregard spaces in text
