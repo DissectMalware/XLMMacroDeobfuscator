@@ -5,7 +5,7 @@ arglist:    (argument COMMA)* argument
 argument:   expression |
 cell:   a1_notation_cell | r1c1_notation_cell
 a1_notation_cell:   /\$?[a-z]+\$?\d+/i | NAME    // NAME here is a hack to make it work with LALR parser, A9 is a valid NAME and matches with the CELL regex
-r1c1_notation_cell: ROW "[" SIGNED_INT  "]" COL "[" SIGNED_INT  "]" | ROW "[" SIGNED_INT  "]" COL | ROW COL "[" SIGNED_INT  "]"
+r1c1_notation_cell: ROW [REF | INT ] COL [REF | INT ]
 ?expression:   concat_expression CMPOP concat_expression | concat_expression
 ?concat_expression: additive_expression (CONCATOP additive_expression)*
 ?additive_expression:   multiplicative_expression (ADDITIVEOP multiplicative_expression)*
@@ -22,10 +22,14 @@ ROW: "R"
 COL: "C"
 L_PRA: "("
 R_PRA: ")"
+L_BRAC: "["
+R_BRAC: "]"
 DOT: "."
 COMMA: ","
+REF: L_BRAC SIGNED_INT  R_BRAC
 %import common.CNAME -> NAME
 %import common.SIGNED_INT -> SIGNED_INT
+%import common.INT -> INT
 %import common.DECIMAL -> DECIMAL
 SIGNED_DECIMAL: ["+"|"-"] DECIMAL
 NUMBER: SIGNED_DECIMAL | SIGNED_INT

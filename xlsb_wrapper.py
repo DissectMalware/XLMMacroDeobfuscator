@@ -11,15 +11,22 @@ class XLSBWrapper(ExcelWrapper):
         self._defined_names = None
 
     def get_defined_names(self):
-        names = {}
-        for key,val in self._xlsb_workbook.defined_names.items():
-            names[key.lower()] = key.lower(), val.formula
-        return names
+        if self._defined_names is  None:
+            names = {}
+            for key,val in self._xlsb_workbook.defined_names.items():
+                names[key.lower()] = key.lower(), val.formula
+            self._defined_names = names
+        return self._defined_names
 
     def get_defined_name(self, name, full_match=True):
         result = []
-        if name in self.get_defined_names():
-            result.append(self.get_defined_names()[name])
+        if full_match:
+            if name in self.get_defined_names():
+                result.append(self.get_defined_names()[name])
+        else:
+            for defined_name, cell_address in self.get_defined_names().items():
+                if defined_name.startswith(name):
+                    result.append(cell_address)
         return result
 
     def load_cells(self, boundsheet):

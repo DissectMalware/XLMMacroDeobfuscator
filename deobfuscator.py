@@ -125,7 +125,7 @@ class XLMInterpreter:
                 sheet.cells[addr] = new_cell
 
             cell = sheet.cells[addr]
-            text = text.strip('"')
+
             if text.startswith('='):
                 cell.formula = text
             else:
@@ -192,7 +192,11 @@ class XLMInterpreter:
                 second_arg = function_arguments.children[2].children[0]
                 dst_sheet, dst_col, dst_row = self.get_cell(current_cell, second_arg)
                 if status == EvalStatus.FullEvaluation:
-                    self.set_cell(dst_sheet, dst_col, dst_row, text)
+                    if text.startswith('=') is False and self.is_float(text) is False:
+                        self.set_cell(dst_sheet, dst_col, dst_row, '"{}"'.format(text))
+                    else:
+                        self.set_cell(dst_sheet, dst_col, dst_row, text)
+
                 text = "FORMULA({},{})".format('"{}"'.format(text.replace('"','""')), '{}!{}{}'.format(dst_sheet, dst_col, dst_row))
                 return_val = 0
 
@@ -392,23 +396,24 @@ class XLMInterpreter:
             print('[Starting Deobfuscation]')
             for auto_open_label in auto_open_labels:
                 sheet_name, col, row = Cell.parse_cell_addr(auto_open_label[1])
-                current_cell = self.get_formula_cell(macros[sheet_name], col, row)
-                self.branches = []
-                while current_cell is not None:
-                    parse_tree = self.xlm_parser.parse(current_cell.formula)
-                    next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, parse_tree,
-                                                                                   interactive)
-                    if return_val is not None:
-                        current_cell.value = str(return_val)
-                    if next_cell is None and status != EvalStatus.Error:
-                        next_cell = self.get_formula_cell(current_cell.sheet,
-                                                          current_cell.column,
-                                                          str(int(current_cell.row) + 1))
-                    yield (current_cell, status, text)
-                    if next_cell is not None:
-                        current_cell = next_cell
-                    else:
-                        break
+                if sheet_name in macros:
+                    current_cell = self.get_formula_cell(macros[sheet_name], col, row)
+                    self.branches = []
+                    while current_cell is not None:
+                        parse_tree = self.xlm_parser.parse(current_cell.formula)
+                        next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, parse_tree,
+                                                                                       interactive)
+                        if return_val is not None:
+                            current_cell.value = str(return_val)
+                        if next_cell is None and status != EvalStatus.Error:
+                            next_cell = self.get_formula_cell(current_cell.sheet,
+                                                              current_cell.column,
+                                                              str(int(current_cell.row) + 1))
+                        yield (current_cell, status, text)
+                        if next_cell is not None:
+                            current_cell = next_cell
+                        else:
+                            break
 
 
 def test_parser():
@@ -440,9 +445,6 @@ def test_parser():
 
 
 if __name__ == '__main__':
-
-    test_parser()
-
 
     # path = r"C:\Users\user\Downloads\xlsmtest.xlsm"
     # tmp\01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606.xlsm
@@ -528,8 +530,9 @@ if __name__ == '__main__':
                                 if len(starting_points) > 0:
                                     sheet_name, col, row = Cell.parse_cell_addr(starting_points[0][1])
                                     macros = interpreter.xlm_wrapper.get_macrosheets()
-                                    current_cell = interpreter.get_formula_cell(macros[sheet_name], col, row)
-                                    interpreter.interactive_shell(current_cell, "")
+                                    if sheet_name in macros:
+                                        current_cell = interpreter.get_formula_cell(macros[sheet_name], col, row)
+                                        interpreter.interactive_shell(current_cell, "")
                             for step in interpreter.deobfuscate_macro(not args[0].noninteractive):
                                 print(
                                     'CELL:{:10}, {:20}, {}'.format(step[0].get_local_address(), step[1].name, step[2]))
