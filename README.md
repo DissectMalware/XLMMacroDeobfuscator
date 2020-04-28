@@ -23,13 +23,15 @@ python  deobfuscator.py --file document.xlsm
 # Usage
 
 ```
-usage: deobfuscator.py [-h] [-f FILE] [-n] [-x]
+usage: deobfuscator.py [-h] [-f FILE] [-n] [-x] [-s]
 
 optional arguments:
-  -h, --help            show this help message and exit
-  -f FILE, --file FILE  The path of a XLSM file
-  -n, --noninteractive  Disable interactive shell
-  -x, --extract-only    Only extract cells without any emulation
+  -h, --help              show this help message and exit
+  -f FILE, --file FILE    The path of a XLSM file
+  -n, --noninteractive    Disable interactive shell
+  -x, --extract-only      Only extract cells without any emulation
+  -s, --start-with-shell  Open an XLM shell before interpreting the macros in
+                          the input
 ```
 
 # Prerequisit
