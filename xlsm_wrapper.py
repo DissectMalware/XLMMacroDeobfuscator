@@ -27,6 +27,24 @@ class XLSMWrapper(excel_wrapper.ExcelWrapper):
 
         return result
 
+    def get_cell(self, macrosheet, row, column):
+        result = None
+        if macrosheet._cells is None:
+            macrosheets = self.get_macrosheet_infos()
+            for sheet in macrosheets:
+                if macrosheet.name == sheet['sheet'].name:
+                    self.load_cells(macrosheet, sheet['sheet_xml'])
+                    break
+
+        local_addr = column + str(row)
+
+        if local_addr in macrosheet._cells:
+            cell = macrosheet._cells[column + str(row)]
+            if cell.Formula is not None or cell.Value2 is not None:
+                result = cell
+
+        return result
+
     def get_files(self, file_name_filters=None):
         input_zip = ZipFile(self.xlsm_doc_path)
         result = {}
@@ -108,7 +126,7 @@ class XLSMWrapper(excel_wrapper.ExcelWrapper):
                 sheet_type, rel_path = self.get_sheet_info(rId)
                 path = 'xl/' + rel_path
                 if sheet_type == 'Macrosheet' and name not in sheet_names:
-                    sheet = Boundsheet(name, sheet_type)
+                    sheet = Boundsheet(self, name, sheet_type)
                     result.append({'sheet': sheet,
                                    'sheet_path': path,
                                    'sheet_xml': self.get_xml_file(path)})
@@ -130,7 +148,7 @@ class XLSMWrapper(excel_wrapper.ExcelWrapper):
             cell.sheet = macrosheet
             cell.formula = formula_text
             cell.value = value_text
-            macrosheet.cells[location] = cell
+            macrosheet.add_cell(cell)
 
     def get_defined_name(self, name, full_match=True):
         result = []
@@ -148,12 +166,13 @@ class XLSMWrapper(excel_wrapper.ExcelWrapper):
 
         return result
 
-    def get_macrosheets(self):
+    def get_macrosheets(self, load_cell=False):
         if self._macrosheets is None:
             self._macrosheets = {}
             macrosheets = self.get_macrosheet_infos()
             for macrosheet in macrosheets:
-                self.load_cells(macrosheet['sheet'], macrosheet['sheet_xml'])
+                if load_cell:
+                    self.load_cells(macrosheet['sheet'], macrosheet['sheet_xml'])
                 self._macrosheets[macrosheet['sheet'].name] = macrosheet['sheet']
 
         return self._macrosheets

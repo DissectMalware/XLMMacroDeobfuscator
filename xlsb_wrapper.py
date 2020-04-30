@@ -21,6 +21,20 @@ class XLSBWrapper(ExcelWrapper):
 
         return result
 
+    def get_cell(self, macrosheet, row, column):
+        result = None
+
+        if macrosheet._cells is None:
+            self.load_cells(macrosheet)
+
+
+        local_addr = column + str(row)
+
+        if local_addr in macrosheet._cells:
+            result = macrosheet._cells[column + str(row)]
+
+        return result
+
     def get_defined_names(self):
         if self._defined_names is  None:
             names = {}
@@ -59,16 +73,17 @@ class XLSBWrapper(ExcelWrapper):
                         except Exception:
                             print('ERROR ' + str(cell))
                     if tmp_cell.value is not None or tmp_cell.formula is not None:
-                        boundsheet.cells[tmp_cell.get_local_address()] = tmp_cell
+                        boundsheet.add_cell(tmp_cell)
 
-    def get_macrosheets(self):
+    def get_macrosheets(self, load_cells=False):
         if self._macrosheets is None:
             self._macrosheets = {}
             for xlsb_sheet in self._xlsb_workbook.sheets:
                 if xlsb_sheet.type == 'macrosheet':
                     with self._xlsb_workbook.get_sheet_by_name(xlsb_sheet.name) as sheet:
-                        macrosheet = Boundsheet(xlsb_sheet.name, 'macrosheet')
-                        self.load_cells(macrosheet)
+                        macrosheet = Boundsheet(self, xlsb_sheet.name, 'macrosheet')
+                        if load_cells:
+                            self.load_cells(macrosheet)
                         self._macrosheets[macrosheet.name] = macrosheet
 
                 #self.load_cells(macrosheet, workbook)
