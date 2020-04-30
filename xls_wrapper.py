@@ -1,4 +1,5 @@
 from excel_wrapper import ExcelWrapper
+from excel_wrapper import XlApplicationInternational
 from boundsheet import Boundsheet
 from boundsheet import Cell
 from win32com.client import Dispatch
@@ -19,11 +20,23 @@ class XLSWrapper(ExcelWrapper):
         self.xls_workbook = self._excel.Workbooks.Open(xls_doc_path)
         self._macrosheets = None
         self._defined_names = None
+        self.xl_international_flags = {}
+        self._international_flags = None
+
+    def get_xl_international_char(self, flag_name):
+        if flag_name not in self.xl_international_flags:
+            if self._international_flags is None:
+                self._international_flags = self._excel.Application.International
+            # flag value starts at 1, list index starts at 0
+            self.xl_international_flags[flag_name] = self._international_flags[flag_name.value - 1]
+
+        result = self.xl_international_flags[flag_name]
+        return result
 
     def get_defined_names(self):
         result = {}
 
-        name_objects = self._excel.Excel4MacroSheets.Application.Names
+        name_objects = self.xls_workbook.Excel4MacroSheets.Application.Names
 
         for name_obj in name_objects:
             result[ name_obj.NameLocal.lower()] = str(name_obj.RefersToLocal).strip('=')
@@ -75,10 +88,10 @@ class XLSWrapper(ExcelWrapper):
     def get_macrosheets(self):
         if self._macrosheets is None:
             self._macrosheets = {}
-            for workbook in self._excel.Excel4MacroSheets:
-                macrosheet = Boundsheet(workbook.name, 'Macrosheet')
-                self.load_cells(macrosheet, workbook)
-                self._macrosheets[workbook.name] = macrosheet
+            for sheet in self.xls_workbook.Excel4MacroSheets:
+                macrosheet = Boundsheet(sheet.name, 'Macrosheet')
+                self.load_cells(macrosheet, sheet)
+                self._macrosheets[sheet.name] = macrosheet
 
         return self._macrosheets
 

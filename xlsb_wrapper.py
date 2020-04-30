@@ -1,4 +1,5 @@
 from excel_wrapper import ExcelWrapper
+from excel_wrapper import XlApplicationInternational
 from pyxlsb2 import open_workbook
 from pyxlsb2.formula import Formula
 import os
@@ -9,6 +10,16 @@ class XLSBWrapper(ExcelWrapper):
         self._xlsb_workbook = open_workbook(xlsb_doc_path)
         self._macrosheets = None
         self._defined_names = None
+        self.xl_international_flags = {XlApplicationInternational.xlLeftBracket: '[',
+                                       XlApplicationInternational.xlListSeparator: ',',
+                                       XlApplicationInternational.xlListSeparator: ']'}
+
+    def get_xl_international_char(self, flag_name):
+        result = None
+        if flag_name in self.xl_international_flags:
+            result = self.xl_international_flags[flag_name]
+
+        return result
 
     def get_defined_names(self):
         if self._defined_names is  None:

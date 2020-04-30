@@ -2,6 +2,7 @@ import argparse
 from lark import Lark
 from lark.exceptions import ParseError
 from lark.lexer import Token
+from excel_wrapper import XlApplicationInternational
 from xlsm_wrapper import XLSMWrapper
 from xls_wrapper import XLSWrapper
 from xlsb_wrapper import XLSBWrapper
@@ -26,8 +27,7 @@ class XLMInterpreter:
         self.xlm_wrapper = xlm_wrapper
         self.cell_addr_regex_str = r"((?P<sheetname>[^\s]+?|'.+?')!)?\$?(?P<column>[a-zA-Z]+)\$?(?P<row>\d+)"
         self.cell_addr_regex = re.compile(self.cell_addr_regex_str)
-        macro_grammar = open('xlm-macro.lark', 'r', encoding='utf_8').read()
-        self.xlm_parser = Lark(macro_grammar, parser='lalr')
+        self.xlm_parser = self.get_parser()
         self.defined_names = self.xlm_wrapper.get_defined_names()
 
         self._expr_rule_names = ['expression', 'concat_expression', 'additive_expression', 'multiplicative_expression']
@@ -52,6 +52,21 @@ class XLMInterpreter:
             return False
         except TypeError:
             return False
+
+    def get_parser(self):
+        macro_grammar = open('xlm-macro.lark.template', 'r', encoding='utf_8').read()
+        macro_grammar = macro_grammar.replace('{{XLLEFTBRACKET}}',
+                                              self.xlm_wrapper.get_xl_international_char(
+                                                  XlApplicationInternational.xlLeftBracket))
+        macro_grammar = macro_grammar.replace('{{XLRIGHTBRACKET}}',
+                                              self.xlm_wrapper.get_xl_international_char(
+                                                  XlApplicationInternational.xlRightBracket))
+        macro_grammar = macro_grammar.replace('{{XLLISTSEPARATOR}}',
+                                              self.xlm_wrapper.get_xl_international_char(
+                                                  XlApplicationInternational.xlListSeparator))
+        xlm_parser = Lark(macro_grammar, parser='lalr')
+
+        return xlm_parser
 
     def get_formula_cell(self, macrosheet, col, row):
         result_cell = None

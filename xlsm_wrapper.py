@@ -1,3 +1,4 @@
+from excel_wrapper import XlApplicationInternational
 from zipfile import ZipFile
 from glob import fnmatch
 from xml.etree import ElementTree
@@ -15,6 +16,16 @@ class XLSMWrapper(excel_wrapper.ExcelWrapper):
         self._workbook_rels = None
         self._defined_names = None
         self._macrosheets = None
+        self.xl_international_flags = {XlApplicationInternational.xlLeftBracket: '[',
+                                       XlApplicationInternational.xlListSeparator: ',',
+                                       XlApplicationInternational.xlListSeparator: ']'}
+
+    def get_xl_international_char(self, flag_name):
+        result = None
+        if flag_name in self.xl_international_flags:
+            result = self.xl_international_flags[flag_name]
+
+        return result
 
     def get_files(self, file_name_filters=None):
         input_zip = ZipFile(self.xlsm_doc_path)
