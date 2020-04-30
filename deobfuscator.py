@@ -289,13 +289,13 @@ class XLMInterpreter:
                         status = EvalStatus.NotImplemented
 
             else:
-                # args_str =''
-                # for argument in function_arguments.children:
-                #     next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, argument, interactive)
-                #     args_str += str(return_val) +','
-                # args_str.strip(',')
-                # text = '{}({})'.format(function_name, args_str)
-                text = self.convert_parse_tree_to_str(parse_tree_root)
+                args_str =''
+                for argument in function_arguments.children:
+                     next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, argument, False)
+                     args_str += str(return_val) +','
+                args_str = args_str.strip(',')
+                text = '{}({})'.format(function_name, args_str)
+                # text = self.convert_parse_tree_to_str(parse_tree_root)
                 status = EvalStatus.NotImplemented
 
         elif parse_tree_root.data == 'method_call':
