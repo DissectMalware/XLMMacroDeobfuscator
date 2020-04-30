@@ -61,14 +61,27 @@ class XLSWrapper(ExcelWrapper):
 
     def load_cells(self, macrosheet, xls_sheet):
         try:
-            for xls_cell in xls_sheet.UsedRange.SpecialCells(XlCellType.xlCellTypeFormulas.value):
-                cell = Cell()
-                cell.sheet = macrosheet
-                cell.formula = xls_cell.FormulaLocal if xls_cell.HasFormula else None
-                cell.value = xls_cell.Value2 if len(str(xls_cell.Value2))>0 else None
-                cell.row = xls_cell.Row
-                cell.column = Cell.convert_to_column_name(xls_cell.Column)
-                macrosheet.cells[cell.get_local_address()] = cell
+            if xls_sheet.ProtectContents is False:
+                for xls_cell in xls_sheet.UsedRange.SpecialCells(XlCellType.xlCellTypeFormulas.value):
+                    cell = Cell()
+                    cell.sheet = macrosheet
+                    cell.formula = xls_cell.FormulaLocal if xls_cell.HasFormula else None
+                    cell.value = xls_cell.Value2 if len(str(xls_cell.Value2))>0 else None
+                    cell.row = xls_cell.Row
+                    cell.column = Cell.convert_to_column_name(xls_cell.Column)
+                    macrosheet.cells[cell.get_local_address()] = cell
+            else:
+                print("[Macrosheet is protected (Extraction takes a few more minutes, be patient)]")
+                for xls_cell in xls_sheet.UsedRange:
+                    formula = xls_cell.FormulaLocal
+                    cell = Cell()
+                    cell.sheet = macrosheet
+                    if formula and formula.startswith('=') or xls_cell.Value2 is not None:
+                        cell.formula = formula
+                        cell.value = xls_cell.Value2 if len(str(xls_cell.Value2)) > 0 else None
+                        cell.row = xls_cell.Row
+                        cell.column = Cell.convert_to_column_name(xls_cell.Column)
+                        macrosheet.cells[cell.get_local_address()] = cell
         except pywintypes.com_error as error:
             print('CELL(Formula): '+ str(error.args[2]))
 
