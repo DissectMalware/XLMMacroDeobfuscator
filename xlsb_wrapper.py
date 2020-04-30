@@ -12,7 +12,7 @@ class XLSBWrapper(ExcelWrapper):
         self._defined_names = None
         self.xl_international_flags = {XlApplicationInternational.xlLeftBracket: '[',
                                        XlApplicationInternational.xlListSeparator: ',',
-                                       XlApplicationInternational.xlListSeparator: ']'}
+                                       XlApplicationInternational.xlRightBracket: ']'}
 
     def get_xl_international_char(self, flag_name):
         result = None
