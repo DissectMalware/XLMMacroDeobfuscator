@@ -18,7 +18,7 @@ class XLSMWrapper(excel_wrapper.ExcelWrapper):
         self._macrosheets = None
         self.xl_international_flags = {XlApplicationInternational.xlLeftBracket: '[',
                                        XlApplicationInternational.xlListSeparator: ',',
-                                       XlApplicationInternational.xlListSeparator: ']'}
+                                       XlApplicationInternational.xlRightBracket: ']'}
 
     def get_xl_international_char(self, flag_name):
         result = None
