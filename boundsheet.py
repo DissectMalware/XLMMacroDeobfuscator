@@ -44,28 +44,19 @@ class Cell:
 
         return sheet_name, column, row
 
+
 class Boundsheet:
-    def __init__(self, workbook, name, type):
+    def __init__(self, name, type):
         self.name = name
         self.type = type
-        self._cells = None
-        self.index = None
-        self.workbook = workbook
+        self.cells = {}
 
     def add_cell(self, cell):
         cell.sheet = self
-        if self._cells is None:
-            self._cells = {}
-        self._cells[cell.get_local_address()] = cell
+        self.cells[cell.get_local_address()] = cell
 
     def get_cell(self, local_address):
         result = None
-        if self._cells is not None and local_address in self._cells:
-            result = self._cells[local_address]
-        else:
-            if self.workbook is not None:
-                sheet, col, row = Cell.parse_cell_addr(local_address)
-                result = self.workbook.get_cell(self, col, row)
-                if result is not None:
-                    self.add_cell(result)
-        return result
+        if local_address in self.cells:
+            result = self.cells[local_address]
+        return

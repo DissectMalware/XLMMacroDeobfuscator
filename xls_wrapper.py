@@ -7,12 +7,13 @@ import pywintypes
 from enum import Enum
 import os
 
+
 class XlCellType(Enum):
     xlCellTypeFormulas = -4123
     xlCellTypeConstants = 2
 
-class XLSWrapper(ExcelWrapper):
 
+class XLSWrapper(ExcelWrapper):
     XLEXCEL4MACROSHEET = 3
 
     def __init__(self, xls_doc_path):
@@ -39,7 +40,7 @@ class XLSWrapper(ExcelWrapper):
         name_objects = self.xls_workbook.Excel4MacroSheets.Application.Names
 
         for name_obj in name_objects:
-            result[ name_obj.NameLocal.lower()] = str(name_obj.RefersToLocal).strip('=')
+            result[name_obj.NameLocal.lower()] = str(name_obj.RefersToLocal).strip('=')
 
         return result
 
@@ -59,71 +60,57 @@ class XLSWrapper(ExcelWrapper):
 
         return result
 
-    def get_cell(self, macrosheet, column, row):
-        result = None
-        if macrosheet.index is None:
-            for sheet in self.xls_workbook.Excel4MacroSheets:
-                if sheet.name == macrosheet.name:
-                    macrosheet.index = sheet.index -1
-
-        if macrosheet.index is not None:
-            sheet = self.xls_workbook.sheets[macrosheet.index]
-            try:
-                xls_cell = sheet.rows[row].columns[column]
-                cell = Cell()
-                cell.sheet = macrosheet
-                cell.formula = xls_cell.FormulaLocal if xls_cell.HasFormula else None
-                cell.value = xls_cell.Value2 if len(str(xls_cell.Value2)) > 0 else None
-                if cell.formula is not None or cell.value is not None:
-                    cell.row = xls_cell.Row
-                    cell.column = Cell.convert_to_column_name(xls_cell.Column)
-                    result = cell
-            except:
-                pass
-        return result
-
     def load_cells(self, macrosheet, xls_sheet):
+        cells = {}
         try:
-            if xls_sheet.ProtectContents is False:
-                xls_cells = xls_sheet.UsedRange.SpecialCells(XlCellType.xlCellTypeFormulas.value)
-            else:
-                print("[Macrosheet is protected (Extraction takes a few more minutes, be patient)]")
-                xls_cells = xls_sheet.UsedRange
-
-            for xls_cell in xls_cells:
-                cell = Cell()
-                cell.sheet = macrosheet
-                cell.formula = xls_cell.FormulaLocal if xls_cell.HasFormula else None
-                cell.value = xls_cell.Value2 if len(str(xls_cell.Value2))>0 else None
-                if cell.formula is not None or cell.value is not None:
-                    cell.row = xls_cell.Row
-                    cell.column = Cell.convert_to_column_name(xls_cell.Column)
-                    macrosheet.add_cell(cell)
+            self._excel.Application.ScreenUpdating = False
+            col_offset = xls_sheet.UsedRange.Column
+            row_offset = xls_sheet.UsedRange.Row
+            for row_no, row in enumerate(xls_sheet.UsedRange.Formula):
+                for col_no, col in enumerate(row):
+                    if len(col) > 0:
+                        cell = Cell()
+                        cell.sheet = macrosheet
+                        cell.formula = col
+                        row_addr = row_offset + row_no
+                        col_addr = col_offset + col_no
+                        cell.row = row_addr
+                        cell.column = Cell.convert_to_column_name(col_addr)
+                        if cell.formula is not None:
+                            cells[(col_addr, row_addr)] = cell
+            self._excel.Application.ScreenUpdating = True
 
         except pywintypes.com_error as error:
-            print('CELL(Formula): '+ str(error.args[2]))
+            print('CELL(Formula): ' + str(error.args[2]))
 
         try:
-            if xls_sheet.ProtectContents is False:
-                for xls_cell in xls_sheet.UsedRange.SpecialCells(XlCellType.xlCellTypeConstants.value):
-                    cell = Cell()
-                    cell.sheet = macrosheet
-                    cell.formula = None
-                    cell.value = xls_cell.Value2 if len(str(xls_cell.Value2))>0 else None
-                    cell.row = xls_cell.Row
-                    cell.column = Cell.convert_to_column_name(xls_cell.Column)
-                    macrosheet.add_cell(cell)
+            for row_no, row in enumerate(xls_sheet.UsedRange.Value):
+                for col_no, col in enumerate(row):
+                    row_addr = row_offset + row_no
+                    col_addr = col_offset + col_no
+
+                    if col is not None:
+                        if (col_addr, row_addr) in cells:
+                            cell = cells[(col_addr, row_addr)]
+                            cell.value = col
+                        else:
+                            cell = Cell()
+                            cell.sheet = macrosheet
+                            cell.value = col
+                            if cell.value is not None:
+                                cells[(col_addr, row_addr)] = cell
         except pywintypes.com_error as error:
-            print('CELL(Constant): '+ str(error.args[2]))
+            print('CELL(Constant): ' + str(error.args[2]))
 
+        for cell in cells:
+            macrosheet.add_cell(cells[cell])
 
-    def get_macrosheets(self, load_cells=False):
+    def get_macrosheets(self):
         if self._macrosheets is None:
             self._macrosheets = {}
             for sheet in self.xls_workbook.Excel4MacroSheets:
-                macrosheet = Boundsheet(self, sheet.name, 'Macrosheet')
-                if load_cells:
-                    self.load_cells(macrosheet, sheet)
+                macrosheet = Boundsheet(sheet.name, 'Macrosheet')
+                self.load_cells(macrosheet, sheet)
                 self._macrosheets[sheet.name] = macrosheet
 
         return self._macrosheets

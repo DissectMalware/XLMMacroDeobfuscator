@@ -6,7 +6,7 @@ from xml.etree import ElementTree
 from rdflib.tools.csv2rdf import column
 
 import excel_wrapper
-from boundsheet import  *
+from boundsheet import *
 
 
 class XLSMWrapper(excel_wrapper.ExcelWrapper):
@@ -24,24 +24,6 @@ class XLSMWrapper(excel_wrapper.ExcelWrapper):
         result = None
         if flag_name in self.xl_international_flags:
             result = self.xl_international_flags[flag_name]
-
-        return result
-
-    def get_cell(self, macrosheet, row, column):
-        result = None
-        if macrosheet._cells is None:
-            macrosheets = self.get_macrosheet_infos()
-            for sheet in macrosheets:
-                if macrosheet.name == sheet['sheet'].name:
-                    self.load_cells(macrosheet, sheet['sheet_xml'])
-                    break
-
-        local_addr = column + str(row)
-
-        if local_addr in macrosheet._cells:
-            cell = macrosheet._cells[column + str(row)]
-            if cell.Formula is not None or cell.Value2 is not None:
-                result = cell
 
         return result
 
@@ -109,7 +91,7 @@ class XLSMWrapper(excel_wrapper.ExcelWrapper):
         names = workbook.findall('.//main:definedName', namespaces=nsmap)
 
         for name in names:
-            result[name.attrib['name'].replace('_xlnm.','').lower()] = name.text
+            result[name.attrib['name'].replace('_xlnm.', '').lower()] = name.text
 
         return result
 
@@ -126,7 +108,7 @@ class XLSMWrapper(excel_wrapper.ExcelWrapper):
                 sheet_type, rel_path = self.get_sheet_info(rId)
                 path = 'xl/' + rel_path
                 if sheet_type == 'Macrosheet' and name not in sheet_names:
-                    sheet = Boundsheet(self, name, sheet_type)
+                    sheet = Boundsheet(name, sheet_type)
                     result.append({'sheet': sheet,
                                    'sheet_path': path,
                                    'sheet_xml': self.get_xml_file(path)})
@@ -148,7 +130,7 @@ class XLSMWrapper(excel_wrapper.ExcelWrapper):
             cell.sheet = macrosheet
             cell.formula = formula_text
             cell.value = value_text
-            macrosheet.add_cell(cell)
+            macrosheet.cells[location] = cell
 
     def get_defined_name(self, name, full_match=True):
         result = []
@@ -166,13 +148,12 @@ class XLSMWrapper(excel_wrapper.ExcelWrapper):
 
         return result
 
-    def get_macrosheets(self, load_cell=False):
+    def get_macrosheets(self):
         if self._macrosheets is None:
             self._macrosheets = {}
             macrosheets = self.get_macrosheet_infos()
             for macrosheet in macrosheets:
-                if load_cell:
-                    self.load_cells(macrosheet['sheet'], macrosheet['sheet_xml'])
+                self.load_cells(macrosheet['sheet'], macrosheet['sheet_xml'])
                 self._macrosheets[macrosheet['sheet'].name] = macrosheet['sheet']
 
         return self._macrosheets
