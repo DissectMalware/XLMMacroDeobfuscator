@@ -74,8 +74,8 @@ class XLMInterpreter:
         row = int(row)
         current_row = row
         current_addr = col + str(current_row)
-        while macrosheet.get_cell(current_addr) is None or \
-                macrosheet.get_cell(current_addr).formula is None:
+        while current_addr not in macrosheet.cells or \
+                macrosheet.cells[current_addr].formula is None:
             if (current_row - row) < 50:
                 current_row += 1
             else:
@@ -84,7 +84,7 @@ class XLMInterpreter:
             current_addr = col + str(current_row)
 
         if not_found is False:
-            result_cell = macrosheet.get_cell(current_addr)
+            result_cell = macrosheet.cells[current_addr]
 
         return result_cell
 
@@ -132,14 +132,14 @@ class XLMInterpreter:
         if sheet_name in sheets:
             sheet = sheets[sheet_name]
             addr = col + str(row)
-            if sheet.get_cell(addr) is None:
+            if addr not in sheet.cells:
                 new_cell = Cell()
                 new_cell.column = col
                 new_cell.row = row
                 new_cell.sheet = sheet
-                sheet.add_cell(new_cell)
+                sheet.cells[addr] = new_cell
 
-            cell = sheet.get_cell(addr)
+            cell = sheet.cells[addr]
 
             if text.startswith('='):
                 cell.formula = text
@@ -212,7 +212,8 @@ class XLMInterpreter:
                     else:
                         self.set_cell(dst_sheet, dst_col, dst_row, text)
 
-                text = "FORMULA({},{})".format('"{}"'.format(text.replace('"','""')), '{}!{}{}'.format(dst_sheet, dst_col, dst_row))
+                text = "FORMULA({},{})".format('"{}"'.format(text.replace('"', '""')),
+                                               '{}!{}{}'.format(dst_sheet, dst_col, dst_row))
                 return_val = 0
 
             elif function_name == 'CALL':
@@ -289,14 +290,14 @@ class XLMInterpreter:
                         status = EvalStatus.NotImplemented
 
             else:
-                args_str =''
+                args_str = ''
                 for argument in function_arguments.children:
-                     next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, argument, False)
-                     args_str += str(return_val) +','
+                    next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, argument, False)
+                    args_str += str(return_val) + ','
                 args_str = args_str.strip(',')
                 text = '{}({})'.format(function_name, args_str)
                 # text = self.convert_parse_tree_to_str(parse_tree_root)
-                status = EvalStatus.NotImplemented
+                status = EvalStatus.PartialEvaluation
 
         elif parse_tree_root.data == 'method_call':
             text = self.convert_parse_tree_to_str(parse_tree_root)
@@ -307,13 +308,13 @@ class XLMInterpreter:
             cell_addr = col + str(row)
             sheet = self.xlm_wrapper.get_macrosheets()[sheet_name]
             missing = True
-            if sheet.get_cell(cell_addr) is None or sheet.get_cell(cell_addr).value is None:
+            if cell_addr not in sheet.cells or sheet.cells[cell_addr].value is None:
                 if interactive:
                     self.interactive_shell(current_cell,
                                            '{} is not populated, what should be its value?'.format(cell_addr))
 
-            if sheet.get_cell(cell_addr) is not None:
-                cell = sheet.get_cell(cell_addr)
+            if cell_addr in sheet.cells:
+                cell = sheet.cells[cell_addr]
                 if cell.value is not None:
                     text = cell.value
                     status = EvalStatus.FullEvaluation
@@ -490,7 +491,7 @@ if __name__ == '__main__':
 
 
     def show_cells(excel_doc):
-        macrosheets = excel_doc.get_macrosheets(True)
+        macrosheets = excel_doc.get_macrosheets()
 
         auto_open_labels = excel_doc.get_defined_name('auto_open', full_match=False)
         for label in auto_open_labels:
@@ -499,11 +500,11 @@ if __name__ == '__main__':
         for macrosheet_name in macrosheets:
             print('SHEET: {}, {}'.format(macrosheets[macrosheet_name].name,
                                          macrosheets[macrosheet_name].type))
-            for formula_loc, info in macrosheets[macrosheet_name]._cells.items():
+            for formula_loc, info in macrosheets[macrosheet_name].cells.items():
                 if info.formula is not None:
                     print('CELL:{:10}, {:20}, {}'.format(formula_loc, info.formula, info.value))
 
-            for formula_loc, info in macrosheets[macrosheet_name]._cells.items():
+            for formula_loc, info in macrosheets[macrosheet_name].cells.items():
                 if info.formula is None:
                     print('CELL:{:10}, {:20}, {}'.format(formula_loc, str(info.formula), info.value))
 
@@ -527,40 +528,36 @@ if __name__ == '__main__':
                 try:
                     start = time.time()
                     excel_doc = None
+                    print('[Loading Cells]')
+                    if file_type == 'xls':
+                        excel_doc = XLSWrapper(file_path)
+                    elif file_type == 'xlsm':
+                        excel_doc = XLSMWrapper(file_path)
+                    elif file_type == 'xlsb':
+                        excel_doc = XLSBWrapper(file_path)
 
-                    if not args[0].extract_only:
-                        if file_type == 'xls':
-                            excel_doc = XLSWrapper(file_path)
-                        elif file_type == 'xlsm':
-                            excel_doc = XLSMWrapper(file_path)
-                        elif file_type == 'xlsb':
-                            excel_doc = XLSBWrapper(file_path)
-
-                        interpreter = XLMInterpreter(excel_doc)
-                        if args[0].start_with_shell:
-                            starting_points = interpreter.xlm_wrapper.get_defined_name('auto_open',
-                                                                                       full_match=False)
-                            if len(starting_points) > 0:
-                                sheet_name, col, row = Cell.parse_cell_addr(starting_points[0][1])
-                                macros = interpreter.xlm_wrapper.get_macrosheets()
-                                if sheet_name in macros:
-                                    current_cell = interpreter.get_formula_cell(macros[sheet_name], col, row)
-                                    interpreter.interactive_shell(current_cell, "")
-                        for step in interpreter.deobfuscate_macro(not args[0].noninteractive):
-                            print(
-                                'CELL:{:10}, {:20}, {}'.format(step[0].get_local_address(), step[1].name, step[2]))
+                    if excel_doc is None:
+                        print("File format is not supported")
                     else:
-                        if file_type == 'xls':
-                            excel_doc = XLSWrapper(file_path)
-                        elif file_type == 'xlsm':
-                            excel_doc = XLSMWrapper(file_path)
-                        elif file_type == 'xlsb':
-                            excel_doc = XLSBWrapper(file_path)
+                        if not args[0].extract_only:
+                            interpreter = XLMInterpreter(excel_doc)
+                            if args[0].start_with_shell:
+                                starting_points = interpreter.xlm_wrapper.get_defined_name('auto_open',
+                                                                                           full_match=False)
+                                if len(starting_points) > 0:
+                                    sheet_name, col, row = Cell.parse_cell_addr(starting_points[0][1])
+                                    macros = interpreter.xlm_wrapper.get_macrosheets()
+                                    if sheet_name in macros:
+                                        current_cell = interpreter.get_formula_cell(macros[sheet_name], col, row)
+                                        interpreter.interactive_shell(current_cell, "")
+                            for step in interpreter.deobfuscate_macro(not args[0].noninteractive):
+                                print(
+                                    'CELL:{:10}, {:20}, {}'.format(step[0].get_local_address(), step[1].name, step[2]))
+                        else:
+                            show_cells(excel_doc)
 
-                        show_cells(excel_doc)
-
-                    end = time.time()
-                    print('time elapsed: ' + str(end - start))
+                        end = time.time()
+                        print('time elapsed: ' + str(end - start))
                 finally:
                     if type(excel_doc) is XLSWrapper:
                         excel_doc._excel.Application.DisplayAlerts = False
