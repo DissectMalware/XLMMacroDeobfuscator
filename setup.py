@@ -23,9 +23,9 @@ setup(
     author="Amirreza Niakanlahiji",
     author_email="aniak2@uis.edu",
     description=(
-        "XLMMacroDeobfuscator is an XLM Emulation engine written in Python 3, designed to"
-        "analyze and deobfuscate malicious XLM macros, also known as Excel 4.0 macros,"
-        "contined in MS Excel files (XLS, XLSM, and XLSB)."),
+        "XLMMacroDeobfuscator is an XLM Emulation engine written in Python 3, designed to "
+        "analyze and deobfuscate malicious XLM macros, also known as Excel 4.0 macros, "
+        "contained in MS Excel files (XLS, XLSM, and XLSB)."),
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/DissectMalware/XLMMacroDeobfuscator",
