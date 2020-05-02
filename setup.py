@@ -1,12 +1,15 @@
 from XLMMacroDeobfuscator import __version__
+import os
 
 try:
     from setuptools import setup
 except ImportError:
     from distutils.core import setup
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+project_dir = os.path.abspath(os.path.dirname(__file__))
+
+with open(os.path.join(project_dir, 'README.rst')) as f:
+    long_description = f.read()
 
 entry_points = {
     'console_scripts': [
