@@ -55,5 +55,6 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Topic :: Security",
         "Topic :: Software Development :: Libraries :: Python Modules",
-    ]
+    ],
+    package_data={'XLMMacroDeobfuscator':['xlm-macro.lark.template']}
 )

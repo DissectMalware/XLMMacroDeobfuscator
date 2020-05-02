@@ -56,17 +56,20 @@ class XLMInterpreter:
             return False
 
     def get_parser(self):
-        macro_grammar = open('xlm-macro.lark.template', 'r', encoding='utf_8').read()
-        macro_grammar = macro_grammar.replace('{{XLLEFTBRACKET}}',
-                                              self.xlm_wrapper.get_xl_international_char(
-                                                  XlApplicationInternational.xlLeftBracket))
-        macro_grammar = macro_grammar.replace('{{XLRIGHTBRACKET}}',
-                                              self.xlm_wrapper.get_xl_international_char(
-                                                  XlApplicationInternational.xlRightBracket))
-        macro_grammar = macro_grammar.replace('{{XLLISTSEPARATOR}}',
-                                              self.xlm_wrapper.get_xl_international_char(
-                                                  XlApplicationInternational.xlListSeparator))
-        xlm_parser = Lark(macro_grammar, parser='lalr')
+        xlm_parser = None
+        grammar_file_path = os.path.join(os.path.dirname(__file__), 'xlm-macro.lark.template')
+        with open(grammar_file_path, 'r', encoding='utf_8') as grammar_file:
+            macro_grammar = grammar_file.read()
+            macro_grammar = macro_grammar.replace('{{XLLEFTBRACKET}}',
+                                                  self.xlm_wrapper.get_xl_international_char(
+                                                      XlApplicationInternational.xlLeftBracket))
+            macro_grammar = macro_grammar.replace('{{XLRIGHTBRACKET}}',
+                                                  self.xlm_wrapper.get_xl_international_char(
+                                                      XlApplicationInternational.xlRightBracket))
+            macro_grammar = macro_grammar.replace('{{XLLISTSEPARATOR}}',
+                                                  self.xlm_wrapper.get_xl_international_char(
+                                                      XlApplicationInternational.xlListSeparator))
+            xlm_parser = Lark(macro_grammar, parser='lalr')
 
         return xlm_parser
 
