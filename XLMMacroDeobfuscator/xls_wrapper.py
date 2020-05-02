@@ -1,7 +1,6 @@
-from excel_wrapper import ExcelWrapper
-from excel_wrapper import XlApplicationInternational
-from boundsheet import Boundsheet
-from boundsheet import Cell
+from XLMMacroDeobfuscator.excel_wrapper import ExcelWrapper
+from XLMMacroDeobfuscator.boundsheet import Boundsheet
+from XLMMacroDeobfuscator.boundsheet import Cell
 from win32com.client import Dispatch
 import pywintypes
 from enum import Enum
@@ -111,7 +110,7 @@ class XLSWrapper(ExcelWrapper):
 
         for cell in cells:
             macrosheet.add_cell(cells[cell])
-
+            
     def get_macrosheets(self):
         if self._macrosheets is None:
             self._macrosheets = {}
@@ -125,7 +124,6 @@ class XLSWrapper(ExcelWrapper):
 
 if __name__ == '__main__':
 
-    # path = r"tmp\xls\1ed44778fbb022f6ab1bb8bd30849c9e4591dc16f9c0ac9d99cbf2fa3195b326.xls"
     path = r"tmp\xls\edd554502033d78ac18e4bd917d023da2fd64843c823c1be8bc273f48a5f3f5f.xls"
 
     path = os.path.abspath(path)
