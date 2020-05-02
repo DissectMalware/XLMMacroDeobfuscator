@@ -66,39 +66,43 @@ class XLSWrapper(ExcelWrapper):
             self._excel.Application.ScreenUpdating = False
             col_offset = xls_sheet.UsedRange.Column
             row_offset = xls_sheet.UsedRange.Row
-            for row_no, row in enumerate(xls_sheet.UsedRange.Formula):
-                for col_no, col in enumerate(row):
-                    if len(col) > 0:
-                        cell = Cell()
-                        cell.sheet = macrosheet
-                        cell.formula = col
-                        row_addr = row_offset + row_no
-                        col_addr = col_offset + col_no
-                        cell.row = row_addr
-                        cell.column = Cell.convert_to_column_name(col_addr)
-                        if cell.formula is not None:
-                            cells[(col_addr, row_addr)] = cell
+            formulas = xls_sheet.UsedRange.Formula
+            if formulas is not None:
+                for row_no, row in enumerate(xls_sheet.UsedRange.Formula):
+                    for col_no, col in enumerate(row):
+                        if len(col) > 0:
+                            cell = Cell()
+                            cell.sheet = macrosheet
+                            cell.formula = col
+                            row_addr = row_offset + row_no
+                            col_addr = col_offset + col_no
+                            cell.row = row_addr
+                            cell.column = Cell.convert_to_column_name(col_addr)
+                            if cell.formula is not None:
+                                cells[(col_addr, row_addr)] = cell
             self._excel.Application.ScreenUpdating = True
 
         except pywintypes.com_error as error:
             print('CELL(Formula): ' + str(error.args[2]))
 
         try:
-            for row_no, row in enumerate(xls_sheet.UsedRange.Value):
-                for col_no, col in enumerate(row):
-                    row_addr = row_offset + row_no
-                    col_addr = col_offset + col_no
+            values= xls_sheet.UsedRange.Value
+            if values is not None:
+                for row_no, row in enumerate(values):
+                    for col_no, col in enumerate(row):
+                        row_addr = row_offset + row_no
+                        col_addr = col_offset + col_no
 
-                    if col is not None:
-                        if (col_addr, row_addr) in cells:
-                            cell = cells[(col_addr, row_addr)]
-                            cell.value = col
-                        else:
-                            cell = Cell()
-                            cell.sheet = macrosheet
-                            cell.value = col
-                            if cell.value is not None:
-                                cells[(col_addr, row_addr)] = cell
+                        if col is not None:
+                            if (col_addr, row_addr) in cells:
+                                cell = cells[(col_addr, row_addr)]
+                                cell.value = col
+                            else:
+                                cell = Cell()
+                                cell.sheet = macrosheet
+                                cell.value = col
+                                if cell.value is not None:
+                                    cells[(col_addr, row_addr)] = cell
         except pywintypes.com_error as error:
             print('CELL(Constant): ' + str(error.args[2]))
 
