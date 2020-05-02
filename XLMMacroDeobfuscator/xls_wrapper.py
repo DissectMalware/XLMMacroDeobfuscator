@@ -72,12 +72,15 @@ class XLSWrapper(ExcelWrapper):
                         if len(col) > 0:
                             cell = Cell()
                             cell.sheet = macrosheet
-                            cell.formula = col
+                            if len(col)>1 and col.startswith('='):
+                                cell.formula = col
+                            else:
+                                cell.value = col
                             row_addr = row_offset + row_no
                             col_addr = col_offset + col_no
                             cell.row = row_addr
                             cell.column = Cell.convert_to_column_name(col_addr)
-                            if cell.formula is not None:
+                            if cell.formula is not None or cell.value is not None:
                                 cells[(col_addr, row_addr)] = cell
             self._excel.Application.ScreenUpdating = True
 
@@ -107,7 +110,7 @@ class XLSWrapper(ExcelWrapper):
 
         for cell in cells:
             macrosheet.add_cell(cells[cell])
-
+            
     def get_macrosheets(self):
         if self._macrosheets is None:
             self._macrosheets = {}
