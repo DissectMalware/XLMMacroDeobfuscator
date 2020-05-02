@@ -13,17 +13,31 @@ WARNING: tmp\tmp.zip contains real malicious excel documents (password: infected
 
 You can also find XLM grammar in xlm-macro.lark
 
-# Running the script
+# Installing the emulator
+
+1. Install using pip
+
+```
+pip install XLMMacroDeobfuscator
+```
+
+2. Installing the latest development
+
+```
+pip install -U https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/master.zip
+```
+
+# Running the emulator
 To run the script 
 
 ```
-python  deobfuscator.py --file document.xlsm
+xlmdeobfuscator --file document.xlsm
 ```
 
 # Usage
 
 ```
-usage: deobfuscator.py [-h] [-f FILE] [-n] [-x] [-s]
+usage: xlmdeobfuscator [-h] [-f FILE] [-n] [-x] [-s]
 
 optional arguments:
   -h, --help              show this help message and exit
