@@ -9,8 +9,6 @@ Note: Processing xlsm and xlsb files are much faster than xls files (in two orde
 
 Soon, an xls parser will be included to make it independent of MS Excel
 
-WARNING: tmp\tmp.zip contains real malicious excel documents (password: infected). Please only run them in a testing environment.
-
 You can also find XLM grammar in xlm-macro.lark
 
 # Installing the emulator
