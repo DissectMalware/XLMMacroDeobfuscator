@@ -1,9 +1,9 @@
-from excel_wrapper import ExcelWrapper
-from excel_wrapper import XlApplicationInternational
+from XLMMacroDeobfuscator.excel_wrapper import ExcelWrapper
+from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
 from pyxlsb2 import open_workbook
 from pyxlsb2.formula import Formula
 import os
-from boundsheet import *
+from XLMMacroDeobfuscator.boundsheet import *
 
 
 class XLSBWrapper(ExcelWrapper):

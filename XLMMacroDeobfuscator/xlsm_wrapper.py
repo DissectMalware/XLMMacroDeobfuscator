@@ -1,15 +1,12 @@
-from excel_wrapper import XlApplicationInternational
+from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
 from zipfile import ZipFile
 from glob import fnmatch
 from xml.etree import ElementTree
-
-from rdflib.tools.csv2rdf import column
-
-import excel_wrapper
-from boundsheet import *
+from XLMMacroDeobfuscator.excel_wrapper import ExcelWrapper
+from XLMMacroDeobfuscator.boundsheet import *
 
 
-class XLSMWrapper(excel_wrapper.ExcelWrapper):
+class XLSMWrapper(ExcelWrapper):
     def __init__(self, xlsm_doc_path):
         self.xlsm_doc_path = xlsm_doc_path
         self._workbook = None
