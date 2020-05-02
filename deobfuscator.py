@@ -262,12 +262,12 @@ class XLMInterpreter:
                 status = EvalStatus.FullEvaluation
 
             elif function_name == 'IF':
-                if size == 3:
-                    second_arg = function_arguments.children[1]
+                if size == 5:
+                    second_arg = function_arguments.children[2]
                     next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, second_arg,
                                                                                    interactive)
                     if status == EvalStatus.FullEvaluation:
-                        third_arg = function_arguments.children[2]
+                        third_arg = function_arguments.children[3]
                     status = EvalStatus.PartialEvaluation
                 else:
                     status = EvalStatus.FullEvaluation
