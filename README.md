@@ -38,7 +38,9 @@ optional arguments:
 To parse xlsb file, XLMMacroObfuscator relies on [pyxlsb2](https://github.com/DissectMalware/pyxlsb2). To install the pyxlsb2 library:
 
 ```
-pip install -U https://github.com/DissectMalware/pyxlsb2/releases/download/0.0.2/pyxlsb2-0.0.2-py3-none-any.whl
+pip install -U pyxlsb2
 ```
+
+It also requires Microsoft Excel in order to process XLS files. However, if only XLSM or XLSB files are being processed, MS Excel is not needed.
 
 \* This code is heavily under development. Expect to see radical changes in the code.
