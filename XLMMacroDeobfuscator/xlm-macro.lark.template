@@ -10,12 +10,14 @@ r1c1_notation_cell: ROW [REF | INT ] COL [REF | INT ]
 ?concat_expression: additive_expression (CONCATOP additive_expression)*
 ?additive_expression:   multiplicative_expression (ADDITIVEOP multiplicative_expression)*
 ?multiplicative_expression: final (MULTIOP final)*
-?final: L_PRA expression R_PRA | function_call | method_call | cell | atom
+?final: L_PRA expression R_PRA | function_call | method_call | cell | range | atom
+?range: cell COLON cell
 ?atom: NUMBER | STRING | BOOLEAN
 ADDITIVEOP: "+" | "-"
 MULTIOP:    "*" | "/"
 CMPOP:      "<" | ">" | "=" | "<>"
 CONCATOP:   "&"
+COLON:      ":"
 STRING:   /\"[^"]*?\"/i
 BOOLEAN: "TRUE" | "FALSE"
 ROW: "R"

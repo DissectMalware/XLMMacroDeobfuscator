@@ -15,6 +15,9 @@ class Cell:
     def get_local_address(self):
         return self.column + str(self.row)
 
+    def __str__(self):
+        return "'{}'!{}".format(self.sheet.name,self.get_local_address())
+
     @staticmethod
     def convert_to_column_index(s):
         number = 0
