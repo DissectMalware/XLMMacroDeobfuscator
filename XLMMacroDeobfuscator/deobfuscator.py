@@ -312,7 +312,9 @@ class XLMInterpreter:
                 return_val = return_val[1:-1]
             next_cell, status_dst, return_val_dst, text_dst = self.evaluate_parse_tree(current_cell,
                                                                            arguments[1],
-                                                                           interactive)
+                                                                       interactive)
+            if return_val_dst is None:
+                return_val_dst = ''
             if return_val_dst.startswith('"') and return_val_dst.endswith('"'):
                 return_val_dst = return_val_dst[1:-1]
             if status == EvalStatus.FullEvaluation and status_dst == EvalStatus.FullEvaluation:
