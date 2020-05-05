@@ -12,8 +12,21 @@ class Cell:
         self.formula = None
         self.value = None
 
+    def __deepcopy__(self, memodict={}):
+        copy = type(self)()
+        memodict[id(self)] = copy
+        copy.sheet = self.sheet
+        copy.column = self.column
+        copy.row = self.row
+        copy.formula = self.formula
+        copy.value = self.value
+        return copy
+
     def get_local_address(self):
         return self.column + str(self.row)
+
+    def __str__(self):
+        return "'{}'!{}".format(self.sheet.name,self.get_local_address())
 
     @staticmethod
     def convert_to_column_index(s):
