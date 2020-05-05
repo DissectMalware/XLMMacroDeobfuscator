@@ -56,5 +56,5 @@ setup(
         "Topic :: Security",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
-    package_data={'XLMMacroDeobfuscator':['xlm-macro.lark.template']}
+    package_data={'XLMMacroDeobfuscator':['xlm-macro.lark.template', 'configs/get_workspace.conf']}
 )

@@ -14,6 +14,7 @@ import datetime
 from XLMMacroDeobfuscator.boundsheet import *
 import os
 import operator
+import copy
 
 
 class EvalStatus(Enum):
@@ -22,6 +23,8 @@ class EvalStatus(Enum):
     Error = 3
     NotImplemented = 4
     End = 5
+    Branching = 6
+    FullBranching = 7
 
 
 class XLMInterpreter:
@@ -32,9 +35,10 @@ class XLMInterpreter:
         self.xlm_parser = self.get_parser()
         self.defined_names = self.xlm_wrapper.get_defined_names()
         self._branch_stack = []
-
+        self._workspace_defauls = {}
         self._expr_rule_names = ['expression', 'concat_expression', 'additive_expression', 'multiplicative_expression']
         self._operators = {'+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.truediv}
+        self._indent_level = 0
 
     @staticmethod
     def is_float(text):
@@ -105,8 +109,13 @@ class XLMInterpreter:
                 res_sheet, res_col, res_row = Cell.parse_cell_addr(names[label.strip('"')])
         else:
             cell = cell_parse_tree.children[0]
+
             if cell.data == 'a1_notation_cell':
-                res_sheet, res_col, res_row = Cell.parse_cell_addr(cell.children[0])
+                if len(cell.children) == 2:
+                    cell_addr = "'{}'!{}".format(cell.children[0],cell.children[1])
+                else:
+                    cell_addr = cell.children[0]
+                res_sheet, res_col, res_row = Cell.parse_cell_addr(cell_addr)
                 if res_sheet is None:
                     res_sheet = current_cell.sheet.name
             elif cell.data == 'r1c1_notation_cell':
@@ -168,6 +177,22 @@ class XLMInterpreter:
                 result += self.convert_parse_tree_to_str(child)
             return result
 
+    def get_workspace(self, number):
+        result = None
+        if len(self._workspace_defauls) == 0:
+            script_dir = os.path.dirname(__file__)
+            config_dir = os.path.join(script_dir, 'configs')
+            with open(os.path.join(config_dir,'get_workspace.conf'), 'r', encoding='utf_8') as workspace_conf_file:
+                for index, line in enumerate(workspace_conf_file):
+                    line = line.strip()
+                    if len(line) > 0:
+                        self._workspace_defauls[index+1] = line
+
+        if number in self._workspace_defauls:
+            result = self._workspace_defauls[number]
+        return result
+
+
     def evaluate_method(self, current_cell, parse_tree_root, interactive):
         status = EvalStatus.NotImplemented
         next_cell = None
@@ -191,11 +216,24 @@ class XLMInterpreter:
                 if next_sheet in sheets:
                     next_cell = self.get_formula_cell(sheets[next_sheet], next_col, next_row)
                     text = 'ON.TIME({},{})'.format(text, str(next_cell))
-                    status = EvalStatus.NotImplemented
+                    status = EvalStatus.FullEvaluation
                     return_val = 0
                 else:
                     text = 'ON.TIME({},{})'.format(text, self.convert_parse_tree_to_str(arguments[1]))
                     status = EvalStatus.Error
+        elif method_name == "GET.WORKSPACE":
+            status = EvalStatus.Error
+            if len(arguments)== 1:
+                arg_next_cell, arg_status, arg_return_val, arg_text = self.evaluate_parse_tree(current_cell,
+                                                                                               arguments[0],
+                                                                                               interactive)
+                if arg_status == EvalStatus.FullEvaluation and self.is_int(arg_text):
+                    workspace_param = self.get_workspace(int(arg_text))
+                    current_cell.value = workspace_param
+                    text = self.convert_parse_tree_to_str(parse_tree_root)
+                    return_val = workspace_param
+                    status = EvalStatus.FullEvaluation
+                    next_cell = None
 
         if text is None:
             text = self.convert_parse_tree_to_str(parse_tree_root)
@@ -246,6 +284,34 @@ class XLMInterpreter:
                 cell = self.get_formula_cell(current_cell.sheet, current_cell.column, current_cell.row)
                 cell.value = text
                 return_val = text
+        elif function_name == 'SEARCH':
+            next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell,
+                                                                           arguments[0],
+                                                                           interactive)
+            dst_sheet, dst_col, dst_row = self.get_cell_addr(current_cell, arguments[1])
+            if status == EvalStatus.FullEvaluation:
+                cell = self.get_cell(dst_sheet, dst_col, dst_row)
+                if cell:
+                    try:
+                        return_val = cell.value.lower().index(return_val.lower())
+                        text = str(return_val)
+                    except ValueError:
+                        return_val = None
+                        text = ''
+
+                    status = EvalStatus.FullEvaluation
+                else:
+                    status = EvalStatus.Error
+        elif function_name == 'ISNUMBER':
+            next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell,
+                                                                           arguments[0],
+                                                                           interactive)
+            if status == EvalStatus.FullEvaluation:
+                if type(return_val) is int or float:
+                    return_val = True
+                else:
+                    return_val = False
+                text = str(return_val)
 
         elif function_name == 'FORMULA':
             next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
@@ -284,6 +350,7 @@ class XLMInterpreter:
             next_sheet = None
             text = self.convert_parse_tree_to_str(parse_tree_root)
             status = EvalStatus.End
+            self._indent_level -= 1
 
         elif function_name == 'GOTO':
             next_sheet, next_col, next_row = self.get_cell_addr(current_cell, arguments[0])
@@ -307,23 +374,42 @@ class XLMInterpreter:
             status = EvalStatus.FullEvaluation
 
         elif function_name == 'IF':
-            if size == 3:
-                next_cell_t, status_t, return_val_t, text_t = self.evaluate_parse_tree(current_cell, arguments[1],
-                                                                               interactive)
-                next_cell_f, status_f, return_val_f, text_f = self.evaluate_parse_tree(current_cell, arguments[2],
-                                                                               interactive)
+            visited = False
 
-                if next_cell_f is not None:
-                    self._branch_stack.append(next_cell_f)
-                text = 'IF({},{},{})'.format(self.convert_parse_tree_to_str(arguments[0]),
-                                             text_t,
-                                             text_f)
+            for stack_frame in self._branch_stack:
+                if stack_frame[0].get_local_address() == current_cell.get_local_address():
+                    visited = True
+            if visited is False:
+                self._indent_level += 1
+                if size == 3:
+                    con_next_cell, con_status, con_return_val, con_text = self.evaluate_parse_tree(current_cell, arguments[0],
+                                                                                           interactive)
+                    if con_status == EvalStatus.FullEvaluation:
+                        if con_return_val:
+                            self._branch_stack.append(
+                                (current_cell, arguments[1], current_cell.sheet, self._indent_level, '[TRUE]'))
+                        else:
+                            self._branch_stack.append((current_cell, arguments[2], current_cell.sheet, self._indent_level, '[FALSE]'))
+                        text = self.convert_parse_tree_to_str(parse_tree_root)
+                        next_cell = None
+                        status = EvalStatus.Branching
+                    else:
+                        memory_state = copy.deepcopy(current_cell.sheet)
+                        self._branch_stack.append((current_cell, arguments[2], memory_state,self._indent_level, '[FALSE]'))
 
-                next_cell = next_cell_t if next_cell_t is not None else next_cell_f
-                status = EvalStatus.PartialEvaluation
+                        self._branch_stack.append((current_cell, arguments[1], current_cell.sheet, self._indent_level, '[TRUE]'))
+
+                        text = self.convert_parse_tree_to_str(parse_tree_root)
+
+                        next_cell = None
+                        status = EvalStatus.FullBranching
+                else:
+                    status = EvalStatus.FullEvaluation
+                    text = self.convert_parse_tree_to_str(parse_tree_root)
             else:
-                status = EvalStatus.FullEvaluation
-                text = self.convert_parse_tree_to_str(parse_tree_root)
+                # loop detected
+                text = '[[LOOP]]: '+ self.convert_parse_tree_to_str(parse_tree_root)
+                status = EvalStatus.End
 
         elif function_name == 'NOW':
             text = datetime.datetime.now()
@@ -488,24 +574,44 @@ class XLMInterpreter:
                 sheet_name, col, row = Cell.parse_cell_addr(auto_open_label[1])
                 if sheet_name in macros:
                     current_cell = self.get_formula_cell(macros[sheet_name], col, row)
-                    self._branch_stack = [current_cell]
-                    while len(self._branch_stack)>0:
-                        current_cell = self._branch_stack.pop()
+                    self._branch_stack = [(current_cell, current_cell.formula, macros[sheet_name], 0, '')]
+                    while len(self._branch_stack) > 0:
+                        current_cell, formula, saved_sheet, indent_level, desc = self._branch_stack.pop()
+                        macros[sheet_name] = saved_sheet
+                        self._indent_level = indent_level
+                        stack_record = True
                         while current_cell is not None:
-                            parse_tree = self.xlm_parser.parse(current_cell.formula)
+                            if type(formula) is str:
+                                parse_tree = self.xlm_parser.parse(formula)
+                            else:
+                                parse_tree = formula
+                            if stack_record:
+                                previous_indent = self._indent_level - 1
+                            else:
+                                previous_indent = self._indent_level
                             next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, parse_tree,
                                                                                            interactive)
                             if return_val is not None:
                                 current_cell.value = str(return_val)
-                            if next_cell is None and status != EvalStatus.Error:
+                            if next_cell is None and \
+                                (status == EvalStatus.FullEvaluation or \
+                                status == EvalStatus.PartialEvaluation or
+                                status == EvalStatus.NotImplemented):
+
                                 next_cell = self.get_formula_cell(current_cell.sheet,
                                                                   current_cell.column,
                                                                   str(int(current_cell.row) + 1))
-                            yield (current_cell, status, text)
+                            if stack_record:
+                                text = (desc+' '+text).strip()
+
+                            yield (current_cell, status, text, previous_indent)
+
                             if next_cell is not None:
                                 current_cell = next_cell
                             else:
                                 break
+                            formula = current_cell.formula
+                            stack_record = False
 
 
 def test_parser():
@@ -545,7 +651,6 @@ if _parent_dir not in sys.path:
     sys.path.insert(0, _parent_dir)
 
 def main():
-    test_parser()
 
     def get_file_type(path):
         file_type = None
@@ -626,7 +731,7 @@ def main():
                                         interpreter.interactive_shell(current_cell, "")
                             for step in interpreter.deobfuscate_macro(not args[0].noninteractive):
                                 print(
-                                    'CELL:{:10}, {:20}, {}'.format(step[0].get_local_address(), step[1].name, step[2]))
+                                    'CELL:{:10}, {:20},{}{}'.format(step[0].get_local_address(), step[1].name, ''.join( ['\t']*step[3]), step[2]))
                         else:
                             show_cells(excel_doc)
 
