@@ -11,6 +11,7 @@ class Cell:
         self.row = 0
         self.formula = None
         self.value = None
+        self.attribs = {}
 
     def __deepcopy__(self, memodict={}):
         copy = type(self)()
@@ -63,6 +64,8 @@ class Boundsheet:
         self.name = name
         self.type = type
         self.cells = {}
+        self.row_heights = {}
+        self.row_height_default = 15
 
     def add_cell(self, cell):
         cell.sheet = self

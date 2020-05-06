@@ -127,7 +127,16 @@ class XLSMWrapper(ExcelWrapper):
             cell.sheet = macrosheet
             cell.formula = formula_text
             cell.value = value_text
+            cell.attribs = cell_elm.attrib
             macrosheet.cells[location] = cell
+
+    def load_row_heights(self, macrosheet, macrosheet_xml):
+        nsmap = {'main': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+        rows = macrosheet_xml.findall('.//main:row[@ht]', namespaces=nsmap)
+        for row in rows:
+            macrosheet.row_heights[row.attrib['r']] = row.attrib['ht']
+
+
 
     def get_defined_name(self, name, full_match=True):
         result = []
@@ -151,6 +160,7 @@ class XLSMWrapper(ExcelWrapper):
             macrosheets = self.get_macrosheet_infos()
             for macrosheet in macrosheets:
                 self.load_cells(macrosheet['sheet'], macrosheet['sheet_xml'])
+                self.load_row_heights(macrosheet['sheet'], macrosheet['sheet_xml'])
                 self._macrosheets[macrosheet['sheet'].name] = macrosheet['sheet']
 
         return self._macrosheets
