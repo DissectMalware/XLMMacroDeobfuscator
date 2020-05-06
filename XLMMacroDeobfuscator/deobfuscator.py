@@ -344,10 +344,9 @@ class XLMInterpreter:
                 if text.startswith('"=') is False and self.is_float(text[1:-1]) is False:
                     self.set_cell(dst_sheet, dst_col, dst_row, text)
                 else:
-                    text = text[1:-1]
-                    self.set_cell(dst_sheet, dst_col, dst_row, text)
+                    self.set_cell(dst_sheet, dst_col, dst_row, text[1:-1].replace('""','"'))
 
-            text = "FORMULA({},{})".format('"{}"'.format(text.replace('"', '""')),
+            text = "FORMULA({},{})".format('{}'.format(text),
                                            '{}!{}{}'.format(dst_sheet, dst_col, dst_row))
             return_val = 0
 
@@ -548,7 +547,7 @@ class XLMInterpreter:
                                 text_right = text_right[1:-1].replace('""','"')
 
                             text_left = text_left + text_right
-                            text_left = '"{}"'.format(text_left)
+                            # text_left = '"{}"'.format(text_left)
                         elif self.is_float(text_left) and self.is_float(text_right):
                             if op_str in self._operators:
                                 op_res = self._operators[op_str](float(text_left), float(text_right))
