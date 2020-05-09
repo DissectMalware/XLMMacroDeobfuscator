@@ -3,13 +3,9 @@ XLMMacroDeobfuscator can be used to decode obfuscated XLM macros (also known as 
 
 It supports both xls, xlsm, and xlsb formats. 
 
-It uses [pyxlsb2](https://github.com/DissectMalware/pyxlsb2) and its own parser to extract cells and other information from xlsb and xlsm files. However, it relies on MS Excel to extract such information. As such, you need to have MS Excel on the machine if you want to process xls files.
+It uses [xlrd2](https://github.com/DissectMalware/xlrd2), [pyxlsb2](https://github.com/DissectMalware/pyxlsb2) and its own parser to extract cells and other information from xls, xlsb and xlsm files, respectively.
 
-Note: Processing xlsm and xlsb files are much faster than xls files (in two orders of magnitude)
-
-Soon, an xls parser will be included to make it independent of MS Excel
-
-You can also find XLM grammar in xlm-macro.lark
+You can also find XLM grammar in xlm-macro-en.lark
 
 # Installing the emulator
 
@@ -35,24 +31,23 @@ xlmdeobfuscator --file document.xlsm
 # Usage
 
 ```
-usage: xlmdeobfuscator [-h] [-f FILE] [-n] [-x] [-s]
+usage: xlmdeobfuscator [-h] [-f FILE] [-n] [-x] [-2] [-s]
 
 optional arguments:
   -h, --help              show this help message and exit
   -f FILE, --file FILE    The path of a XLSM file
   -n, --noninteractive    Disable interactive shell
   -x, --extract-only      Only extract cells without any emulation
+  -2, --no-ms-excel       Do not use MS Excel to process XLS files
   -s, --start-with-shell  Open an XLM shell before interpreting the macros in
                           the input
 ```
 
-# Prerequisit
-To parse xlsb file, XLMMacroObfuscator relies on [pyxlsb2](https://github.com/DissectMalware/pyxlsb2). To install the pyxlsb2 library:
+Read requirements.txt to get the list of python libraries that XLMMacroDeobfuscator is dependent on.
 
-```
-pip install -U pyxlsb2
-```
+You can run XLMMacroDeobfuscator on any OS to extract and deobfuscate macros in xls, xlsm, and xlsb files. No need to install MS Excel.
 
-It also requires Microsoft Excel in order to process XLS files. However, if only XLSM or XLSB files are being processed, MS Excel is not needed.
+Note: if you want to use MS Excel (on Windows), you need to install pywin32 library. if you do not want to use MS Excel, use --no-ms-excel.
+Otherwise, xlmdeobfuscator, first, attempts to load xls files with MS Excel, if it fails it uses xlrd2.
 
-\* This code is heavily under development. Expect to see radical changes in the code.
+\* This code is still heavily under development. Expect to see radical changes in the code.

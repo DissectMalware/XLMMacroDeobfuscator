@@ -8,6 +8,7 @@ from lark.tree import Tree
 from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
 from XLMMacroDeobfuscator.xlsm_wrapper import XLSMWrapper
 from XLMMacroDeobfuscator.xls_wrapper import XLSWrapper
+from XLMMacroDeobfuscator.xls_wrapper_2 import XLSWrapper2
 from XLMMacroDeobfuscator.xlsb_wrapper import XLSBWrapper
 from enum import Enum
 import time
@@ -239,8 +240,9 @@ class XLMInterpreter:
                 arg_next_cell, arg_status, arg_return_val, arg_text = self.evaluate_parse_tree(current_cell,
                                                                                                arguments[0],
                                                                                                interactive)
-                if arg_status == EvalStatus.FullEvaluation and self.is_int(arg_text):
-                    workspace_param = self.get_workspace(int(arg_text))
+
+                if arg_status == EvalStatus.FullEvaluation and self.is_float(arg_text):
+                    workspace_param = self.get_workspace(int(float(arg_text)))
                     current_cell.value = workspace_param
                     text = self.convert_parse_tree_to_str(parse_tree_root)
                     return_val = workspace_param
@@ -748,6 +750,8 @@ def main():
                             help="Disable interactive shell")
     arg_parser.add_argument("-x", "--extract-only", default=False, action='store_true',
                             help="Only extract cells without any emulation")
+    arg_parser.add_argument("-2", "--no-ms-excel", default=False, action='store_true',
+                            help="Do not use MS Excel to process XLS files")
 
     arg_parser.add_argument("-s", "--start-with-shell", default=False, action='store_true',
                             help="Open an XLM shell before interpreting the macros in the input")
@@ -763,7 +767,13 @@ def main():
                     excel_doc = None
                     print('[Loading Cells]')
                     if file_type == 'xls':
-                        excel_doc = XLSWrapper(file_path)
+                        if args[0].no_ms_excel:
+                            excel_doc = XLSWrapper2(file_path)
+                        else:
+                            try:
+                                excel_doc = XLSWrapper(file_path)
+                            except Exception as exp:
+                                excel_doc = XLSWrapper2(file_path)
                     elif file_type == 'xlsm':
                         excel_doc = XLSMWrapper(file_path)
                     elif file_type == 'xlsb':
