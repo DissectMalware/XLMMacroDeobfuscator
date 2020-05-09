@@ -750,6 +750,8 @@ def main():
                             help="Disable interactive shell")
     arg_parser.add_argument("-x", "--extract-only", default=False, action='store_true',
                             help="Only extract cells without any emulation")
+    arg_parser.add_argument("-2", "--no-ms-excel", default=False, action='store_true',
+                            help="Only extract cells without any emulation")
 
     arg_parser.add_argument("-s", "--start-with-shell", default=False, action='store_true',
                             help="Open an XLM shell before interpreting the macros in the input")
@@ -765,7 +767,13 @@ def main():
                     excel_doc = None
                     print('[Loading Cells]')
                     if file_type == 'xls':
-                        excel_doc = XLSWrapper2(file_path)
+                        if args[0].no_ms_excel:
+                            excel_doc = XLSWrapper2(file_path)
+                        else:
+                            try:
+                                excel_doc = XLSWrapper(file_path)
+                            except Exception as exp:
+                                excel_doc = XLSWrapper2(file_path)
                     elif file_type == 'xlsm':
                         excel_doc = XLSMWrapper(file_path)
                     elif file_type == 'xlsb':
