@@ -3,13 +3,9 @@ XLMMacroDeobfuscator can be used to decode obfuscated XLM macros (also known as 
 
 It supports both xls, xlsm, and xlsb formats. 
 
-It uses [pyxlsb2](https://github.com/DissectMalware/pyxlsb2) and its own parser to extract cells and other information from xlsb and xlsm files. However, it relies on MS Excel to extract such information. As such, you need to have MS Excel on the machine if you want to process xls files.
+It uses [xlrd2](https://github.com/DissectMalware/xlrd2), [pyxlsb2](https://github.com/DissectMalware/pyxlsb2) and its own parser to extract cells and other information from xls, xlsb and xlsm files, respectively.
 
-Note: Processing xlsm and xlsb files are much faster than xls files (in two orders of magnitude)
-
-Soon, an xls parser will be included to make it independent of MS Excel
-
-You can also find XLM grammar in xlm-macro.lark
+You can also find XLM grammar in xlm-macro-en.lark
 
 # Installing the emulator
 
@@ -46,13 +42,8 @@ optional arguments:
                           the input
 ```
 
-# Prerequisit
-To parse xlsb file, XLMMacroObfuscator relies on [pyxlsb2](https://github.com/DissectMalware/pyxlsb2). To install the pyxlsb2 library:
+Read requirements.txt to get the list of python libraries that XLMMacroDeobfuscator is dependent on.
 
-```
-pip install -U pyxlsb2
-```
+You can run XLMMacroDeobfuscator on any OS to extract and deobfuscate macros in xls, xlsm, and xlsb files. No need to install MS Excel.
 
-It also requires Microsoft Excel in order to process XLS files. However, if only XLSM or XLSB files are being processed, MS Excel is not needed.
-
-\* This code is heavily under development. Expect to see radical changes in the code.
+\* This code is still heavily under development. Expect to see radical changes in the code.
