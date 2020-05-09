@@ -53,16 +53,17 @@ class XLSWrapper2(ExcelWrapper):
     def load_cells(self, macrosheet, xls_sheet):
         try:
             for row in xls_sheet.get_rows():
-                for xls_cell in row:
-                    cell = Cell()
-                    cell.sheet = macrosheet
-                    if xls_cell.formula is not None and len(xls_cell.formula)>0:
-                        cell.formula = '=' + xls_cell.formula
-                    cell.value = xls_cell.value
-                    cell.row = xls_cell.row + 1
-                    cell.column = Cell.convert_to_column_name(xls_cell.column + 1)
-                    if cell.value is not None or cell.formula is not None:
-                        macrosheet.add_cell(cell)
+                if row is not None:
+                    for xls_cell in row:
+                        cell = Cell()
+                        cell.sheet = macrosheet
+                        if xls_cell.formula is not None and len(xls_cell.formula)>0:
+                            cell.formula = '=' + xls_cell.formula
+                        cell.value = xls_cell.value
+                        cell.row = xls_cell.row + 1
+                        cell.column = Cell.convert_to_column_name(xls_cell.column + 1)
+                        if cell.value is not None or cell.formula is not None:
+                            macrosheet.add_cell(cell)
 
         except Exception as error:
             print('CELL(Formula): ' + str(error.args[2]))
