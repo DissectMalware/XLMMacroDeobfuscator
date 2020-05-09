@@ -31,13 +31,14 @@ xlmdeobfuscator --file document.xlsm
 # Usage
 
 ```
-usage: xlmdeobfuscator [-h] [-f FILE] [-n] [-x] [-s]
+usage: deobfuscator.py [-h] [-f FILE] [-n] [-x] [-2] [-s]
 
 optional arguments:
   -h, --help              show this help message and exit
   -f FILE, --file FILE    The path of a XLSM file
   -n, --noninteractive    Disable interactive shell
   -x, --extract-only      Only extract cells without any emulation
+  -2, --no-ms-excel       Do not use MS Excel to process XLS files
   -s, --start-with-shell  Open an XLM shell before interpreting the macros in
                           the input
 ```
