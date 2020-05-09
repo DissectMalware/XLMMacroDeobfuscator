@@ -31,7 +31,7 @@ xlmdeobfuscator --file document.xlsm
 # Usage
 
 ```
-usage: deobfuscator.py [-h] [-f FILE] [-n] [-x] [-2] [-s]
+usage: xlmdeobfuscator [-h] [-f FILE] [-n] [-x] [-2] [-s]
 
 optional arguments:
   -h, --help              show this help message and exit
@@ -46,5 +46,8 @@ optional arguments:
 Read requirements.txt to get the list of python libraries that XLMMacroDeobfuscator is dependent on.
 
 You can run XLMMacroDeobfuscator on any OS to extract and deobfuscate macros in xls, xlsm, and xlsb files. No need to install MS Excel.
+
+Note: if you want to use MS Excel (on Windows), you need to install pywin32 library. if you do not want to use MS Excel, use --no-ms-excel.
+Otherwise, xlmdeobfuscator, first, attempts to load xls files with MS Excel, if it fails it uses xlrd2.
 
 \* This code is still heavily under development. Expect to see radical changes in the code.
