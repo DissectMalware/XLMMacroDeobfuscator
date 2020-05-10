@@ -513,6 +513,9 @@ class XLMInterpreter:
             text = parse_tree_root.value
             status = EvalStatus.FullEvaluation
             return_val = text
+        elif type(parse_tree_root) is list:
+            return_val = text = ''
+            status = EvalStatus.FullEvaluation
         elif parse_tree_root.data == 'function_call':
             next_cell, status, return_val, text = self.evaluate_function(current_cell, parse_tree_root, interactive)
 
