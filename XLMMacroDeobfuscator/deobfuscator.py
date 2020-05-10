@@ -744,16 +744,25 @@ def show_cells(excel_doc):
     macrosheets = excel_doc.get_macrosheets()
     auto_open_labels = excel_doc.get_defined_name('auto_open', full_match=False)
     for label in auto_open_labels:
-        print('auto_open: {}->{}'.format(label[0], label[1]))
+        uprint('auto_open: {}->{}'.format(label[0], label[1]))
     for macrosheet_name in macrosheets:
-        print('SHEET: {}, {}'.format(macrosheets[macrosheet_name].name,
+        uprint('SHEET: {}, {}'.format(macrosheets[macrosheet_name].name,
                                         macrosheets[macrosheet_name].type))
         for formula_loc, info in macrosheets[macrosheet_name].cells.items():
             if info.formula is not None:
-                print('CELL:{:10}, {:20}, {}'.format(formula_loc, info.formula, info.value))
+                uprint('CELL:{:10}, {:20}, {}'.format(formula_loc, info.formula, info.value))
         for formula_loc, info in macrosheets[macrosheet_name].cells.items():
             if info.formula is None:
-                print('CELL:{:10}, {:20}, {}'.format(formula_loc, str(info.formula), info.value))
+                uprint('CELL:{:10}, {:20}, {}'.format(formula_loc, str(info.formula), info.value))
+
+
+def uprint(*objects, sep=' ', end='\n', file=sys.stdout):
+    enc = file.encoding
+    if enc == 'UTF-8':
+        print(*objects, sep=sep, end=end, file=file)
+    else:
+        f = lambda obj: str(obj).encode(enc, errors='backslashreplace').decode(enc)
+        print(*map(f, objects), sep=sep, end=end, file=file)
 
 
 def process_file(**kwargs):
@@ -807,7 +816,7 @@ def process_file(**kwargs):
                         interpreter.interactive_shell(current_cell, "")
             for step in interpreter.deobfuscate_macro(not kwargs.get("noninteractive")):
                 if not kwargs.get("return_deobfuscated"):
-                    print('CELL:{:10}, {:20},{}{}'.format(step[0].get_local_address(), step[1].name, ''.join( ['\t']*step[3]), step[2]))
+                    uprint('CELL:{:10}, {:20},{}{}'.format(step[0].get_local_address(), step[1].name, ''.join( ['\t']*step[3]), step[2]))
                 else:
                     deobfuscated.append('CELL:{:10}, {:20},{}{}'.format(step[0].get_local_address(), step[1].name, ''.join( ['\t']*step[3]), step[2]))
         print('time elapsed: ' + str(time.time() - start))
@@ -818,6 +827,7 @@ def process_file(**kwargs):
 
     if kwargs.get("return_deobfuscated"):
         return deobfuscated
+
 
 def main():
 
