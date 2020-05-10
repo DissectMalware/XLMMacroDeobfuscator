@@ -7,7 +7,10 @@ from lark.lexer import Token
 from lark.tree import Tree
 from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
 from XLMMacroDeobfuscator.xlsm_wrapper import XLSMWrapper
-from XLMMacroDeobfuscator.xls_wrapper import XLSWrapper
+try:
+    from XLMMacroDeobfuscator.xls_wrapper import XLSWrapper
+except:
+    print("Excel is not present")
 from XLMMacroDeobfuscator.xls_wrapper_2 import XLSWrapper2
 from XLMMacroDeobfuscator.xlsb_wrapper import XLSBWrapper
 from enum import Enum
