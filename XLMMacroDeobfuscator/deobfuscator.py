@@ -768,12 +768,12 @@ def process_file(**kwargs):
         'file': '/tmp/8a6e4c10c30b773147d0d7c8307d88f1cf242cb01a9747bfec0319befdc1fcaf',
         'noninteractive': False,
         'extract_only': False,
-        'no_ms_excel': False,
+        'no_ms_excel': True,
         'start_with_shell': False
     }
     """
     file_path = os.path.abspath(kwargs.get("file"))
-    file_type = get_file_type(os.path.abspath(kwargs.get("file")))
+    file_type = get_file_type(file_path)
     if file_type is None:
         return('ERROR: input file type is not supported')
 
