@@ -762,15 +762,14 @@ def show_cells(excel_doc):
 
 def process_file(**kwargs):
     """
-        {
-            'file': '/tmp/8a6e4c10c30b773147d0d7c8307d88f1cf242cb01a9747bfec0319befdc1fcaf',
-            'noninteractive': False,
-            'extract_only': False,
-            'no_ms_excel': False,
-            'start_with_shell': False
-        }
+    {
+        'file': '/tmp/8a6e4c10c30b773147d0d7c8307d88f1cf242cb01a9747bfec0319befdc1fcaf',
+        'noninteractive': False,
+        'extract_only': False,
+        'no_ms_excel': False,
+        'start_with_shell': False
+    }
     """
-    #import code;code.interact(local=dict(locals(), **globals()))
     file_path = os.path.abspath(kwargs.get("file"))
     file_type = get_file_type(os.path.abspath(kwargs.get("file")))
     if file_type is None:
