@@ -821,7 +821,8 @@ def main():
                         end = time.time()
                         print('time elapsed: ' + str(end - start))
                 finally:
-                    if type(excel_doc) is XLSWrapper:
+
+                    if 'XLSWrapper' in globals() and type(excel_doc) is XLSWrapper:
                         excel_doc._excel.Application.DisplayAlerts = False
                         excel_doc._excel.Application.Quit()
             else:
