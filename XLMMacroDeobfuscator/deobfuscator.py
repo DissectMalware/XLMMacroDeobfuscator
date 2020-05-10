@@ -208,6 +208,21 @@ class XLMInterpreter:
             result = self._workspace_defauls[number]
         return result
 
+    def evaluate_formula(self, current_cell, name, arguments, interactive):
+        next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        dst_sheet, dst_col, dst_row = self.get_cell_addr(current_cell, arguments[1])
+        if status == EvalStatus.FullEvaluation:
+            if text.startswith('"=') is False and self.is_float(text[1:-1]) is False:
+                self.set_cell(dst_sheet, dst_col, dst_row, text)
+            else:
+                text = text[1:-1]
+                self.set_cell(dst_sheet, dst_col, dst_row, text)
+
+        text = "{}({},{})".format(name,
+                                   '"{}"'.format(text.replace('"', '""')),
+                                   '{}!{}{}'.format(dst_sheet, dst_col, dst_row))
+        return_val = 0
+        return next_cell, status, return_val, text
 
     def evaluate_method(self, current_cell, parse_tree_root, interactive):
         status = EvalStatus.NotImplemented
@@ -255,6 +270,9 @@ class XLMInterpreter:
             self._indent_level -= 1
             self._indent_current_line = True
             status = EvalStatus.FullEvaluation
+        elif method_name == "FORMULA.FILL":
+            next_cell, status, return_val, text = self.evaluate_formula(current_cell, method_name, arguments,
+                                                                        interactive)
 
         if text is None:
             text = self.convert_parse_tree_to_str(parse_tree_root)
@@ -303,10 +321,15 @@ class XLMInterpreter:
                                                                            arguments[0],
                                                                            interactive)
             if status == EvalStatus.FullEvaluation:
-                text = chr(int(float(text)))
-                cell = self.get_formula_cell(current_cell.sheet, current_cell.column, current_cell.row)
-                cell.value = text
-                return_val = text
+                if 0 <float(text) < 0x110000:
+                    text = chr(int(float(text)))
+                    cell = self.get_formula_cell(current_cell.sheet, current_cell.column, current_cell.row)
+                    cell.value = text
+                    return_val = text
+                else:
+                    text = self.convert_parse_tree_to_str(parse_tree_root)
+                    return_val = text
+                    status = EvalStatus.Error
         elif function_name == 'SEARCH':
             next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell,
                                                                            arguments[0],
@@ -343,17 +366,7 @@ class XLMInterpreter:
                 text = str(return_val)
 
         elif function_name == 'FORMULA':
-            next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
-            dst_sheet, dst_col, dst_row = self.get_cell_addr(current_cell, arguments[1])
-            if status == EvalStatus.FullEvaluation:
-                if text.startswith('"=') is False and self.is_float(text[1:-1]) is False:
-                    self.set_cell(dst_sheet, dst_col, dst_row, text)
-                else:
-                    self.set_cell(dst_sheet, dst_col, dst_row, text[1:-1].replace('""','"'))
-
-            text = "FORMULA({},{})".format('{}'.format(text),
-                                           '{}!{}{}'.format(dst_sheet, dst_col, dst_row))
-            return_val = 0
+            next_cell, status, return_val, text = self.evaluate_formula(current_cell, function_name, arguments, interactive)
 
         elif function_name == 'CALL':
             argument_texts = []
