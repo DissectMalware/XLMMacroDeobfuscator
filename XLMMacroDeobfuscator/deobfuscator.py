@@ -53,9 +53,7 @@ class XLMInterpreter:
         try:
             float(text)
             return True
-        except ValueError:
-            return False
-        except TypeError:
+        except (ValueError, TypeError):
             return False
 
     @staticmethod
@@ -63,9 +61,7 @@ class XLMInterpreter:
         try:
             int(text)
             return True
-        except ValueError:
-            return False
-        except TypeError:
+        except (ValueError, TypeError):
             return False
 
     @staticmethod
@@ -73,9 +69,7 @@ class XLMInterpreter:
         try:
             bool(text)
             return True
-        except ValueError:
-            return False
-        except TypeError:
+        except (ValueError, TypeError):
             return False
 
     def get_parser(self):
@@ -769,9 +763,11 @@ def process_file(**kwargs):
         'noninteractive': False,
         'extract_only': False,
         'no_ms_excel': True,
-        'start_with_shell': False
+        'start_with_shell': False,
+        'return_deobfuscated': False,
     }
     """
+    deobfuscated = list()
     file_path = os.path.abspath(kwargs.get("file"))
     file_type = get_file_type(file_path)
     if file_type is None:
@@ -810,14 +806,18 @@ def process_file(**kwargs):
                         current_cell = interpreter.get_formula_cell(macros[sheet_name], col, row)
                         interpreter.interactive_shell(current_cell, "")
             for step in interpreter.deobfuscate_macro(not kwargs.get("noninteractive")):
-                print(
-                    'CELL:{:10}, {:20},{}{}'.format(step[0].get_local_address(), step[1].name, ''.join( ['\t']*step[3]), step[2]))
-
+                if not kwargs.get("return_deobfuscated"):
+                    print('CELL:{:10}, {:20},{}{}'.format(step[0].get_local_address(), step[1].name, ''.join( ['\t']*step[3]), step[2]))
+                else:
+                    deobfuscated.append('CELL:{:10}, {:20},{}{}'.format(step[0].get_local_address(), step[1].name, ''.join( ['\t']*step[3]), step[2]))
         print('time elapsed: ' + str(time.time() - start))
     finally:
         if HAS_XLSWrapper and type(excel_doc) is XLSWrapper:
             excel_doc._excel.Application.DisplayAlerts = False
             excel_doc._excel.Application.Quit()
+
+    if kwargs.get("return_deobfuscated"):
+        return deobfuscated
 
 def main():
 
