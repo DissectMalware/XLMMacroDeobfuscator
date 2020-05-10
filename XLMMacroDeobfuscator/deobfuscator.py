@@ -822,6 +822,7 @@ def process_file(**kwargs):
 def main():
 
     arg_parser = argparse.ArgumentParser()
+    
     arg_parser.add_argument("-f", "--file", type=str, action='store', help="The path of a XLSM file")
     arg_parser.add_argument("-n", "--noninteractive", default=False, action='store_true',
                             help="Disable interactive shell")
@@ -829,7 +830,6 @@ def main():
                             help="Only extract cells without any emulation")
     arg_parser.add_argument("-2", "--no-ms-excel", default=False, action='store_true',
                             help="Do not use MS Excel to process XLS files")
-
     arg_parser.add_argument("-s", "--start-with-shell", default=False, action='store_true',
                             help="Open an XLM shell before interpreting the macros in the input")
 
