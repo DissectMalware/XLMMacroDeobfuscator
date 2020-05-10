@@ -9,7 +9,9 @@ from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
 from XLMMacroDeobfuscator.xlsm_wrapper import XLSMWrapper
 try:
     from XLMMacroDeobfuscator.xls_wrapper import XLSWrapper
+    HAS_XLSWrapper = True
 except:
+    HAS_XLSWrapper = False
     print("Excel is not present")
 from XLMMacroDeobfuscator.xls_wrapper_2 import XLSWrapper2
 from XLMMacroDeobfuscator.xlsb_wrapper import XLSBWrapper
@@ -51,9 +53,7 @@ class XLMInterpreter:
         try:
             float(text)
             return True
-        except ValueError:
-            return False
-        except TypeError:
+        except (ValueError, TypeError):
             return False
 
     @staticmethod
@@ -61,9 +61,7 @@ class XLMInterpreter:
         try:
             int(text)
             return True
-        except ValueError:
-            return False
-        except TypeError:
+        except (ValueError, TypeError):
             return False
 
     @staticmethod
@@ -71,9 +69,7 @@ class XLMInterpreter:
         try:
             bool(text)
             return True
-        except ValueError:
-            return False
-        except TypeError:
+        except (ValueError, TypeError):
             return False
 
     def get_parser(self):
@@ -628,6 +624,8 @@ class XLMInterpreter:
                         break
                 except ParseError as exp:
                     print("Invalid XLM macro")
+                except KeyboardInterrupt:
+                    sys.exit()
             else:
                 break
 
@@ -725,114 +723,127 @@ _parent_dir = os.path.normpath(os.path.join(_thismodule_dir, '..'))
 if _parent_dir not in sys.path:
     sys.path.insert(0, _parent_dir)
 
+def get_file_type(path):
+    file_type = None
+    with open(path, 'rb') as input_file:
+        start_marker = input_file.read(2)
+        if start_marker == b'\xD0\xCF':
+            file_type = 'xls'
+        elif start_marker == b'\x50\x4B':
+            file_type = 'xlsm/b'
+    if file_type == 'xlsm/b':
+        raw_bytes = open(path, 'rb').read()
+        if bytes('workbook.bin', 'ascii') in raw_bytes:
+            file_type = 'xlsb'
+        else:
+            file_type = 'xlsm'
+    return file_type
+
+
+def show_cells(excel_doc):
+    macrosheets = excel_doc.get_macrosheets()
+    auto_open_labels = excel_doc.get_defined_name('auto_open', full_match=False)
+    for label in auto_open_labels:
+        print('auto_open: {}->{}'.format(label[0], label[1]))
+    for macrosheet_name in macrosheets:
+        print('SHEET: {}, {}'.format(macrosheets[macrosheet_name].name,
+                                        macrosheets[macrosheet_name].type))
+        for formula_loc, info in macrosheets[macrosheet_name].cells.items():
+            if info.formula is not None:
+                print('CELL:{:10}, {:20}, {}'.format(formula_loc, info.formula, info.value))
+        for formula_loc, info in macrosheets[macrosheet_name].cells.items():
+            if info.formula is None:
+                print('CELL:{:10}, {:20}, {}'.format(formula_loc, str(info.formula), info.value))
+
+
+def process_file(**kwargs):
+    """
+    {
+        'file': '/tmp/8a6e4c10c30b773147d0d7c8307d88f1cf242cb01a9747bfec0319befdc1fcaf',
+        'noninteractive': False,
+        'extract_only': False,
+        'no_ms_excel': True,
+        'start_with_shell': False,
+        'return_deobfuscated': False,
+    }
+    """
+    deobfuscated = list()
+    file_path = os.path.abspath(kwargs.get("file"))
+    file_type = get_file_type(file_path)
+    if file_type is None:
+        return('ERROR: input file type is not supported')
+
+    try:
+        start = time.time()
+        excel_doc = None
+        print('[Loading Cells]')
+        if file_type == 'xls':
+            if kwargs.get("no_ms_excel"):
+                excel_doc = XLSWrapper2(file_path)
+            else:
+                try:
+                    excel_doc = XLSWrapper(file_path)
+                except Exception as exp:
+                    excel_doc = XLSWrapper2(file_path)
+        elif file_type == 'xlsm':
+            excel_doc = XLSMWrapper(file_path)
+        elif file_type == 'xlsb':
+            excel_doc = XLSBWrapper(file_path)
+        if excel_doc is None:
+            return("File format is not supported")
+
+        if kwargs.get("extract_only"):
+            show_cells(excel_doc)
+        else:
+            interpreter = XLMInterpreter(excel_doc)
+            if kwargs.get("start_with_shell"):
+                starting_points = interpreter.xlm_wrapper.get_defined_name('auto_open',
+                                                                            full_match=False)
+                if len(starting_points) > 0:
+                    sheet_name, col, row = Cell.parse_cell_addr(starting_points[0][1])
+                    macros = interpreter.xlm_wrapper.get_macrosheets()
+                    if sheet_name in macros:
+                        current_cell = interpreter.get_formula_cell(macros[sheet_name], col, row)
+                        interpreter.interactive_shell(current_cell, "")
+            for step in interpreter.deobfuscate_macro(not kwargs.get("noninteractive")):
+                if not kwargs.get("return_deobfuscated"):
+                    print('CELL:{:10}, {:20},{}{}'.format(step[0].get_local_address(), step[1].name, ''.join( ['\t']*step[3]), step[2]))
+                else:
+                    deobfuscated.append('CELL:{:10}, {:20},{}{}'.format(step[0].get_local_address(), step[1].name, ''.join( ['\t']*step[3]), step[2]))
+        print('time elapsed: ' + str(time.time() - start))
+    finally:
+        if HAS_XLSWrapper and type(excel_doc) is XLSWrapper:
+            excel_doc._excel.Application.DisplayAlerts = False
+            excel_doc._excel.Application.Quit()
+
+    if kwargs.get("return_deobfuscated"):
+        return deobfuscated
+
 def main():
 
-    def get_file_type(path):
-        file_type = None
-        with open(path, 'rb') as input_file:
-            start_marker = input_file.read(2)
-            if start_marker == b'\xD0\xCF':
-                file_type = 'xls'
-            elif start_marker == b'\x50\x4B':
-                file_type = 'xlsm/b'
-        if file_type == 'xlsm/b':
-            raw_bytes = open(path, 'rb').read()
-            if bytes('workbook.bin', 'ascii') in raw_bytes:
-                file_type = 'xlsb'
-            else:
-                file_type = 'xlsm'
-        return file_type
-
-
-    def show_cells(excel_doc):
-        macrosheets = excel_doc.get_macrosheets()
-
-        auto_open_labels = excel_doc.get_defined_name('auto_open', full_match=False)
-        for label in auto_open_labels:
-            print('auto_open: {}->{}'.format(label[0], label[1]))
-
-        for macrosheet_name in macrosheets:
-            print('SHEET: {}, {}'.format(macrosheets[macrosheet_name].name,
-                                         macrosheets[macrosheet_name].type))
-            for formula_loc, info in macrosheets[macrosheet_name].cells.items():
-                if info.formula is not None:
-                    print('CELL:{:10}, {:20}, {}'.format(formula_loc, info.formula, info.value))
-
-            for formula_loc, info in macrosheets[macrosheet_name].cells.items():
-                if info.formula is None:
-                    print('CELL:{:10}, {:20}, {}'.format(formula_loc, str(info.formula), info.value))
-
-
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("-f", "--file", type=str, help="The path of a XLSM file")
+    
+    arg_parser.add_argument("-f", "--file", type=str, action='store', help="The path of a XLSM file")
     arg_parser.add_argument("-n", "--noninteractive", default=False, action='store_true',
                             help="Disable interactive shell")
     arg_parser.add_argument("-x", "--extract-only", default=False, action='store_true',
                             help="Only extract cells without any emulation")
     arg_parser.add_argument("-2", "--no-ms-excel", default=False, action='store_true',
                             help="Do not use MS Excel to process XLS files")
-
     arg_parser.add_argument("-s", "--start-with-shell", default=False, action='store_true',
                             help="Open an XLM shell before interpreting the macros in the input")
 
-    args = arg_parser.parse_known_args()
-    if args[0].file is not None:
-        if os.path.exists(args[0].file):
-            file_path = os.path.abspath(args[0].file)
-            file_type = get_file_type(file_path)
-            if file_type is not None:
-                try:
-                    start = time.time()
-                    excel_doc = None
-                    print('[Loading Cells]')
-                    if file_type == 'xls':
-                        if args[0].no_ms_excel:
-                            excel_doc = XLSWrapper2(file_path)
-                        else:
-                            try:
-                                excel_doc = XLSWrapper(file_path)
-                            except Exception as exp:
-                                excel_doc = XLSWrapper2(file_path)
-                    elif file_type == 'xlsm':
-                        excel_doc = XLSMWrapper(file_path)
-                    elif file_type == 'xlsb':
-                        excel_doc = XLSBWrapper(file_path)
+    args = arg_parser.parse_args()
 
-                    if excel_doc is None:
-                        print("File format is not supported")
-                    else:
-                        if not args[0].extract_only:
-                            interpreter = XLMInterpreter(excel_doc)
-                            if args[0].start_with_shell:
-                                starting_points = interpreter.xlm_wrapper.get_defined_name('auto_open',
-                                                                                           full_match=False)
-                                if len(starting_points) > 0:
-                                    sheet_name, col, row = Cell.parse_cell_addr(starting_points[0][1])
-                                    macros = interpreter.xlm_wrapper.get_macrosheets()
-                                    if sheet_name in macros:
-                                        current_cell = interpreter.get_formula_cell(macros[sheet_name], col, row)
-                                        interpreter.interactive_shell(current_cell, "")
-                            for step in interpreter.deobfuscate_macro(not args[0].noninteractive):
-                                print(
-                                    'CELL:{:10}, {:20},{}{}'.format(step[0].get_local_address(), step[1].name, ''.join( ['\t']*step[3]), step[2]))
-                        else:
-                            show_cells(excel_doc)
-
-                        end = time.time()
-                        print('time elapsed: ' + str(end - start))
-                finally:
-
-                    if 'XLSWrapper' in globals() and type(excel_doc) is XLSWrapper:
-                        excel_doc._excel.Application.DisplayAlerts = False
-                        excel_doc._excel.Application.Quit()
-            else:
-                print('ERROR: input file type is not supported')
-        else:
-            print('Error: input file does not exist')
-    else:
+    if not args.file or not os.path.exists(args.file):
         arg_parser.print_help()
+        return('Error: input file does not exist')
 
+    try:
+        # Convert args to kwarg dict
+        process_file(**vars(args))
+    except KeyboardInterrupt:
+        pass
 
 if __name__ == '__main__':
     main()
-
