@@ -29,8 +29,11 @@ class XLSWrapper2(ExcelWrapper):
 
         name_objects = self.xls_workbook.name_map
 
-        for name_obj, cell in name_objects.items():
-            result[name_obj.lower()] = cell[0].result.text
+        for index, (name_obj, cell) in enumerate(name_objects.items()):
+            name = name_obj.replace('\x00','').lower()
+            if name in result:
+                name = name + index
+            result[name] = cell[0].result.text
 
         return result
 
