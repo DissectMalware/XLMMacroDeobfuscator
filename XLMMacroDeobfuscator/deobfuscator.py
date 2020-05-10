@@ -630,6 +630,8 @@ class XLMInterpreter:
                         break
                 except ParseError as exp:
                     print("Invalid XLM macro")
+                except KeyboardInterrupt:
+                    sys.exit()
             else:
                 break
 
