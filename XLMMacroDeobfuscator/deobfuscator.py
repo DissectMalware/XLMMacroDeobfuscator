@@ -22,6 +22,14 @@ from XLMMacroDeobfuscator.boundsheet import *
 import os
 import operator
 import copy
+try:
+    from pysmt.shortcuts import Symbol, And, Or, GT, GE, LE, LT, Plus, Minus, Times, Div, Equals, Int, Real, get_model
+    from pysmt.typing import INT, REAL
+    from pysmt.fnode import FNode
+    HAS_SMT = True
+except:
+    HAS_SMT = False
+
 
 
 class EvalStatus(Enum):
@@ -32,6 +40,7 @@ class EvalStatus(Enum):
     End = 5
     Branching = 6
     FullBranching = 7
+    SymbolicExecution = 8
 
 
 class XLMInterpreter:
@@ -47,6 +56,12 @@ class XLMInterpreter:
         self._operators = {'+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.truediv}
         self._indent_level = 0
         self._indent_current_line = False
+        self._current_line_smt_conditions = None
+        self._symbolic_interpretation = True
+        self._smt_domain = None
+        self._smt_problem = None
+        self._symbols = {}
+        self._seen_eqs = set()
 
     @staticmethod
     def is_float(text):
@@ -213,12 +228,42 @@ class XLMInterpreter:
             else:
                 text = text[1:-1]
                 self.set_cell(dst_sheet, dst_col, dst_row, text)
+        elif status == EvalStatus.SymbolicExecution:
+            if return_val is not None:
+                dst_cell = dst_col+ dst_row
+                if dst_cell in self._symbols:
+                    symbol = self._symbols[dst_cell]
+                else:
+                    self._symbols[dst_cell] = Symbol(dst_cell, REAL)
+
+                if type(return_val) is list:
+                    for item in return_val:
+                        if self._smt_problem is None:
+                            self._smt_problem = item
+                        else:
+                            self._smt_problem = And(self._smt_problem, item)
+                else:
+                    if self._smt_problem is None:
+                        self._smt_problem = Equals(self._symbols[dst_cell], return_val)
+                    else:
+                        self._smt_problem = And(self._smt_problem, Equals(self._symbols[dst_cell], return_val))
+
+
 
         text = "{}({},{})".format(name,
                                    '"{}"'.format(text.replace('"', '""')),
                                    '{}!{}{}'.format(dst_sheet, dst_col, dst_row))
         return_val = 0
         return next_cell, status, return_val, text
+
+    def get_domain_condition(self, symbol, start, end, unit=1):
+        result = None
+        for i in range(start, (unit* end)+1,):
+            if result is None:
+                result = Equals(symbol, Real(i/unit))
+            else:
+                result = Or(result, Equals(symbol, Real(i/unit)))
+        return result
 
     def evaluate_method(self, current_cell, parse_tree_root, interactive):
         status = EvalStatus.NotImplemented
@@ -269,6 +314,41 @@ class XLMInterpreter:
         elif method_name == "FORMULA.FILL":
             next_cell, status, return_val, text = self.evaluate_formula(current_cell, method_name, arguments,
                                                                         interactive)
+        elif method_name == 'GET.CELL':
+            left_next_cell, left_status, left_return_val, left_text = self.evaluate_parse_tree(current_cell,
+                                                                                           arguments[0],
+                                                                                           interactive)
+            if self._symbolic_interpretation:
+                name = method_name + left_text
+                if name not in self._symbols:
+                    self._symbols[name] = {'sym':Symbol(name, REAL), 'val': self.convert_parse_tree_to_str(parse_tree_root)}
+                    formula = None
+                    if left_text == '8':
+                        formula = self.get_domain_condition(self._symbols[name]['sym'], 1, 7)
+                    elif left_text == '9':
+                        formula = self.get_domain_condition(self._symbols[name]['sym'], 0, 7)
+                    elif left_text == '17':
+                        formula = GE(self._symbols[name]['sym'], Real(0))
+                    elif left_text == '19':
+                        formula = self.get_domain_condition(self._symbols[name]['sym'], 1, 409, 2)
+                    elif left_text == '24':
+                        formula = self.get_domain_condition(self._symbols[name]['sym'], 0, 3)
+                    elif left_text == '38':
+                        formula = self.get_domain_condition(self._symbols[name]['sym'], 0, 56)
+                    elif left_text == '50':
+                        formula = self.get_domain_condition(self._symbols[name]['sym'], 1, 4)
+                    else:
+                        t = 10
+                    if self._smt_domain is not None:
+                        self._smt_domain = And(self._smt_domain, formula)
+                    else:
+                        self._smt_domain = formula
+
+                return_val = self._symbols[name]['sym']
+                text =  self._symbols[name]['val']
+                status = EvalStatus.SymbolicExecution
+
+
 
         if text is None:
             text = self.convert_parse_tree_to_str(parse_tree_root)
@@ -326,6 +406,14 @@ class XLMInterpreter:
                     text = self.convert_parse_tree_to_str(parse_tree_root)
                     return_val = text
                     status = EvalStatus.Error
+            elif status == EvalStatus.SymbolicExecution:
+                if text not in self._seen_eqs:
+                    return_val = self.get_domain_condition(return_val, 32, 128)
+                else:
+                    return_val = None
+
+
+
         elif function_name == 'SEARCH':
             next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell,
                                                                            arguments[0],
@@ -467,6 +555,11 @@ class XLMInterpreter:
             status = EvalStatus.FullEvaluation
 
         elif function_name == 'DAY':
+            if self._symbolic_interpretation == True:
+                if 'DAY' not in self._symbols:
+                    self._symbols['DAY'] = Symbol('DAY', INT)
+                self._current_line_has_symbol = True
+
             first_arg = arguments[0]
             next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, first_arg, interactive)
             if status == EvalStatus.FullEvaluation:
@@ -541,8 +634,14 @@ class XLMInterpreter:
 
                 else:
                     text = "{}".format(cell_addr)
+                    if HAS_SMT and cell_addr in self._symbols:
+                        return_val = self._symbols[cell_addr]
+                        status = EvalStatus.SymbolicExecution
             else:
                 text = "{}".format(cell_addr)
+                if HAS_SMT and cell_addr in self._symbols:
+                    return_val = self._symbols[cell_addr]
+                    status = EvalStatus.SymbolicExecution
 
         elif parse_tree_root.data in self._expr_rule_names:
             text_left = None
@@ -552,19 +651,18 @@ class XLMInterpreter:
 
                     op_str = str(child)
                     right_arg = parse_tree_root.children[index + 1]
-                    next_cell, r_status, return_val, text_right = self.evaluate_parse_tree(current_cell, right_arg,
+                    next_cell, r_status, r_return_val, text_right = self.evaluate_parse_tree(current_cell, right_arg,
                                                                                            interactive)
 
                     if l_status == EvalStatus.FullEvaluation and r_status == EvalStatus.FullEvaluation:
-                        status = EvalStatus.FullEvaluation
                         if op_str == '&':
                             if text_left.startswith('"') and text_left.endswith('"'):
                                 text_left = text_left[1:-1].replace('""','"')
                             if text_right.startswith('"') and text_right.endswith('"'):
                                 text_right = text_right[1:-1].replace('""','"')
-
                             text_left = text_left + text_right
-                            # text_left = '"{}"'.format(text_left)
+                            l_status = EvalStatus.FullEvaluation
+
                         elif self.is_float(text_left) and self.is_float(text_right):
                             if op_str in self._operators:
                                 op_res = self._operators[op_str](float(text_left), float(text_right))
@@ -575,20 +673,72 @@ class XLMInterpreter:
                             else:
                                 text_left = 'Operator ' + op_str
                                 l_status = EvalStatus.NotImplemented
+
                         else:
                             text_left = self.convert_parse_tree_to_str(parse_tree_root)
                             l_status = EvalStatus.PartialEvaluation
+
+                        return_val = text_left
+
+                    elif l_status == EvalStatus.SymbolicExecution or r_status == EvalStatus.SymbolicExecution:
+                        if op_str == '&':
+                            if text_left.startswith('"') and text_left.endswith('"'):
+                                text_left = text_left[1:-1].replace('""','"')
+                            if text_right.startswith('"') and text_right.endswith('"'):
+                                text_right = text_right[1:-1].replace('""','"')
+                            text_left = text_left + text_right
+                            if l_status == EvalStatus.SymbolicExecution:
+                                if type(l_return_val) is not list:
+                                    l_return_val = [l_return_val]
+                            else:
+                                l_return_val = []
+
+                            if r_status == EvalStatus.SymbolicExecution:
+                                l_return_val.append(r_return_val)
+
+
+                        else:
+                            if l_status != EvalStatus.SymbolicExecution:
+                                l_formula = Real(float(text_left))
+                            else:
+                                l_formula = l_return_val
+
+                            if r_status != EvalStatus.SymbolicExecution:
+                                r_formula = Real(float(text_right))
+                            else:
+                                r_formula = r_return_val
+
+                            if op_str == '+':
+                                l_return_val = Plus(l_formula, r_formula)
+                            elif op_str == '-':
+                                l_return_val = Minus(l_formula, r_formula)
+                            elif op_str == '*':
+                                l_return_val = Times(l_formula, r_formula)
+                            elif op_str == '/':
+                                l_return_val = Div(l_formula, r_formula)
+
+                        l_status = EvalStatus.SymbolicExecution
+
                     else:
                         l_status = EvalStatus.PartialEvaluation
                         text_left = '{}{}{}'.format(text_left, op_str, text_right)
-                    return_val = text_left
+                        return_val = text_left
                 else:
                     if text_left is None:
                         left_arg = parse_tree_root.children[index]
-                        next_cell, l_status, return_val, text_left = self.evaluate_parse_tree(current_cell, left_arg,
+                        next_cell, l_status, l_return_val, text_left = self.evaluate_parse_tree(current_cell, left_arg,
                                                                                               interactive)
+                        p =1
 
-            return next_cell, l_status, return_val, text_left
+            if HAS_SMT and l_status ==EvalStatus.SymbolicExecution:
+                text = self.convert_parse_tree_to_str(parse_tree_root)
+                return_val = l_return_val
+                status = EvalStatus.SymbolicExecution
+            else:
+                return_val = text = text_left
+                status = l_status
+
+            return next_cell, status, return_val, text
 
         elif parse_tree_root.data == 'final':
             arg = parse_tree_root.children[1]
@@ -663,7 +813,8 @@ class XLMInterpreter:
                                 if next_cell is None and \
                                     (status == EvalStatus.FullEvaluation or \
                                     status == EvalStatus.PartialEvaluation or
-                                    status == EvalStatus.NotImplemented):
+                                    status == EvalStatus.NotImplemented or
+                                    status == EvalStatus.SymbolicExecution):
 
                                     next_cell = self.get_formula_cell(current_cell.sheet,
                                                                       current_cell.column,
@@ -683,8 +834,18 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except Exception as exp:
+                except BlockingIOError as exp:
                     print('Error: ' + str(exp))
+        if HAS_SMT:
+            if self._smt_problem is not None and self._smt_domain is not None:
+                formula = And(self._smt_domain, self._smt_problem)
+                print(formula)
+                model = get_model(formula)
+                if model:
+                    print(model)
+                else:
+                    print("No solution found")
+        t = 1
 
 
 def test_parser():
@@ -842,6 +1003,8 @@ def main():
                             help="Do not use MS Excel to process XLS files")
     arg_parser.add_argument("-s", "--start-with-shell", default=False, action='store_true',
                             help="Open an XLM shell before interpreting the macros in the input")
+    arg_parser.add_argument("--with-smt-solver", default=False, action='store_true',
+                            help="Use SMT solver to predict unknown variables")
 
     args = arg_parser.parse_args()
 
