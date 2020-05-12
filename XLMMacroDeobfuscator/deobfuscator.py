@@ -801,6 +801,10 @@ def process_file(**kwargs):
         if excel_doc is None:
             return("File format is not supported")
 
+        auto_open_labels = excel_doc.get_defined_name('auto_open', full_match=False)
+        for label in auto_open_labels:
+            print('auto_open: {}->{}'.format(label[0], label[1]))
+
         if kwargs.get("extract_only"):
             show_cells(excel_doc)
         else:
