@@ -65,6 +65,9 @@ class Boundsheet:
         self.name = name
         self.type = type
         self.cells = {}
+        self.row_styles = {}
+        self.col.styles = {}
+
 
     def add_cell(self, cell):
         cell.sheet = self
