@@ -37,6 +37,7 @@ setup(
         "pyxlsb2",
         "lark-parser",
         "xlrd2",
+        "untangle==1.1.1"
     ],
     classifiers=[
         "Development Status :: 4 - Beta",

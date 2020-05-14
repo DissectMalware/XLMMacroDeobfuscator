@@ -11,6 +11,7 @@ class Cell:
         self.row = 0
         self.formula = None
         self.value = None
+        self.attribs = {}
 
     def __deepcopy__(self, memodict={}):
         copy = type(self)()
