@@ -269,7 +269,12 @@ class XLMInterpreter:
         elif method_name == "FORMULA.FILL":
             next_cell, status, return_val, text = self.evaluate_formula(current_cell, method_name, arguments,
                                                                         interactive)
-
+        elif method_name == "GET.CELL":
+            getParam = self.convert_parse_tree_to_str(arguments[0])
+            getRef = self.convert_parse_tree_to_str(arguments[1])
+            data = self.xlm_wrapper.cell_info(sheet=current_cell.sheet.name,cell= getRef, type_ID=int(float(getParam)))
+            text = int(data)
+            #status = EvalStatus.FullEvaluation
         if text is None:
             text = self.convert_parse_tree_to_str(parse_tree_root)
         return next_cell, status, return_val, text
