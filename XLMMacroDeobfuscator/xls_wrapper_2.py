@@ -3,6 +3,7 @@ from XLMMacroDeobfuscator.boundsheet import Boundsheet
 from XLMMacroDeobfuscator.boundsheet import Cell
 import xlrd2
 import os
+import re
 
 
 class XLSWrapper2(ExcelWrapper):
@@ -17,12 +18,20 @@ class XLSWrapper2(ExcelWrapper):
                                        XlApplicationInternational.xlListSeparator: ',',
                                        XlApplicationInternational.xlRightBracket: ']'}
 
+        control_chars = ''.join(map(chr, range(0,32)))
+        control_chars += ''.join(map(chr,  range(127,160)))
+        control_chars += '\ufefe\uffff\ufeff\ufffe\uffef\ufff0\ufff1\ufff6\ufefd\udddd\ufffd'
+        self._control_char_re = re.compile('[%s]' % re.escape(control_chars))
+
     def get_xl_international_char(self, flag_name):
         result = None
         if flag_name in self.xl_international_flags:
             result = self.xl_international_flags[flag_name]
-
         return result
+
+    def remove_nonprintable_chars(self, input_str):
+        input_str =  input_str.encode("utf-16").decode('utf-16','ignore')
+        return self._control_char_re.sub('', input_str)
 
     def get_defined_names(self):
         result = {}
@@ -30,7 +39,7 @@ class XLSWrapper2(ExcelWrapper):
         name_objects = self.xls_workbook.name_map
 
         for index, (name_obj, cell) in enumerate(name_objects.items()):
-            name = name_obj.replace('\x00','').lower()
+            name = self.remove_nonprintable_chars(name_obj).lower()
             if name in result:
                 name = name + index
             result[name] = cell[0].result.text
