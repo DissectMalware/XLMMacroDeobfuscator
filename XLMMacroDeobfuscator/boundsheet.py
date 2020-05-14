@@ -70,7 +70,7 @@ class Boundsheet:
         self.type = type
         self.cells = {}
         self.row_attributes = {}
-        self.col.attributes = {}
+        self.col_attributes = {}
 
     def get_row_attribute(self, row, attrib_name):
         # default values if row doesn't exist in row_attributes
