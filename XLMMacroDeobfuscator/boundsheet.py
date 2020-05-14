@@ -11,7 +11,11 @@ class Cell:
         self.row = 0
         self.formula = None
         self.value = None
-        self.attribs = {}
+        self.attributes = {}
+
+    def get_attribute(self, attribute_name):
+        # return default value if attributes doesn't cointain the attribute_name
+        pass
 
     def __deepcopy__(self, memodict={}):
         copy = type(self)()
@@ -65,8 +69,17 @@ class Boundsheet:
         self.name = name
         self.type = type
         self.cells = {}
-        self.row_styles = {}
-        self.col.styles = {}
+        self.row_attributes = {}
+        self.col.attributes = {}
+
+    def get_row_attribute(self, row, attrib_name):
+        # default values if row doesn't exist in row_attributes
+        pass
+
+    def get_col_attribute(self, col, attrib_name):
+        # default value if row doesn't exist in row_attributes
+
+        pass
 
 
     def add_cell(self, cell):

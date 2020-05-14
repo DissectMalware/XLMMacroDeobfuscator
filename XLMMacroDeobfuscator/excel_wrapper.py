@@ -14,15 +14,6 @@ class ExcelWrapper:
     def get_macrosheets(self):
         pass
 
-    def get_row_attribute(self, row, attrib_name):
-        pass
-
-    def get_col_attribute(self, row, attrib_name):
-        pass
-
-    def get_cell_attribute(self, row, attrib_name):
-        pass
-
 
 class XlApplicationInternational(Enum):
     # https://docs.microsoft.com/en-us/office/vba/api/excel.xlapplicationinternational
