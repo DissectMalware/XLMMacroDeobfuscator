@@ -16,6 +16,7 @@ class XLSMWrapper(ExcelWrapper):
         self._workbook = None
         self._workbook_rels = None
         self._workbook_relationships = None
+        self._workbook_style = None
         self._defined_names = None
         self._macrosheets = None
         self.xl_international_flags = {XlApplicationInternational.xlLeftBracket: '[',
@@ -117,6 +118,18 @@ class XLSMWrapper(ExcelWrapper):
 
         return self._workbook
 
+    def get_workbook_style(self):
+        if not self._workbook_style:
+            style_type = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles'
+            relationships = self._get_relationships()
+            if style_type in relationships:
+                style_sheet_path= relationships[style_type]
+                _, base_dir, _ = self._get_workbook_path()
+                style_sheet = self.get_xml_file(base_dir+'/'+style_sheet_path)
+            self._workbook_style = style_sheet
+
+        return self._workbook_style
+
     def _get_workbook_rels(self):
         if not self._workbook_rels:
 
@@ -186,6 +199,14 @@ class XLSMWrapper(ExcelWrapper):
 
     def load_cells(self, macrosheet, macrosheet_obj):
         for row in macrosheet_obj.xm_macrosheet.sheetData.row:
+            row_attribs = {}
+            for attr in row._attributes:
+                if attr == 'ht':
+                    row_attribs[RowAttributes.Height] = row.get_attribute('ht')
+                elif attr == 'spans':
+                    row_attribs[RowAttributes.Spans] = row.get_attribute('spans')
+            if len(row_attribs) > 0:
+                macrosheet.row_attributes[row.get_attribute('r')] = row_attribs
             for cell_elm in row:
                 formula = cell_elm.c.f
                 formula_text = ('=' + formula.cdata) if formula is not None else None
@@ -224,6 +245,13 @@ class XLSMWrapper(ExcelWrapper):
                 self._macrosheets[macrosheet['sheet'].name] = macrosheet['sheet']
 
         return self._macrosheets
+
+    def get_cell_info(self, sheet_name, col, row, info_type_id):
+        data = None
+        not_exist = True
+        not_implemented = False
+
+        return data, not_exist, not_implemented
 
 
 if __name__ == '__main__':

@@ -63,6 +63,12 @@ class Cell:
 
         return sheet_name, column, row
 
+    @staticmethod
+    def convert_twip_to_point(twips):
+        # A twip is 1/20 of a point
+        point = int(twips) * 0.05
+        return point
+
 
 class Boundsheet:
     def __init__(self, name, type):

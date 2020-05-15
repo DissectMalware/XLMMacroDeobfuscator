@@ -14,9 +14,15 @@ class ExcelWrapper:
     def get_macrosheets(self):
         pass
 
+    def get_cell_info(self, sheet_name, col, row, info_type_id):
+        pass
+
 
 class XlApplicationInternational(Enum):
     # https://docs.microsoft.com/en-us/office/vba/api/excel.xlapplicationinternational
     xlLeftBracket = 10
     xlListSeparator = 5
     xlRightBracket = 11
+
+
+

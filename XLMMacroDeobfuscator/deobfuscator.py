@@ -204,6 +204,21 @@ class XLMInterpreter:
             result = self._workspace_defauls[number]
         return result
 
+    def get_default_cell_info(self, number):
+        result = None
+        if len(self._workspace_defauls) == 0:
+            script_dir = os.path.dirname(__file__)
+            config_dir = os.path.join(script_dir, 'configs')
+            with open(os.path.join(config_dir,'get_cell.conf'), 'r', encoding='utf_8') as workspace_conf_file:
+                for index, line in enumerate(workspace_conf_file):
+                    line = line.strip()
+                    if len(line) > 0:
+                        self._workspace_defauls[index+1] = line
+
+        if number in self._workspace_defauls:
+            result = self._workspace_defauls[number]
+        return result
+
     def evaluate_formula(self, current_cell, name, arguments, interactive):
         next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         dst_sheet, dst_col, dst_row = self.get_cell_addr(current_cell, arguments[1])
@@ -211,7 +226,8 @@ class XLMInterpreter:
             if text.startswith('"=') is False and self.is_float(text[1:-1]) is False:
                 self.set_cell(dst_sheet, dst_col, dst_row, text)
             else:
-                text = text[1:-1]
+                if text.startswith('"') and text.endswith('"'):
+                    text = text[1:-1]
                 self.set_cell(dst_sheet, dst_col, dst_row, text)
 
         text = "{}({},{})".format(name,
@@ -270,11 +286,35 @@ class XLMInterpreter:
             next_cell, status, return_val, text = self.evaluate_formula(current_cell, method_name, arguments,
                                                                         interactive)
         elif method_name == "GET.CELL":
-            getParam = self.convert_parse_tree_to_str(arguments[0])
-            getRef = self.convert_parse_tree_to_str(arguments[1])
-            data = self.xlm_wrapper.cell_info(sheet=current_cell.sheet.name,cell= getRef, type_ID=int(float(getParam)))
-            text = int(data)
-            #status = EvalStatus.FullEvaluation
+            l_cell, l_status, l_return_val, l_text = self.evaluate_parse_tree(current_cell,
+                                                                               arguments[0],
+                                                                               interactive)
+            dst_sheet, dst_col, dst_row = self.get_cell_addr(current_cell, arguments[1])
+
+            type_id = l_return_val
+            if self.is_float(type_id):
+                type_id = int(float(type_id))
+
+            if dst_sheet is None:
+                dst_sheet = current_cell.sheet.name
+
+            status = EvalStatus.PartialEvaluation
+            if l_status == EvalStatus.FullEvaluation:
+                data, not_exist, not_implemented = self.xlm_wrapper.get_cell_info(dst_sheet, dst_col, dst_row, type_id)
+                if not_exist:
+                    return_val = self.get_default_cell_info(type_id)
+                    text = str(return_val)
+                    status = EvalStatus.FullEvaluation
+                elif not_implemented:
+                    text = self.convert_parse_tree_to_str(parse_tree_root)
+                    return_val = ''
+                else:
+                    text = str(data)
+                    return_val = data
+                    status = EvalStatus.FullEvaluation
+
+
+
         if text is None:
             text = self.convert_parse_tree_to_str(parse_tree_root)
         return next_cell, status, return_val, text
@@ -688,7 +728,7 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except Exception as exp:
+                except IndexError as exp:
                     print('Error: ' + str(exp))
 
 

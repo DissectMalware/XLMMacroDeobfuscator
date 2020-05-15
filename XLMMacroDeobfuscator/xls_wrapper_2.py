@@ -11,7 +11,7 @@ class XLSWrapper2(ExcelWrapper):
     XLEXCEL4MACROSHEET = 3
 
     def __init__(self, xls_doc_path):
-        self.xls_workbook = xlrd2.open_workbook(xls_doc_path)
+        self.xls_workbook = xlrd2.open_workbook(xls_doc_path, formatting_info=True)
         self._macrosheets = None
         self._defined_names = None
         self.xl_international_flags = {}
@@ -32,7 +32,7 @@ class XLSWrapper2(ExcelWrapper):
         name_objects = self.xls_workbook.name_map
 
         for index, (name_obj, cell) in enumerate(name_objects.items()):
-            name = name_obj.replace('\x00','').lower()
+            name = name_obj.replace('\x00', '').lower()
             if name in result:
                 name = name + index
             result[name] = cell[0].result.text
@@ -60,7 +60,7 @@ class XLSWrapper2(ExcelWrapper):
             for xls_cell in xls_sheet.get_used_cells():
                 cell = Cell()
                 cell.sheet = macrosheet
-                if xls_cell.formula is not None and len(xls_cell.formula)>0:
+                if xls_cell.formula is not None and len(xls_cell.formula) > 0:
                     cell.formula = '=' + xls_cell.formula
                 cell.value = xls_cell.value
                 cell.row = xls_cell.row + 1
@@ -70,7 +70,6 @@ class XLSWrapper2(ExcelWrapper):
 
         except Exception as error:
             print('CELL(Formula): ' + str(error.args[2]))
-
 
     def get_macrosheets(self):
         if self._macrosheets is None:
@@ -83,169 +82,111 @@ class XLSWrapper2(ExcelWrapper):
 
         return self._macrosheets
 
-    def col2num(self,col):
-        num = 0
-        for c in col:
-            if c in string.ascii_letters:
-                num = num * 26 + (ord(c.upper()) - ord('A')) + 1
-        return num
-
-    def get_color(self,color_index):
+    def get_color(self, color_index):
         return self.xls_workbook.colour_map.get(color_index)
 
-    def twipToPoint(self,twips):
-        #Xlrd has the data for font height and row height in twips.
-        #Excel GET.CELL(17 OR 19) returns in points.
-        #I change the twips (which are 1/20 of a point) into points so it matches what excel would output
-
-        point = int(twips) * 0.050000283464388
-        return point
-
-    def cell_info(self,sheet, cell, type_ID):
-        #sheet, column, row = Cell.parse_cell_addr(cell)
-        sht =  self.xls_workbook.sheet_by_name(sheet)
-        cellParse = re.compile("([a-zA-Z]+)([0-9]+)")
-        cellData = cellParse.match(cell).groups()
-        column = cellData[0]
-        row = cellData[1]
-        print(row,column)
+    def get_cell_info(self, sheet_name, col, row, info_type_id):
+        sheet = self.xls_workbook.sheet_by_name(sheet_name)
         row = int(row) - 1
-        column = Cell.convert_to_column_index(column) - 1
-        w = sht.computed_column_width(0)
-        cell = sht.cell(row, column)
-        fmt = self.xls_workbook.xf_list[cell.xf_index]
-        font = self.xls_workbook.font_list[fmt.font_index]
-        border = fmt.border
-        #
-        # if int(type_ID) == 2:
-        #     data = sht.Range(cell).Row
-        #     print(data)
-        #     return data
-        #
-        # elif int(type_ID) == 3:
-        #     data = sht.Range(cell).Column
-        #     print(data)
-        #     return data
+        column = Cell.convert_to_column_index(col) - 1
+        info_type_id = int(float(info_type_id))
 
+        data = None
+        not_exist = True
+        not_implemented = False
 
-        if int(type_ID) == 8:
-            data = fmt.alignment.hor_align
-            return data
+        if (row, column) in sheet.used_cells:
+            cell = sheet.cell(row, column)
 
-        elif int(type_ID) == 9:
-            # GET.CELL(9,cell)
-            data = border.left_line_style
-            return data
+            if cell.xf_index is not None and cell.xf_index < len(self.xls_workbook.xf_list):
+                fmt = self.xls_workbook.xf_list[cell.xf_index]
+                font = self.xls_workbook.font_list[fmt.font_index]
+                not_exist = False
 
-        elif int(type_ID) == 10:
-            # GET.CELL(9,cell)
-            data = border.right_line_style
-            return data
+                if info_type_id == 8:
+                    data = fmt.alignment.hor_align
 
-        elif int(type_ID) == 11:
-            # GET.CELL(9,cell)
-            data = border.top_line_style
-            return data
+                elif info_type_id == 9:
+                    data = fmt.border.left_line_style
 
-        elif int(type_ID) == 12:
-            # GET.CELL(9,cell)
-            data = border.bottom_line_style
-            return data
+                elif info_type_id == 10:
+                    data = fmt.border.right_line_style
 
-        elif int(type_ID) == 13:
-            # GET.CELL(9,cell)
-            data = border.fill_pattern
-            return data
+                elif info_type_id == 11:
+                    data = fmt.border.top_line_style
 
-        elif int(type_ID) == 14:
-            # GET.CELL(9,cell)
-            data = fmt.protection.cell_locked
-            return data
+                elif info_type_id == 12:
+                    data = fmt.border.bottom_line_style
 
-        elif int(type_ID) == 15:
-            data = fmt.protection.formula_hidden
-            return data
+                elif info_type_id == 13:
+                    data = fmt.border.fill_pattern
 
-        elif int(type_ID) == 17:
-            #get row height
-            data = sht.rowinfo_map[row].height
-            data = self.twipToPoint(data)
-            return data
+                elif info_type_id == 14:
+                    data = fmt.protection.cell_locked
 
-        elif int(type_ID) == 18:
-            #get font name
-            data = font.name
-            return data
+                elif info_type_id == 15:
+                    data = fmt.protection.formula_hidden
+                    return data
 
-        elif int(type_ID) == 19:
-            #get font height
-            data = font.height
-            data = self.twipToPoint(data)
-            return data
+                elif info_type_id == 17:
+                    data = sheet.rowinfo_map[row].height
+                    data = Cell.convert_twip_to_point(data)
 
-        elif int(type_ID) == 20:
-            #check if bold
-            data = font.bold
-            return data
+                elif info_type_id == 18:
+                    data = font.name
+                    return data
 
-        elif int(type_ID) == 21:
-            #check if italic
-            data = font.italic
-            return data
+                elif info_type_id == 19:
+                    data = font.height
+                    data = Cell.convert_twip_to_point(data)
 
-        elif int(type_ID) == 22:
-            data = font.underlined
-            return data
+                elif info_type_id == 20:
+                    data = font.bold
 
-        elif int(type_ID) == 23:
-            #Check if font has strikethrough
-            data = font.struck_out
-            return data
+                elif info_type_id == 21:
+                    data = font.italic
 
-        elif int(type_ID) == 24:
-            #NOT FINISHED
-            data = self.get_color(font.colour_index)
-            return data
+                elif info_type_id == 22:
+                    data = font.underlined
 
-        elif int(type_ID) == 25:
-            data = font.outline
-            return data
+                elif info_type_id == 23:
+                    data = font.struck_out
 
-        elif int(type_ID) == 26:
-            data = font.shadow
-            return data
+                elif info_type_id == 24:
+                    # NOT FINISHED
+                    data = self.get_color(font.colour_index)
 
-        elif int(type_ID) == 34:
-            #Left Color index
-            data = border.left_colour_index
-            return data
+                elif info_type_id == 25:
+                    data = font.outline
 
-        elif int(type_ID) == 35:
-            #Right Color index
-            data = border.right_colour_index
-            return data
+                elif info_type_id == 26:
+                    data = font.shadow
 
+                elif info_type_id == 34:
+                    # Left Color index
+                    data = fmt.border.left_colour_index
 
-        elif int(type_ID) == 36:
-            #Top Color index
-            data = border.top_colour_index
-            return data
+                elif info_type_id == 35:
+                    # Right Color index
+                    data = fmt.border.right_colour_index
 
+                elif info_type_id == 36:
+                    # Top Color index
+                    data = fmt.border.top_colour_index
 
-        elif int(type_ID) == 37:
-            #Bottom Color index
-            data = border.bottom_colour_index
-            return data
+                elif info_type_id == 37:
+                    # Bottom Color index
+                    data = fmt.border.bottom_colour_index
 
+                elif info_type_id == 50:
+                    data = fmt.alignment.vert_align
 
-        elif int(type_ID) == 50:
-            data = fmt.alignment.vert_align
-            return data
+                elif info_type_id == 51:
+                    data = fmt.alignment.rotation
+                else:
+                    not_implemented = True
 
-
-        elif int(type_ID) == 51:
-            data = fmt.alignment.rotation
-            return data
+        return data, not_exist, not_implemented
 
 
 if __name__ == '__main__':
