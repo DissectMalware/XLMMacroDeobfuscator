@@ -3,6 +3,7 @@ from XLMMacroDeobfuscator.boundsheet import Boundsheet
 from XLMMacroDeobfuscator.boundsheet import Cell
 import xlrd2
 import os
+import string
 import re
 
 
@@ -18,20 +19,12 @@ class XLSWrapper2(ExcelWrapper):
                                        XlApplicationInternational.xlListSeparator: ',',
                                        XlApplicationInternational.xlRightBracket: ']'}
 
-        control_chars = ''.join(map(chr, range(0,32)))
-        control_chars += ''.join(map(chr,  range(127,160)))
-        control_chars += '\ufefe\uffff\ufeff\ufffe\uffef\ufff0\ufff1\ufff6\ufefd\udddd\ufffd'
-        self._control_char_re = re.compile('[%s]' % re.escape(control_chars))
-
     def get_xl_international_char(self, flag_name):
         result = None
         if flag_name in self.xl_international_flags:
             result = self.xl_international_flags[flag_name]
-        return result
 
-    def remove_nonprintable_chars(self, input_str):
-        input_str =  input_str.encode("utf-16").decode('utf-16','ignore')
-        return self._control_char_re.sub('', input_str)
+        return result
 
     def get_defined_names(self):
         result = {}
@@ -39,7 +32,7 @@ class XLSWrapper2(ExcelWrapper):
         name_objects = self.xls_workbook.name_map
 
         for index, (name_obj, cell) in enumerate(name_objects.items()):
-            name = self.remove_nonprintable_chars(name_obj).lower()
+            name = name_obj.replace('\x00','').lower()
             if name in result:
                 name = name + index
             result[name] = cell[0].result.text
@@ -90,10 +83,174 @@ class XLSWrapper2(ExcelWrapper):
 
         return self._macrosheets
 
+    def col2num(self,col):
+        num = 0
+        for c in col:
+            if c in string.ascii_letters:
+                num = num * 26 + (ord(c.upper()) - ord('A')) + 1
+        return num
+
+    def get_color(self,color_index):
+        return self.xls_workbook.colour_map.get(color_index)
+
+    def twipToPoint(self,twips):
+        #Xlrd has the data for font height and row height in twips.
+        #Excel GET.CELL(17 OR 19) returns in points.
+        #I change the twips (which are 1/20 of a point) into points so it matches what excel would output
+
+        point = int(twips) * 0.050000283464388
+        return point
+
+    def cell_info(self,sheet, cell, type_ID):
+        #sheet, column, row = Cell.parse_cell_addr(cell)
+        sht =  self.xls_workbook.sheet_by_name(sheet)
+        cellParse = re.compile("([a-zA-Z]+)([0-9]+)")
+        cellData = cellParse.match(cell).groups()
+        column = cellData[0]
+        row = cellData[1]
+        print(row,column)
+        row = int(row) - 1
+        column = Cell.convert_to_column_index(column) - 1
+        w = sht.computed_column_width(0)
+        cell = sht.cell(row, column)
+        fmt = self.xls_workbook.xf_list[cell.xf_index]
+        font = self.xls_workbook.font_list[fmt.font_index]
+        border = fmt.border
+        #
+        # if int(type_ID) == 2:
+        #     data = sht.Range(cell).Row
+        #     print(data)
+        #     return data
+        #
+        # elif int(type_ID) == 3:
+        #     data = sht.Range(cell).Column
+        #     print(data)
+        #     return data
+
+
+        if int(type_ID) == 8:
+            data = fmt.alignment.hor_align
+            return data
+
+        elif int(type_ID) == 9:
+            # GET.CELL(9,cell)
+            data = border.left_line_style
+            return data
+
+        elif int(type_ID) == 10:
+            # GET.CELL(9,cell)
+            data = border.right_line_style
+            return data
+
+        elif int(type_ID) == 11:
+            # GET.CELL(9,cell)
+            data = border.top_line_style
+            return data
+
+        elif int(type_ID) == 12:
+            # GET.CELL(9,cell)
+            data = border.bottom_line_style
+            return data
+
+        elif int(type_ID) == 13:
+            # GET.CELL(9,cell)
+            data = border.fill_pattern
+            return data
+
+        elif int(type_ID) == 14:
+            # GET.CELL(9,cell)
+            data = fmt.protection.cell_locked
+            return data
+
+        elif int(type_ID) == 15:
+            data = fmt.protection.formula_hidden
+            return data
+
+        elif int(type_ID) == 17:
+            #get row height
+            data = sht.rowinfo_map[row].height
+            data = self.twipToPoint(data)
+            return data
+
+        elif int(type_ID) == 18:
+            #get font name
+            data = font.name
+            return data
+
+        elif int(type_ID) == 19:
+            #get font height
+            data = font.height
+            data = self.twipToPoint(data)
+            return data
+
+        elif int(type_ID) == 20:
+            #check if bold
+            data = font.bold
+            return data
+
+        elif int(type_ID) == 21:
+            #check if italic
+            data = font.italic
+            return data
+
+        elif int(type_ID) == 22:
+            data = font.underlined
+            return data
+
+        elif int(type_ID) == 23:
+            #Check if font has strikethrough
+            data = font.struck_out
+            return data
+
+        elif int(type_ID) == 24:
+            #NOT FINISHED
+            data = self.get_color(font.colour_index)
+            return data
+
+        elif int(type_ID) == 25:
+            data = font.outline
+            return data
+
+        elif int(type_ID) == 26:
+            data = font.shadow
+            return data
+
+        elif int(type_ID) == 34:
+            #Left Color index
+            data = border.left_colour_index
+            return data
+
+        elif int(type_ID) == 35:
+            #Right Color index
+            data = border.right_colour_index
+            return data
+
+
+        elif int(type_ID) == 36:
+            #Top Color index
+            data = border.top_colour_index
+            return data
+
+
+        elif int(type_ID) == 37:
+            #Bottom Color index
+            data = border.bottom_colour_index
+            return data
+
+
+        elif int(type_ID) == 50:
+            data = fmt.alignment.vert_align
+            return data
+
+
+        elif int(type_ID) == 51:
+            data = fmt.alignment.rotation
+            return data
+
 
 if __name__ == '__main__':
 
-    path = r"C:\Users\user\Downloads\bf58dc1c6ee61d7370c3dfaed7efd98435aed215dfed58e7d90a25b195584b33.xls"
+    path = r"C:\Users\dan\PycharmProjects\XLMMacroDeobfuscator\tmp\xls\Doc55752.xls"
 
     path = os.path.abspath(path)
     excel_doc = XLSWrapper2(path)
