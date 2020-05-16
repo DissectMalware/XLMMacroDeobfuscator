@@ -49,6 +49,7 @@ class XLMInterpreter:
         self._indent_current_line = False
         self.day_of_month = None
         self.invoke_interpreter = False
+        self.first_unknown_cell = None
 
     @staticmethod
     def is_float(text):
@@ -586,6 +587,8 @@ class XLMInterpreter:
             if cell_addr not in sheet.cells or sheet.cells[cell_addr].value is None:
                 if interactive:
                     self.invoke_interpreter = True
+                    if self.first_unknown_cell is None:
+                        self.first_unknown_cell = cell_addr
 
             if cell_addr in sheet.cells:
                 cell = sheet.cells[cell_addr]
@@ -737,8 +740,9 @@ class XLMInterpreter:
                                     self.interactive_shell(current_cell,
                                                            'Partial Eval: {}\r\n{} is not populated, what should be its value?'.format(
                                                                text,
-                                                               current_cell.get_local_address()))
+                                                               self.first_unknown_cell))
                                     self.invoke_interpreter = False
+                                    self.first_unknown_cell = None
                                     continue
 
 
