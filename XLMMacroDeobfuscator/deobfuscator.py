@@ -761,6 +761,7 @@ class XLMInterpreter:
                     if sheet_name in macros:
                         current_cell = self.get_formula_cell(macros[sheet_name], col, row)
                         self._branch_stack = [(current_cell, current_cell.formula, macros[sheet_name].cells, 0, '')]
+                        
                         while len(self._branch_stack) > 0:
                             current_cell, formula, saved_cells, indent_level, desc = self._branch_stack.pop()
                             macros[current_cell.sheet.name].cells = saved_cells

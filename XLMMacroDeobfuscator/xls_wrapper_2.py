@@ -105,80 +105,77 @@ class XLSWrapper2(ExcelWrapper):
                 not_exist = False
 
                 if info_type_id == 8:
-                    data = fmt.alignment.hor_align
+                    data = fmt.alignment.hor_align + 1
 
-                elif info_type_id == 9:
-                    data = fmt.border.left_line_style
-
-                elif info_type_id == 10:
-                    data = fmt.border.right_line_style
-
-                elif info_type_id == 11:
-                    data = fmt.border.top_line_style
-
-                elif info_type_id == 12:
-                    data = fmt.border.bottom_line_style
-
-                elif info_type_id == 13:
-                    data = fmt.border.fill_pattern
-
-                elif info_type_id == 14:
-                    data = fmt.protection.cell_locked
-
-                elif info_type_id == 15:
-                    data = fmt.protection.formula_hidden
-                    return data
-
-                elif info_type_id == 18:
-                    data = font.name
-                    return data
+                # elif info_type_id == 9:
+                #     data = fmt.border.left_line_style
+                #
+                # elif info_type_id == 10:
+                #     data = fmt.border.right_line_style
+                #
+                # elif info_type_id == 11:
+                #     data = fmt.border.top_line_style
+                #
+                # elif info_type_id == 12:
+                #     data = fmt.border.bottom_line_style
+                #
+                # elif info_type_id == 13:
+                #     data = fmt.border.fill_pattern
+                #
+                # elif info_type_id == 14:
+                #     data = fmt.protection.cell_locked
+                #
+                # elif info_type_id == 15:
+                #     data = fmt.protection.formula_hidden
+                #     return data
+                #
+                # elif info_type_id == 18:
+                #     data = font.name
+                #     return data
 
                 elif info_type_id == 19:
                     data = font.height
                     data = Cell.convert_twip_to_point(data)
 
-                elif info_type_id == 20:
-                    data = font.bold
+                # elif info_type_id == 20:
+                #     data = font.bold
+                #
+                # elif info_type_id == 21:
+                #     data = font.italic
+                #
+                # elif info_type_id == 22:
+                #     data = font.underlined
+                #
+                # elif info_type_id == 23:
+                #     data = font.struck_out
+                #
+                # elif info_type_id == 25:
+                #     data = font.outline
+                #
+                # elif info_type_id == 26:
+                #     data = font.shadow
 
-                elif info_type_id == 21:
-                    data = font.italic
-
-                elif info_type_id == 22:
-                    data = font.underlined
-
-                elif info_type_id == 23:
-                    data = font.struck_out
-
-                elif info_type_id == 24:
-                    data = font.colour_index
-
-                elif info_type_id == 25:
-                    data = font.outline
-
-                elif info_type_id == 26:
-                    data = font.shadow
-
-                elif info_type_id == 34:
-                    # Left Color index
-                    data = fmt.border.left_colour_index
-
-                elif info_type_id == 35:
-                    # Right Color index
-                    data = fmt.border.right_colour_index
-
-                elif info_type_id == 36:
-                    # Top Color index
-                    data = fmt.border.top_colour_index
-
-                elif info_type_id == 37:
-                    # Bottom Color index
-                    data = fmt.border.bottom_colour_index
+                # elif info_type_id == 34:
+                #     # Left Color index
+                #     data = fmt.border.left_colour_index
+                #
+                # elif info_type_id == 35:
+                #     # Right Color index
+                #     data = fmt.border.right_colour_index
+                #
+                # elif info_type_id == 36:
+                #     # Top Color index
+                #     data = fmt.border.top_colour_index
+                #
+                # elif info_type_id == 37:
+                #     # Bottom Color index
+                #     data = fmt.border.bottom_colour_index
 
                 elif info_type_id == 50:
-                    data = fmt.alignment.vert_align
+                    data = fmt.alignment.vert_align + 1
 
-                elif info_type_id == 51:
-                    data = fmt.alignment.rotation
+                # elif info_type_id == 51:
+                #     data = fmt.alignment.rotation
                 else:
                     not_implemented = True
 
