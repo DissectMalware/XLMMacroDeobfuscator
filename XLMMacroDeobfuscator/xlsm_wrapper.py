@@ -1,17 +1,21 @@
-from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
+from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational, RowAttribute
 from zipfile import ZipFile
 from glob import fnmatch
 from xml.etree import ElementTree
 from XLMMacroDeobfuscator.excel_wrapper import ExcelWrapper
 from XLMMacroDeobfuscator.boundsheet import *
 import untangle
+from io import StringIO
 import os
+import math
 
 
 class XLSMWrapper(ExcelWrapper):
     def __init__(self, xlsm_doc_path):
         self.xlsm_doc_path = xlsm_doc_path
         self._content_types = None
+        self._style = None
+        self._theme = None
         self._types = None
         self._workbook = None
         self._workbook_rels = None
@@ -24,6 +28,7 @@ class XLSMWrapper(ExcelWrapper):
                                        XlApplicationInternational.xlRightBracket: ']'}
 
         self._types = self._get_types()
+        self.color_maps = None
 
 
     def _get_types(self):
@@ -78,12 +83,14 @@ class XLSMWrapper(ExcelWrapper):
         return result
 
     def get_xml_file(self, file_name):
+        if file_name.startswith('/'):
+            file_name = file_name[1:]
         result = None
         file_name = file_name
         files = self.get_files([file_name])
         if len(files) == 1:
             workbook_content = files[file_name].decode('utf_8')
-            result = untangle.parse(workbook_content)
+            result = untangle.parse(StringIO(workbook_content))
         return result
 
     def get_content_types(self):
@@ -117,6 +124,26 @@ class XLSMWrapper(ExcelWrapper):
             self._workbook = workbook
 
         return self._workbook
+
+    def get_style(self):
+        if not self._style:
+            types = self._get_types()
+            rel_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"
+            if rel_type in types:
+                style = self.get_xml_file(types[rel_type])
+                self._style = style
+
+        return self._style
+
+    def get_theme(self):
+        if not self._theme:
+            types = self._get_types()
+            rel_type = "application/vnd.openxmlformats-officedocument.theme+xml"
+            if rel_type in types:
+                style = self.get_xml_file(types[rel_type])
+                self._theme = style
+
+        return self._theme
 
     def get_workbook_style(self):
         if not self._workbook_style:
@@ -202,23 +229,33 @@ class XLSMWrapper(ExcelWrapper):
             row_attribs = {}
             for attr in row._attributes:
                 if attr == 'ht':
-                    row_attribs[RowAttributes.Height] = row.get_attribute('ht')
+                    row_attribs[RowAttribute.Height] = row.get_attribute('ht')
                 elif attr == 'spans':
-                    row_attribs[RowAttributes.Spans] = row.get_attribute('spans')
+                    row_attribs[RowAttribute.Spans] = row.get_attribute('spans')
             if len(row_attribs) > 0:
                 macrosheet.row_attributes[row.get_attribute('r')] = row_attribs
-            for cell_elm in row:
-                formula = cell_elm.c.f
-                formula_text = ('=' + formula.cdata) if formula is not None else None
-                value = cell_elm.c.v
-                value_text = value.cdata if value is not None else None
-                location = cell_elm.c.get_attribute('r')
-                cell = Cell()
-                sheet_name, cell.column, cell.row = Cell.parse_cell_addr(location)
-                cell.sheet = macrosheet
-                cell.formula = formula_text
-                cell.value = value_text
-                macrosheet.cells[location] = cell
+            if hasattr(row, 'c'):
+                for cell_elm in row.c:
+                    formula_text = None
+                    if hasattr(cell_elm, 'f'):
+                        formula = cell_elm.f
+                        formula_text = ('=' + formula.cdata) if formula is not None else None
+                    value_text = None
+                    if hasattr(cell_elm, 'v'):
+                        value = cell_elm.v
+                        value_text = value.cdata if value is not None else None
+                    location = cell_elm.get_attribute('r')
+                    cell = Cell()
+                    sheet_name, cell.column, cell.row = Cell.parse_cell_addr(location)
+                    cell.sheet = macrosheet
+                    cell.formula = formula_text
+                    cell.value = value_text
+                    macrosheet.cells[location] = cell
+
+                    for attrib in cell_elm._attributes:
+                        if attrib != 'r':
+                            cell.attributes[attrib] = cell_elm._attributes[attrib]
+
 
     def get_defined_name(self, name, full_match=True):
         result = []
@@ -246,12 +283,166 @@ class XLSMWrapper(ExcelWrapper):
 
         return self._macrosheets
 
+    def get_color_index(self, rgba_str):
+
+        r, g, b = int('0x' + rgba_str[2:4], base=16), int('0x' + rgba_str[4:6], base=16), int(
+            '0x' + rgba_str[6:8], base=16)
+
+        if self.color_maps is None:
+            colors =[
+                (0, 0, 0, 1),
+                (255, 255, 255, 2),
+                (255, 0, 0, 3),
+                (0, 255, 0, 4),
+                (0, 0, 255, 5),
+                (255, 255, 0, 6),
+                (255, 0, 255, 7),
+                (0, 255, 255, 8),
+                (128, 0, 0, 9),
+                (0, 128, 0, 10),
+                (0, 0, 128, 11),
+                (128, 128, 0, 12),
+                (128, 0, 128, 13),
+                (0, 128, 128, 14),
+                (192, 192, 192, 15),
+                (128, 128, 128, 16),
+                (153, 153, 255, 17),
+                (153, 51, 102, 18),
+                (255, 255, 204, 19),
+                (204, 255, 255, 20),
+                (102, 0, 102, 21),
+                (255, 128, 128, 22),
+                (0, 102, 204, 23),
+                (204, 204, 255, 24),
+                (0, 0, 128, 25),
+                (255, 0, 255, 26),
+                (255, 255, 0, 27),
+                (0, 255, 255, 28),
+                (128, 0, 128, 29),
+                (128, 0, 0, 30),
+                (0, 128, 128, 31),
+                (0, 0, 255, 32),
+                (0, 204, 255, 33),
+                (204, 255, 255, 34),
+                (204, 255, 204, 35),
+                (255, 255, 153, 36),
+                (153, 204, 255, 37),
+                (255, 153, 204, 38),
+                (204, 153, 255, 39),
+                (255, 204, 153, 40),
+                (51, 102, 255, 41),
+                (51, 204, 204, 42),
+                (153, 204, 0, 43),
+                (255, 204, 0, 44),
+                (255, 153, 0, 45),
+                (255, 102, 0, 46),
+                (102, 102, 153, 47),
+                (150, 150, 150, 48),
+                (0, 51, 102, 49),
+                (51, 153, 102, 50),
+                (0, 51, 0, 51),
+                (51, 51, 0, 52),
+                (153, 51, 0, 53),
+                (153, 51, 102, 54),
+                (51, 51, 153, 55),
+                (51, 51, 51, 56)
+            ]
+            self.color_maps = {}
+
+            for i in colors:
+                c_r,c_g,c_b,index = i
+                if (c_r,c_g,c_b) not in self.color_maps:
+                    self.color_maps[(c_r,c_g,c_b)] = index
+
+
+
+        color_index = None
+
+        if (r,g,b) in self.color_maps:
+            color_index = self.color_maps[(r,g,b)]
+
+        return  color_index
+
     def get_cell_info(self, sheet_name, col, row, info_type_id):
         data = None
         not_exist = True
         not_implemented = False
 
+        sheet = self._macrosheets[sheet_name]
+        cell_addr = col+str(row)
+        if cell_addr in sheet.cells:
+            cell = sheet.cells[cell_addr]
+            style = self.get_style()
+            cell_format = None
+            font = None
+            if 's' in cell.attributes:
+                index = int(cell.attributes['s'])
+                cell_format = style.styleSheet.cellXfs.xf[index]
+                if 'fontId' in cell_format._attributes:
+                    font_index= int(cell_format.get_attribute('fontId'))
+                    font = style.styleSheet.fonts.font[font_index]
+
+            if info_type_id == 8:
+                h_align_map = {
+                    'general': 3,
+                    'center': 2,
+                    'bottom': 3,
+                    'justify': 4,
+                    'distributed': 5,
+                }
+
+                if hasattr(cell_format, 'alignment'):
+                    horizontal_alignment = cell_format.alignment.get_attribute('horizontal')
+                    data = h_align_map[horizontal_alignment.lower()]
+                else:
+                    # need to know the default table style
+                    # <dxfs count="0"/><tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleLight16"/>
+                    pass
+
+            elif info_type_id == 19:
+                if hasattr(font, 'sz'):
+                    size = font.sz
+                    data = int(size.get_attribute('val'))
+
+            elif info_type_id == 24:
+                rgba_str = font.color.get_attribute('rgb')
+                data = self.get_color_index(rgba_str)
+
+            elif info_type_id == 38:
+                # Font Background Color
+                fill_id = int(cell_format.get_attribute('fillId'))
+                fill = style.styleSheet.fills.fill[fill_id]
+                rgba_str = fill.patternFill.fgColor.get_attribute('rgb')
+                data = self.get_color_index(rgba_str)
+
+            elif info_type_id == 50:
+                if hasattr(cell_format, 'alignment'):
+                    vertical_alignment = cell_format.alignment.get_attribute('vertical')
+                else:
+                    vertical_alignment = 'bottom' # default
+
+                v_alignment = {
+                    'top': 1,
+                    'center': 2,
+                    'bottom': 3,
+                    'justify': 4,
+                    'distributed': 5,
+                }
+                data = v_alignment[vertical_alignment.lower()]
+
+            else:
+                not_implemented = True
+
+        elif info_type_id == 17:
+            if row in sheet.row_attributes and RowAttribute.Height in sheet.row_attributes[row]:
+                not_exist = False
+                data = sheet.row_attributes[row][RowAttribute.Height]
+                data = math.ceil(float(data))
+
+
+        # return None, None, True
         return data, not_exist, not_implemented
+
 
 
 if __name__ == '__main__':

@@ -24,5 +24,9 @@ class XlApplicationInternational(Enum):
     xlListSeparator = 5
     xlRightBracket = 11
 
+class RowAttribute(Enum):
+    Height = 0
+    Spans = 1
+
 
 

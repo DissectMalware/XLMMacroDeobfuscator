@@ -5,6 +5,7 @@ import xlrd2
 import os
 import string
 import re
+import math
 
 
 class XLSWrapper2(ExcelWrapper):
@@ -128,10 +129,6 @@ class XLSWrapper2(ExcelWrapper):
                     data = fmt.protection.formula_hidden
                     return data
 
-                elif info_type_id == 17:
-                    data = sheet.rowinfo_map[row].height
-                    data = Cell.convert_twip_to_point(data)
-
                 elif info_type_id == 18:
                     data = font.name
                     return data
@@ -185,6 +182,12 @@ class XLSWrapper2(ExcelWrapper):
                     data = fmt.alignment.rotation
                 else:
                     not_implemented = True
+
+        elif info_type_id == 17:
+            if row in sheet.rowinfo_map:
+                not_exist = False
+                data = sheet.rowinfo_map[row].height
+                data = math.ceil(Cell.convert_twip_to_point(data))
 
         return data, not_exist, not_implemented
 

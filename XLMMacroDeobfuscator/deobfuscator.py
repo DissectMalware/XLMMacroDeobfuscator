@@ -47,6 +47,7 @@ class XLMInterpreter:
         self._operators = {'+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.truediv}
         self._indent_level = 0
         self._indent_current_line = False
+        self.day_of_month = None
 
     @staticmethod
     def is_float(text):
@@ -301,7 +302,7 @@ class XLMInterpreter:
             status = EvalStatus.PartialEvaluation
             if l_status == EvalStatus.FullEvaluation:
                 data, not_exist, not_implemented = self.xlm_wrapper.get_cell_info(dst_sheet, dst_col, dst_row, type_id)
-                if not_exist:
+                if not_exist and 1==2:
                     return_val = self.get_default_cell_info(type_id)
                     text = str(return_val)
                     status = EvalStatus.FullEvaluation
@@ -309,11 +310,13 @@ class XLMInterpreter:
                     text = self.convert_parse_tree_to_str(parse_tree_root)
                     return_val = ''
                 else:
-                    text = str(data)
+                    text = str(data) if data is not None else None
                     return_val = data
                     status = EvalStatus.FullEvaluation
 
-
+            # text = self.convert_parse_tree_to_str(parse_tree_root)
+            # return_val = ''
+            # status = EvalStatus.PartialEvaluation
 
         if text is None:
             text = self.convert_parse_tree_to_str(parse_tree_root)
@@ -371,6 +374,11 @@ class XLMInterpreter:
                     text = self.convert_parse_tree_to_str(parse_tree_root)
                     return_val = text
                     status = EvalStatus.Error
+            else:
+                text = 'CHAR({})'.format(text)
+                return_val = text
+                status = EvalStatus.PartialEvaluation
+
         elif function_name == 'SEARCH':
             next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell,
                                                                            arguments[0],
@@ -512,16 +520,22 @@ class XLMInterpreter:
             status = EvalStatus.FullEvaluation
 
         elif function_name == 'DAY':
-            first_arg = arguments[0]
-            next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, first_arg, interactive)
-            if status == EvalStatus.FullEvaluation:
-                if type(text) is datetime.datetime:
-                    text = str(text.day)
-                    return_val = text
-                    status = EvalStatus.FullEvaluation
-                elif self.is_float(text):
-                    text = 'DAY(Serial Date)'
-                    status = EvalStatus.NotImplemented
+            if self.day_of_month is None:
+                first_arg = arguments[0]
+                next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, first_arg, interactive)
+                if status == EvalStatus.FullEvaluation:
+                    if type(text) is datetime.datetime:
+                        text = str(text.day)
+                        return_val = text
+                        status = EvalStatus.FullEvaluation
+                    elif self.is_float(text):
+                        text = 'DAY(Serial Date)'
+                        status = EvalStatus.NotImplemented
+            else:
+                text = str(self.day_of_month)
+                return_val = text
+                status = EvalStatus.FullEvaluation
+
         elif function_name == 'CONCATENATE':
             text = ''
             for arg in arguments:
@@ -592,6 +606,7 @@ class XLMInterpreter:
         elif parse_tree_root.data in self._expr_rule_names:
             text_left = None
             l_status = EvalStatus.Error
+            concat_status = EvalStatus.FullEvaluation
             for index, child in enumerate(parse_tree_root.children):
                 if type(child) is Token and child.type in ['ADDITIVEOP', 'MULTIOP', 'CMPOP', 'CONCATOP']:
 
@@ -600,17 +615,29 @@ class XLMInterpreter:
                     next_cell, r_status, return_val, text_right = self.evaluate_parse_tree(current_cell, right_arg,
                                                                                            interactive)
 
-                    if l_status == EvalStatus.FullEvaluation and r_status == EvalStatus.FullEvaluation:
-                        status = EvalStatus.FullEvaluation
-                        if op_str == '&':
-                            if text_left.startswith('"') and text_left.endswith('"'):
-                                text_left = text_left[1:-1].replace('""','"')
-                            if text_right.startswith('"') and text_right.endswith('"'):
-                                text_right = text_right[1:-1].replace('""','"')
+                    if op_str == '&':
+                        if text_left.startswith('"') and text_left.endswith('"'):
+                            text_left = text_left[1:-1].replace('""', '"')
+                        if text_right.startswith('"') and text_right.endswith('"'):
+                            text_right = text_right[1:-1].replace('""', '"')
 
+                        if l_status == EvalStatus.FullEvaluation and r_status == EvalStatus.PartialEvaluation:
+                            text_left = '{}[[{}'.format(text_left, text_right)
+                            l_status = EvalStatus.PartialEvaluation
+                            concat_status = EvalStatus.PartialEvaluation
+                        elif l_status == EvalStatus.PartialEvaluation and r_status == EvalStatus.FullEvaluation:
+                            text_left = '{}]]{}'.format(text_left, text_right)
+                            l_status = EvalStatus.FullEvaluation
+                            concat_status = EvalStatus.PartialEvaluation
+                        elif l_status == EvalStatus.PartialEvaluation and r_status == EvalStatus.PartialEvaluation:
+                            text_left = '{}]][[{}'.format(text_left, text_right)
+                            l_status = EvalStatus.PartialEvaluation
+                            concat_status = EvalStatus.PartialEvaluation
+                        else:
                             text_left = text_left + text_right
-                            # text_left = '"{}"'.format(text_left)
-                        elif self.is_float(text_left) and self.is_float(text_right):
+                    elif l_status == EvalStatus.FullEvaluation and r_status == EvalStatus.FullEvaluation:
+                        status = EvalStatus.FullEvaluation
+                        if self.is_float(text_left) and self.is_float(text_right):
                             if op_str in self._operators:
                                 op_res = self._operators[op_str](float(text_left), float(text_right))
                                 if op_res.is_integer():
@@ -632,6 +659,9 @@ class XLMInterpreter:
                         left_arg = parse_tree_root.children[index]
                         next_cell, l_status, return_val, text_left = self.evaluate_parse_tree(current_cell, left_arg,
                                                                                               interactive)
+
+            if concat_status == EvalStatus.PartialEvaluation and l_status== EvalStatus.FullEvaluation:
+                l_status = concat_status
 
             return next_cell, l_status, return_val, text_left
 
@@ -728,7 +758,7 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except IndexError as exp:
+                except Exception as exp:
                     print('Error: ' + str(exp))
 
 
@@ -854,6 +884,9 @@ def process_file(**kwargs):
             show_cells(excel_doc)
         else:
             interpreter = XLMInterpreter(excel_doc)
+            if kwargs.get("day")>0:
+                interpreter.day_of_month= kwargs.get("day")
+
             if kwargs.get("start_with_shell"):
                 starting_points = interpreter.xlm_wrapper.get_defined_name('auto_open',
                                                                             full_match=False)
@@ -891,6 +924,8 @@ def main():
                             help="Do not use MS Excel to process XLS files")
     arg_parser.add_argument("-s", "--start-with-shell", default=False, action='store_true',
                             help="Open an XLM shell before interpreting the macros in the input")
+    arg_parser.add_argument("-d", "--day", type=int, default=-1, action='store',
+                            help="Specify the day of month", )
 
     args = arg_parser.parse_args()
 
