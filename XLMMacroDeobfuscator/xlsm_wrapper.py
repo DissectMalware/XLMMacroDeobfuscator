@@ -354,8 +354,6 @@ class XLSMWrapper(ExcelWrapper):
                 if (c_r,c_g,c_b) not in self.color_maps:
                     self.color_maps[(c_r,c_g,c_b)] = index
 
-
-
         color_index = None
 
         if (r,g,b) in self.color_maps:
@@ -384,11 +382,14 @@ class XLSMWrapper(ExcelWrapper):
 
             if info_type_id == 8:
                 h_align_map = {
-                    'general': 3,
-                    'center': 2,
-                    'bottom': 3,
-                    'justify': 4,
-                    'distributed': 5,
+                    'general': 1,
+                    'left': 2,
+                    'center': 3,
+                    'right': 4,
+                    'fill': 5,
+                    'justify': 6,
+                    'centerContinuous': 7,
+                    'distributed': 8
                 }
 
                 if hasattr(cell_format, 'alignment'):

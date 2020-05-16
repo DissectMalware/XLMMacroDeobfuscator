@@ -222,9 +222,9 @@ class XLMInterpreter:
             result = self._workspace_defauls[number]
         return result
 
-    def evaluate_formula(self, current_cell, name, arguments, interactive):
-        next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
-        dst_sheet, dst_col, dst_row = self.get_cell_addr(current_cell, arguments[1])
+    def evaluate_formula(self, current_cell, name, first_arg, second_arg, interactive):
+        next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, first_arg, interactive)
+        dst_sheet, dst_col, dst_row = self.get_cell_addr(current_cell, second_arg)
         if status == EvalStatus.FullEvaluation:
             if text.startswith('"=') is False and self.is_float(text[1:-1]) is False:
                 self.set_cell(dst_sheet, dst_col, dst_row, text)
@@ -286,8 +286,13 @@ class XLMInterpreter:
             self._indent_current_line = True
             status = EvalStatus.FullEvaluation
         elif method_name == "FORMULA.FILL":
-            next_cell, status, return_val, text = self.evaluate_formula(current_cell, method_name, arguments,
-                                                                        interactive)
+            next_cell, status, return_val, text = self.evaluate_formula(current_cell, method_name, arguments[0],
+                                                                        arguments[1], interactive)
+
+        elif method_name == "SET.VALUE":
+            next_cell, status, return_val, text = self.evaluate_formula(current_cell, method_name, arguments[1],
+                                                                        arguments[0], interactive)
+
         elif method_name == "GET.CELL":
             l_cell, l_status, l_return_val, l_text = self.evaluate_parse_tree(current_cell,
                                                                                arguments[0],
@@ -417,7 +422,8 @@ class XLMInterpreter:
                 text = str(return_val)
 
         elif function_name == 'FORMULA':
-            next_cell, status, return_val, text = self.evaluate_formula(current_cell, function_name, arguments, interactive)
+            next_cell, status, return_val, text = self.evaluate_formula(current_cell, function_name, arguments[0],
+                                                                        arguments[1], interactive)
 
         elif function_name == 'CALL':
             argument_texts = []
@@ -625,15 +631,15 @@ class XLMInterpreter:
                             text_right = text_right[1:-1].replace('""', '"')
 
                         if l_status == EvalStatus.FullEvaluation and r_status == EvalStatus.PartialEvaluation:
-                            text_left = '{}[[{}'.format(text_left, text_right)
+                            text_left = '{}&{}'.format(text_left, text_right)
                             l_status = EvalStatus.PartialEvaluation
                             concat_status = EvalStatus.PartialEvaluation
                         elif l_status == EvalStatus.PartialEvaluation and r_status == EvalStatus.FullEvaluation:
-                            text_left = '{}]]{}'.format(text_left, text_right)
+                            text_left = '{}&{}'.format(text_left, text_right)
                             l_status = EvalStatus.FullEvaluation
                             concat_status = EvalStatus.PartialEvaluation
                         elif l_status == EvalStatus.PartialEvaluation and r_status == EvalStatus.PartialEvaluation:
-                            text_left = '{}]][[{}'.format(text_left, text_right)
+                            text_left = '{}&{}'.format(text_left, text_right)
                             l_status = EvalStatus.PartialEvaluation
                             concat_status = EvalStatus.PartialEvaluation
                         else:
@@ -771,7 +777,7 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except Exception as exp:
+                except IOError as exp:
                     print('Error: ' + str(exp))
 
 
