@@ -25,6 +25,7 @@ class Cell:
         copy.row = self.row
         copy.formula = self.formula
         copy.value = self.value
+        copy.attributes = self.attributes
         return copy
 
     def get_local_address(self):

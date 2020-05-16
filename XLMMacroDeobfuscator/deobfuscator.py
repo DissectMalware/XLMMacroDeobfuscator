@@ -635,9 +635,9 @@ class XLMInterpreter:
                                                                                            interactive)
 
                     if op_str == '&':
-                        if text_left.startswith('"') and text_left.endswith('"'):
+                        if len(text_left)> 1 and text_left.startswith('"') and text_left.endswith('"'):
                             text_left = text_left[1:-1].replace('""', '"')
-                        if text_right.startswith('"') and text_right.endswith('"'):
+                        if len(text_right)> 1 and text_right.startswith('"') and text_right.endswith('"'):
                             text_right = text_right[1:-1].replace('""', '"')
 
                         if l_status == EvalStatus.FullEvaluation and r_status == EvalStatus.PartialEvaluation:
