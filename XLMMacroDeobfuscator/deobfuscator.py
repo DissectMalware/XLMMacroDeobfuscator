@@ -22,6 +22,7 @@ from XLMMacroDeobfuscator.boundsheet import *
 import os
 import operator
 import copy
+from distutils.util import strtobool
 
 
 class EvalStatus(Enum):
@@ -70,9 +71,9 @@ class XLMInterpreter:
     @staticmethod
     def is_bool(text):
         try:
-            bool(text)
+            strtobool(text)
             return True
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, AttributeError):
             return False
 
     def get_parser(self):
@@ -134,18 +135,41 @@ class XLMInterpreter:
                 if res_sheet is None:
                     res_sheet = current_cell.sheet.name
             elif cell.data == 'r1c1_notation_cell':
-                first_child = cell.children[0]
-                second_child = cell.children[1]
-                res_sheet = current_cell.sheet.name
-                res_col = Cell.convert_to_column_index(current_cell.column)
-                res_row = int(current_cell.row)
-                if first_child == 'R' and self.is_int(second_child):
-                    res_row = res_row + int(second_child)
-                    if len(cell.children) == 4:
-                        res_col = res_col + int(cell.children[4])
-                elif second_child == 'c':
-                    res_col = res_col + int(cell.children[2])
+                current_col = Cell.convert_to_column_index(current_cell.column)
+                current_row = int(current_cell.row)
 
+                if len(cell.children)== 4:
+                    row = cell.children[1]
+                    col = cell.children[3]
+                    if row.startswith('['):
+                        res_row = current_row + int(row[1:-1])
+                    else:
+                        res_row = int(row)
+
+                    if col.startswith('['):
+                        res_col = current_col + int(col[1:-1])
+                    else:
+                        res_col = int(col)
+                elif len(cell.children)== 3:
+                    if cell.children[2] == 'C':
+                        col = cell.children[3]
+                        res_row = current_row
+                        if col.startswith('['):
+                            res_col = current_col + int(col[1:-1])
+                        else:
+                            res_col = int(col)
+                    elif cell.children[3] == 'C':
+                        row = cell.children[2]
+                        res_col = current_col
+                        if row.startswith('['):
+                            res_row = current_row + int(row[1:-1])
+                        else:
+                            res_row = int(row)
+                    else:
+                        raise Exception('Cell addresss, Syntax Error')
+
+                if res_sheet is None:
+                    res_sheet = current_cell.sheet.name
                 res_row = str(res_row)
                 res_col = Cell.convert_to_column_name(res_col)
             else:
@@ -494,7 +518,7 @@ class XLMInterpreter:
                     con_next_cell, con_status, con_return_val, con_text = self.evaluate_parse_tree(current_cell, arguments[0],
                                                                                            interactive)
                     if self.is_bool(con_return_val):
-                        con_return_val = bool(con_return_val)
+                        con_return_val = bool(strtobool(con_return_val))
 
                     if con_status == EvalStatus.FullEvaluation:
                         if con_return_val:
@@ -516,9 +540,10 @@ class XLMInterpreter:
 
                     else:
                         memory_state = copy.deepcopy(current_cell.sheet.cells)
-                        if type(arguments[2]) is Tree or type(arguments[2]) is Token:
+                        if type(arguments[2]) is Tree or type(arguments[2]) is Token or type(arguments[2]) is list:
                             self._branch_stack.append((current_cell, arguments[2], memory_state,self._indent_level, '[FALSE]'))
-                        if type(arguments[1]) is Tree or type(arguments[1]) is Token:
+
+                        if type(arguments[1]) is Tree or type(arguments[1]) is Token or type(arguments[1]) is list:
                             self._branch_stack.append((current_cell, arguments[1], current_cell.sheet.cells, self._indent_level, '[TRUE]'))
 
                         text = self.convert_parse_tree_to_str(parse_tree_root)
