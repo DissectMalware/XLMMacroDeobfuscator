@@ -38,20 +38,20 @@ class Cell:
     def convert_to_column_index(s):
         number = 0
         power = 1
-        for character in s:
+        for character in reversed(s):
             character = character.upper()
-            digit = (ord(character) - ord('A')) * power
+            digit = ((ord(character) - ord('A'))+1) * power
             number = number + digit
             power = power * 26
 
-        return number + 1
+        return number
 
     @staticmethod
     def convert_to_column_name(n):
         string = ""
         while n > 0:
             n, remainder = divmod(n - 1, 26)
-            string = chr(65 + remainder) + string
+            string = chr(ord('A') + remainder) + string
         return string
 
     @staticmethod

@@ -150,8 +150,7 @@ class XLSWrapper2(ExcelWrapper):
                     data = font.struck_out
 
                 elif info_type_id == 24:
-                    # NOT FINISHED
-                    data = self.get_color(font.colour_index)
+                    data = font.colour_index
 
                 elif info_type_id == 25:
                     data = font.outline

@@ -969,4 +969,7 @@ def main():
         pass
 
 if __name__ == '__main__':
+    data = 'IV'
+    res = Cell.convert_to_column_index(data)
+    calc_data = Cell.convert_to_column_name(res)
     main()
