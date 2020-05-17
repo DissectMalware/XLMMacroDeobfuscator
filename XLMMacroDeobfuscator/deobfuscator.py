@@ -748,6 +748,27 @@ class XLMInterpreter:
             else:
                 break
 
+    def has_loop(self, path, length=10):
+        if len(path) < length*2:
+            return False
+        else:
+            result = False
+            start_index = len(path)-length
+
+            for j in range(0, start_index-length):
+                matched = True
+                k = j
+                while start_index+k-j < len(path):
+                    if path[k] != path[start_index+k-j]:
+                        matched= False
+                        break
+                    k += 1
+                if matched:
+                    result = True
+                    break
+            return result
+
+
     def deobfuscate_macro(self, interactive):
         result = []
 
@@ -761,7 +782,7 @@ class XLMInterpreter:
                     if sheet_name in macros:
                         current_cell = self.get_formula_cell(macros[sheet_name], col, row)
                         self._branch_stack = [(current_cell, current_cell.formula, macros[sheet_name].cells, 0, '')]
-                        
+                        observed_cells = []
                         while len(self._branch_stack) > 0:
                             current_cell, formula, saved_cells, indent_level, desc = self._branch_stack.pop()
                             macros[current_cell.sheet.name].cells = saved_cells
@@ -776,6 +797,12 @@ class XLMInterpreter:
                                     previous_indent = self._indent_level - 1
                                 else:
                                     previous_indent = self._indent_level
+
+                                observed_cells.append(current_cell.get_local_address())
+
+                                if self.has_loop(observed_cells):
+                                    break
+
                                 next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, parse_tree,
                                                                                                interactive)
                                 if self.invoke_interpreter and interactive:
