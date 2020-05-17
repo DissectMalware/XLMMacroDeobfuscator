@@ -7,7 +7,6 @@ from XLMMacroDeobfuscator.boundsheet import *
 import untangle
 from io import StringIO
 import os
-import math
 
 
 class XLSMWrapper(ExcelWrapper):
@@ -438,7 +437,7 @@ class XLSMWrapper(ExcelWrapper):
             if row in sheet.row_attributes and RowAttribute.Height in sheet.row_attributes[row]:
                 not_exist = False
                 data = sheet.row_attributes[row][RowAttribute.Height]
-                data = math.ceil(float(data))
+                data = round(float(data)*4)/4
 
 
         # return None, None, True
