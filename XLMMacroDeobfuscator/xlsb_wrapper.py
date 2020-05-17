@@ -77,6 +77,13 @@ class XLSBWrapper(ExcelWrapper):
 
         return self._macrosheets
 
+    def get_cell_info(self, sheet_name, col, row, info_type_id):
+        data = None
+        not_exist = True
+        not_implemented = False
+
+        return data, not_exist, not_implemented
+
 
 if __name__ == '__main__':
 

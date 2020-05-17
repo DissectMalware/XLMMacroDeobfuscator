@@ -121,6 +121,43 @@ class XLSWrapper(ExcelWrapper):
 
         return self._macrosheets
 
+    def get_cell_info(self,sheet_name, col, row, type_ID):
+        sheet = self._excel.Excel4MacroSheets(sheet_name)
+        cell = col+row
+
+        if int(type_ID) == 2:
+            data = sheet.Range(col+row).Row
+            print(data)
+            return data
+
+        elif int(type_ID) == 3:
+            data = sheet.Range(cell).Column
+            print(data)
+            return data
+
+        elif int(type_ID) == 8:
+            data = sheet.Range(cell).HorizontalAlignment
+
+        elif int(type_ID) == 17:
+            data = sheet.Range(cell).Height
+
+        elif int(type_ID) == 19:
+            data = sheet.Range(cell).Font.Size
+
+        elif int(type_ID) == 20:
+            data = sheet.Range(cell).Font.Bold
+
+        elif int(type_ID) == 21:
+            data = sheet.Range(cell).Font.Italic
+
+        elif int(type_ID) == 23:
+            data = sheet.Range(cell).Font.Strikethrough
+
+        elif int(type_ID) == 24:
+            data = sheet.Range(cell).Font.ColorIndex
+
+        return data
+
 
 if __name__ == '__main__':
 

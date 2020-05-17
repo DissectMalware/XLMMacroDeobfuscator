@@ -11,6 +11,11 @@ class Cell:
         self.row = 0
         self.formula = None
         self.value = None
+        self.attributes = {}
+
+    def get_attribute(self, attribute_name):
+        # return default value if attributes doesn't cointain the attribute_name
+        pass
 
     def __deepcopy__(self, memodict={}):
         copy = type(self)()
@@ -20,6 +25,7 @@ class Cell:
         copy.row = self.row
         copy.formula = self.formula
         copy.value = self.value
+        copy.attributes = self.attributes
         return copy
 
     def get_local_address(self):
@@ -32,20 +38,20 @@ class Cell:
     def convert_to_column_index(s):
         number = 0
         power = 1
-        for character in s:
+        for character in reversed(s):
             character = character.upper()
-            digit = (ord(character) - ord('A')) * power
+            digit = ((ord(character) - ord('A'))+1) * power
             number = number + digit
             power = power * 26
 
-        return number + 1
+        return number
 
     @staticmethod
     def convert_to_column_name(n):
         string = ""
         while n > 0:
             n, remainder = divmod(n - 1, 26)
-            string = chr(65 + remainder) + string
+            string = chr(ord('A') + remainder) + string
         return string
 
     @staticmethod
@@ -58,12 +64,30 @@ class Cell:
 
         return sheet_name, column, row
 
+    @staticmethod
+    def convert_twip_to_point(twips):
+        # A twip is 1/20 of a point
+        point = int(twips) * 0.05
+        return point
+
 
 class Boundsheet:
     def __init__(self, name, type):
         self.name = name
         self.type = type
         self.cells = {}
+        self.row_attributes = {}
+        self.col_attributes = {}
+
+    def get_row_attribute(self, row, attrib_name):
+        # default values if row doesn't exist in row_attributes
+        pass
+
+    def get_col_attribute(self, col, attrib_name):
+        # default value if row doesn't exist in row_attributes
+
+        pass
+
 
     def add_cell(self, cell):
         cell.sheet = self

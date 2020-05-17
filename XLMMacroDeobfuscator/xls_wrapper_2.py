@@ -3,14 +3,16 @@ from XLMMacroDeobfuscator.boundsheet import Boundsheet
 from XLMMacroDeobfuscator.boundsheet import Cell
 import xlrd2
 import os
+import string
 import re
+import math
 
 
 class XLSWrapper2(ExcelWrapper):
     XLEXCEL4MACROSHEET = 3
 
     def __init__(self, xls_doc_path):
-        self.xls_workbook = xlrd2.open_workbook(xls_doc_path)
+        self.xls_workbook = xlrd2.open_workbook(xls_doc_path, formatting_info=True)
         self._macrosheets = None
         self._defined_names = None
         self.xl_international_flags = {}
@@ -18,20 +20,12 @@ class XLSWrapper2(ExcelWrapper):
                                        XlApplicationInternational.xlListSeparator: ',',
                                        XlApplicationInternational.xlRightBracket: ']'}
 
-        control_chars = ''.join(map(chr, range(0,32)))
-        control_chars += ''.join(map(chr,  range(127,160)))
-        control_chars += '\ufefe\uffff\ufeff\ufffe\uffef\ufff0\ufff1\ufff6\ufefd\udddd\ufffd'
-        self._control_char_re = re.compile('[%s]' % re.escape(control_chars))
-
     def get_xl_international_char(self, flag_name):
         result = None
         if flag_name in self.xl_international_flags:
             result = self.xl_international_flags[flag_name]
-        return result
 
-    def remove_nonprintable_chars(self, input_str):
-        input_str =  input_str.encode("utf-16").decode('utf-16','ignore')
-        return self._control_char_re.sub('', input_str)
+        return result
 
     def get_defined_names(self):
         result = {}
@@ -39,7 +33,7 @@ class XLSWrapper2(ExcelWrapper):
         name_objects = self.xls_workbook.name_map
 
         for index, (name_obj, cell) in enumerate(name_objects.items()):
-            name = self.remove_nonprintable_chars(name_obj).lower()
+            name = name_obj.replace('\x00', '').lower()
             if name in result:
                 name = name + index
             result[name] = cell[0].result.text
@@ -67,7 +61,7 @@ class XLSWrapper2(ExcelWrapper):
             for xls_cell in xls_sheet.get_used_cells():
                 cell = Cell()
                 cell.sheet = macrosheet
-                if xls_cell.formula is not None and len(xls_cell.formula)>0:
+                if xls_cell.formula is not None and len(xls_cell.formula) > 0:
                     cell.formula = '=' + xls_cell.formula
                 cell.value = xls_cell.value
                 cell.row = xls_cell.row + 1
@@ -77,7 +71,6 @@ class XLSWrapper2(ExcelWrapper):
 
         except Exception as error:
             print('CELL(Formula): ' + str(error.args[2]))
-
 
     def get_macrosheets(self):
         if self._macrosheets is None:
@@ -90,10 +83,114 @@ class XLSWrapper2(ExcelWrapper):
 
         return self._macrosheets
 
+    def get_color(self, color_index):
+        return self.xls_workbook.colour_map.get(color_index)
+
+    def get_cell_info(self, sheet_name, col, row, info_type_id):
+        sheet = self.xls_workbook.sheet_by_name(sheet_name)
+        row = int(row) - 1
+        column = Cell.convert_to_column_index(col) - 1
+        info_type_id = int(float(info_type_id))
+
+        data = None
+        not_exist = True
+        not_implemented = False
+
+        if (row, column) in sheet.used_cells:
+            cell = sheet.cell(row, column)
+
+            if cell.xf_index is not None and cell.xf_index < len(self.xls_workbook.xf_list):
+                fmt = self.xls_workbook.xf_list[cell.xf_index]
+                font = self.xls_workbook.font_list[fmt.font_index]
+                not_exist = False
+
+                if info_type_id == 8:
+                    data = fmt.alignment.hor_align + 1
+
+                # elif info_type_id == 9:
+                #     data = fmt.border.left_line_style
+                #
+                # elif info_type_id == 10:
+                #     data = fmt.border.right_line_style
+                #
+                # elif info_type_id == 11:
+                #     data = fmt.border.top_line_style
+                #
+                # elif info_type_id == 12:
+                #     data = fmt.border.bottom_line_style
+                #
+                # elif info_type_id == 13:
+                #     data = fmt.border.fill_pattern
+                #
+                # elif info_type_id == 14:
+                #     data = fmt.protection.cell_locked
+                #
+                # elif info_type_id == 15:
+                #     data = fmt.protection.formula_hidden
+                #     return data
+                #
+                # elif info_type_id == 18:
+                #     data = font.name
+                #     return data
+
+                elif info_type_id == 19:
+                    data = font.height
+                    data = Cell.convert_twip_to_point(data)
+
+                # elif info_type_id == 20:
+                #     data = font.bold
+                #
+                # elif info_type_id == 21:
+                #     data = font.italic
+                #
+                # elif info_type_id == 22:
+                #     data = font.underlined
+                #
+                # elif info_type_id == 23:
+                #     data = font.struck_out
+                #
+                # elif info_type_id == 25:
+                #     data = font.outline
+                #
+                # elif info_type_id == 26:
+                #     data = font.shadow
+
+                # elif info_type_id == 34:
+                #     # Left Color index
+                #     data = fmt.border.left_colour_index
+                #
+                # elif info_type_id == 35:
+                #     # Right Color index
+                #     data = fmt.border.right_colour_index
+                #
+                # elif info_type_id == 36:
+                #     # Top Color index
+                #     data = fmt.border.top_colour_index
+                #
+                # elif info_type_id == 37:
+                #     # Bottom Color index
+                #     data = fmt.border.bottom_colour_index
+
+                elif info_type_id == 50:
+                    data = fmt.alignment.vert_align + 1
+
+                # elif info_type_id == 51:
+                #     data = fmt.alignment.rotation
+                else:
+                    not_implemented = True
+
+        elif info_type_id == 17:
+            if row in sheet.rowinfo_map:
+                not_exist = False
+                data = sheet.rowinfo_map[row].height
+                data = math.ceil(Cell.convert_twip_to_point(data))
+
+        return data, not_exist, not_implemented
+
 
 if __name__ == '__main__':
 
-    path = r"C:\Users\user\Downloads\bf58dc1c6ee61d7370c3dfaed7efd98435aed215dfed58e7d90a25b195584b33.xls"
+    path = r"C:\Users\dan\PycharmProjects\XLMMacroDeobfuscator\tmp\xls\Doc55752.xls"
 
     path = os.path.abspath(path)
     excel_doc = XLSWrapper2(path)
