@@ -926,7 +926,7 @@ def process_file(**kwargs):
     """
     {
         'file': '/tmp/8a6e4c10c30b773147d0d7c8307d88f1cf242cb01a9747bfec0319befdc1fcaf',
-        'noninteractive': False,
+        'noninteractive': True,
         'extract_only': False,
         'no_ms_excel': True,
         'start_with_shell': False,
