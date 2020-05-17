@@ -931,6 +931,7 @@ def process_file(**kwargs):
         'no_ms_excel': True,
         'start_with_shell': False,
         'return_deobfuscated': False,
+        'day': 0,
     }
     """
     deobfuscated = list()
@@ -966,7 +967,7 @@ def process_file(**kwargs):
             show_cells(excel_doc)
         else:
             interpreter = XLMInterpreter(excel_doc)
-            if kwargs.get("day")>0:
+            if kwargs.get("day", 0) > 0:
                 interpreter.day_of_month= kwargs.get("day")
 
             if kwargs.get("start_with_shell"):
