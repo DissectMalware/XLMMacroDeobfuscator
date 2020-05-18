@@ -150,7 +150,7 @@ class XLSWrapper2(ExcelWrapper):
                 #     data = font.struck_out
                 
                 elif info_type_id == 24:
-                    data = font.colour_index - 7
+                    data = font.colour_index - 7 if font.colour_index >7 else font.colour_index
 
                 # elif info_type_id == 25:
                 #     data = font.outline
@@ -175,7 +175,7 @@ class XLSWrapper2(ExcelWrapper):
                 #     data = fmt.border.bottom_colour_index
 
                 elif info_type_id == 38:
-                    data = fmt.background.pattern_colour_index - 7
+                    data = fmt.background.pattern_colour_index - 7 if font.colour_index >7 else font.colour_index
 
                 elif info_type_id == 50:
                     data = fmt.alignment.vert_align + 1
