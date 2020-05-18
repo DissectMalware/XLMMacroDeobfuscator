@@ -102,6 +102,8 @@ class XLSWrapper2(ExcelWrapper):
                 data = sheet.rowinfo_map[row].height
                 data = Cell.convert_twip_to_point(data)
                 data = round(float(data) * 4) / 4
+            else:
+                data = sheet.default_row_height
 
         elif (row, column) in sheet.used_cells:
             cell = sheet.cell(row, column)
