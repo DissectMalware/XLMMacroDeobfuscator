@@ -379,6 +379,8 @@ class XLSMWrapper(ExcelWrapper):
             style = self.get_style()
             cell_format = None
             font = None
+            not_exist = False
+
             if 's' in cell.attributes:
                 index = int(cell.attributes['s'])
                 cell_format = style.styleSheet.cellXfs.xf[index]
@@ -401,6 +403,7 @@ class XLSMWrapper(ExcelWrapper):
                 if hasattr(cell_format, 'alignment'):
                     horizontal_alignment = cell_format.alignment.get_attribute('horizontal')
                     data = h_align_map[horizontal_alignment.lower()]
+
                 else:
                     # need to know the default table style
                     # <dxfs count="0"/><tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleLight16"/>
