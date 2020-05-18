@@ -368,7 +368,13 @@ class XLSMWrapper(ExcelWrapper):
 
         sheet = self._macrosheets[sheet_name]
         cell_addr = col+str(row)
-        if cell_addr in sheet.cells:
+        if info_type_id == 17:
+            if row in sheet.row_attributes and RowAttribute.Height in sheet.row_attributes[row]:
+                not_exist = False
+                data = sheet.row_attributes[row][RowAttribute.Height]
+                data = math.ceil(float(data))
+
+        elif cell_addr in sheet.cells:
             cell = sheet.cells[cell_addr]
             style = self.get_style()
             cell_format = None
@@ -433,12 +439,6 @@ class XLSMWrapper(ExcelWrapper):
 
             else:
                 not_implemented = True
-
-        elif info_type_id == 17:
-            if row in sheet.row_attributes and RowAttribute.Height in sheet.row_attributes[row]:
-                not_exist = False
-                data = sheet.row_attributes[row][RowAttribute.Height]
-                data = math.ceil(float(data))
 
 
         # return None, None, True

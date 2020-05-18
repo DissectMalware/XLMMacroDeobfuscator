@@ -96,7 +96,16 @@ class XLSWrapper2(ExcelWrapper):
         not_exist = True
         not_implemented = False
 
-        if (row, column) in sheet.used_cells:
+        if info_type_id == 17:
+            not_exist = False
+            if row in sheet.rowinfo_map:
+                data = sheet.rowinfo_map[row].height
+            else:
+                data = sheet.default_row_height
+            data = Cell.convert_twip_to_point(data)
+            data = round(float(data) * 4) / 4
+
+        elif (row, column) in sheet.used_cells:
             cell = sheet.cell(row, column)
 
             if cell.xf_index is not None and cell.xf_index < len(self.xls_workbook.xf_list):
@@ -185,12 +194,6 @@ class XLSWrapper2(ExcelWrapper):
                 else:
                     not_implemented = True
 
-        elif info_type_id == 17:
-            if row in sheet.rowinfo_map:
-                not_exist = False
-                data = sheet.rowinfo_map[row].height
-                data = Cell.convert_twip_to_point(data)
-                data = round(float(data) * 4) / 4
 
         return data, not_exist, not_implemented
 
