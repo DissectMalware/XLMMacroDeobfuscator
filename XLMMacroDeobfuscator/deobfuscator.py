@@ -43,9 +43,11 @@ class XLMInterpreter:
         self.xlm_parser = self.get_parser()
         self.defined_names = self.xlm_wrapper.get_defined_names()
         self._branch_stack = []
-        self._workspace_defauls = {}
+        self._workspace_defaults = {}
+        self._window_defaults = {}
+        self._cell_defaults = {}
         self._expr_rule_names = ['expression', 'concat_expression', 'additive_expression', 'multiplicative_expression']
-        self._operators = {'+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.truediv}
+        self._operators = {'+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.truediv, '>': operator.gt, '<': operator.lt}
         self._indent_level = 0
         self._indent_current_line = False
         self.day_of_month = None
@@ -216,34 +218,52 @@ class XLMInterpreter:
                 result += self.convert_parse_tree_to_str(child)
             return result
 
+    def get_window(self, number):
+        result = None
+        if len(self._window_defaults) == 0:
+            script_dir = os.path.dirname(__file__)
+            config_dir = os.path.join(script_dir, 'configs')
+            with open(os.path.join(config_dir,'get_window.conf'), 'r', encoding='utf_8') as workspace_conf_file:
+                for index, line in enumerate(workspace_conf_file):
+                    line = line.strip()
+                    if len(line) > 0:
+                        if self.is_float(line) is True:
+                            self._window_defaults[index+1] = int(float(line))
+                        else:
+                            self._window_defaults[index+1] = line
+
+        if number in self._window_defaults:
+            result = self._window_defaults[number]
+        return result
+
     def get_workspace(self, number):
         result = None
-        if len(self._workspace_defauls) == 0:
+        if len(self._workspace_defaults) == 0:
             script_dir = os.path.dirname(__file__)
             config_dir = os.path.join(script_dir, 'configs')
             with open(os.path.join(config_dir,'get_workspace.conf'), 'r', encoding='utf_8') as workspace_conf_file:
                 for index, line in enumerate(workspace_conf_file):
                     line = line.strip()
                     if len(line) > 0:
-                        self._workspace_defauls[index+1] = line
+                        self._workspace_defaults[index+1] = line
 
-        if number in self._workspace_defauls:
-            result = self._workspace_defauls[number]
+        if number in self._workspace_defaults:
+            result = self._workspace_defaults[number]
         return result
 
     def get_default_cell_info(self, number):
         result = None
-        if len(self._workspace_defauls) == 0:
+        if len(self._cell_defaults) == 0:
             script_dir = os.path.dirname(__file__)
             config_dir = os.path.join(script_dir, 'configs')
             with open(os.path.join(config_dir,'get_cell.conf'), 'r', encoding='utf_8') as workspace_conf_file:
                 for index, line in enumerate(workspace_conf_file):
                     line = line.strip()
                     if len(line) > 0:
-                        self._workspace_defauls[index+1] = line
+                        self._cell_defaults[index+1] = line
 
-        if number in self._workspace_defauls:
-            result = self._workspace_defauls[number]
+        if number in self._cell_defaults:
+            result = self._cell_defaults[number]
         return result
 
     def evaluate_formula(self, current_cell, name, arguments, interactive, destination_arg=1):
@@ -301,6 +321,20 @@ class XLMInterpreter:
                 else:
                     text = 'ON.TIME({},{})'.format(text, self.convert_parse_tree_to_str(arguments[1]))
                     status = EvalStatus.Error
+        elif method_name == "GET.WINDOW":
+            status = EvalStatus.Error
+            if len(arguments)== 1:
+                arg_next_cell, arg_status, arg_return_val, arg_text = self.evaluate_parse_tree(current_cell,
+                                                                                               arguments[0],
+                                                                                               interactive)
+
+                if arg_status == EvalStatus.FullEvaluation and self.is_float(arg_text):
+                    window_param = self.get_window(int(float(arg_text)))
+                    current_cell.value = window_param
+                    text = window_param #self.convert_parse_tree_to_str(parse_tree_root)
+                    return_val = window_param
+                    status = EvalStatus.FullEvaluation
+                    next_cell = None
         elif method_name == "GET.WORKSPACE":
             status = EvalStatus.Error
             if len(arguments)== 1:
@@ -634,14 +668,18 @@ class XLMInterpreter:
             if cell_addr in sheet.cells:
                 cell = sheet.cells[cell_addr]
                 if cell.value is not None:
-                    if self.is_float( cell.value) is False:
+                    if self.is_float(cell.value) is False:
                         text = '"{}"'.format(cell.value.replace('"','""'))
                     else:
                         text = cell.value
                     status = EvalStatus.FullEvaluation
                     return_val = text
                     missing = False
-
+                elif cell.formula is not None:
+                    parse_tree = self.xlm_parser.parse(cell.formula)
+                    next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, parse_tree, False)
+                    return_val = text
+                    missing = False
                 else:
                     text = "{}".format(cell_addr)
             else:
@@ -684,7 +722,9 @@ class XLMInterpreter:
                         if self.is_float(text_left) and self.is_float(text_right):
                             if op_str in self._operators:
                                 op_res = self._operators[op_str](float(text_left), float(text_right))
-                                if op_res.is_integer():
+                                if type(op_res) == bool:
+                                    text_left = str(op_res)
+                                elif op_res.is_integer():
                                     text_left = str(int(op_res))
                                 else:
                                     text_left = str(op_res)

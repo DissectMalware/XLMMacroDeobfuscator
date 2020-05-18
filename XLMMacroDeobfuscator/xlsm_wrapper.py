@@ -7,6 +7,7 @@ from XLMMacroDeobfuscator.boundsheet import *
 import untangle
 from io import StringIO
 import os
+import math
 
 
 class XLSMWrapper(ExcelWrapper):
@@ -224,8 +225,6 @@ class XLSMWrapper(ExcelWrapper):
         return result
 
     def load_cells(self, macrosheet, macrosheet_obj):
-        if not hasattr(macrosheet_obj.xm_macrosheet.sheetData, 'row'):
-            return
         for row in macrosheet_obj.xm_macrosheet.sheetData.row:
             row_attribs = {}
             for attr in row._attributes:
@@ -369,11 +368,19 @@ class XLSMWrapper(ExcelWrapper):
 
         sheet = self._macrosheets[sheet_name]
         cell_addr = col+str(row)
-        if cell_addr in sheet.cells:
+        if info_type_id == 17:
+            if row in sheet.row_attributes and RowAttribute.Height in sheet.row_attributes[row]:
+                not_exist = False
+                data = sheet.row_attributes[row][RowAttribute.Height]
+                data = round(float(data) * 4) / 4
+
+        elif cell_addr in sheet.cells:
             cell = sheet.cells[cell_addr]
             style = self.get_style()
             cell_format = None
             font = None
+            not_exist = False
+
             if 's' in cell.attributes:
                 index = int(cell.attributes['s'])
                 cell_format = style.styleSheet.cellXfs.xf[index]
@@ -396,6 +403,7 @@ class XLSMWrapper(ExcelWrapper):
                 if hasattr(cell_format, 'alignment'):
                     horizontal_alignment = cell_format.alignment.get_attribute('horizontal')
                     data = h_align_map[horizontal_alignment.lower()]
+
                 else:
                     # need to know the default table style
                     # <dxfs count="0"/><tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleLight16"/>
@@ -404,7 +412,7 @@ class XLSMWrapper(ExcelWrapper):
             elif info_type_id == 19:
                 if hasattr(font, 'sz'):
                     size = font.sz
-                    data = int(size.get_attribute('val'))
+                    data = float(size.get_attribute('val'))
 
             elif info_type_id == 24:
                 rgba_str = font.color.get_attribute('rgb')
@@ -434,12 +442,6 @@ class XLSMWrapper(ExcelWrapper):
 
             else:
                 not_implemented = True
-
-        elif info_type_id == 17:
-            if row in sheet.row_attributes and RowAttribute.Height in sheet.row_attributes[row]:
-                not_exist = False
-                data = sheet.row_attributes[row][RowAttribute.Height]
-                data = round(float(data)*4)/4
 
 
         # return None, None, True
