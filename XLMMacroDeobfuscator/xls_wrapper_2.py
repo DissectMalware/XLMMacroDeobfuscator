@@ -97,13 +97,13 @@ class XLSWrapper2(ExcelWrapper):
         not_implemented = False
 
         if info_type_id == 17:
+            not_exist = False
             if row in sheet.rowinfo_map:
-                not_exist = False
                 data = sheet.rowinfo_map[row].height
-                data = Cell.convert_twip_to_point(data)
-                data = round(float(data) * 4) / 4
             else:
                 data = sheet.default_row_height
+            data = Cell.convert_twip_to_point(data)
+            data = round(float(data) * 4) / 4
 
         elif (row, column) in sheet.used_cells:
             cell = sheet.cell(row, column)
