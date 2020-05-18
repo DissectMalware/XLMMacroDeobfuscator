@@ -668,14 +668,18 @@ class XLMInterpreter:
             if cell_addr in sheet.cells:
                 cell = sheet.cells[cell_addr]
                 if cell.value is not None:
-                    if self.is_float( cell.value) is False:
+                    if self.is_float(cell.value) is False:
                         text = '"{}"'.format(cell.value.replace('"','""'))
                     else:
                         text = cell.value
                     status = EvalStatus.FullEvaluation
                     return_val = text
                     missing = False
-
+                elif cell.formula is not None:
+                    parse_tree = self.xlm_parser.parse(cell.formula)
+                    next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, parse_tree, False)
+                    return_val = text
+                    missing = False
                 else:
                     text = "{}".format(cell_addr)
             else:
