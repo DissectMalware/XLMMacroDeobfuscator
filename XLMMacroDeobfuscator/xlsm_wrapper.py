@@ -372,7 +372,7 @@ class XLSMWrapper(ExcelWrapper):
             if row in sheet.row_attributes and RowAttribute.Height in sheet.row_attributes[row]:
                 not_exist = False
                 data = sheet.row_attributes[row][RowAttribute.Height]
-                data = math.ceil(float(data))
+                data = round(float(data) * 4) / 4
 
         elif cell_addr in sheet.cells:
             cell = sheet.cells[cell_addr]
@@ -409,7 +409,7 @@ class XLSMWrapper(ExcelWrapper):
             elif info_type_id == 19:
                 if hasattr(font, 'sz'):
                     size = font.sz
-                    data = int(size.get_attribute('val'))
+                    data = float(size.get_attribute('val'))
 
             elif info_type_id == 24:
                 rgba_str = font.color.get_attribute('rgb')
