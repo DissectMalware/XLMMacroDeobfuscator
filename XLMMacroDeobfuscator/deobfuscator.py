@@ -625,7 +625,7 @@ class XLMInterpreter:
             cell_addr = col + str(row)
             sheet = self.xlm_wrapper.get_macrosheets()[sheet_name]
             missing = True
-            if cell_addr not in sheet.cells or sheet.cells[cell_addr].value is None:
+            if cell_addr not in sheet.cells or (sheet.cells[cell_addr].value is None and sheet.cells[cell_addr].formula is None):
                 if interactive:
                     self.invoke_interpreter = True
                     if self.first_unknown_cell is None:
@@ -996,7 +996,7 @@ def process_file(**kwargs):
 def main():
 
     arg_parser = argparse.ArgumentParser()
-    
+
     arg_parser.add_argument("-f", "--file", type=str, action='store', help="The path of a XLSM file")
     arg_parser.add_argument("-n", "--noninteractive", default=False, action='store_true',
                             help="Disable interactive shell")
