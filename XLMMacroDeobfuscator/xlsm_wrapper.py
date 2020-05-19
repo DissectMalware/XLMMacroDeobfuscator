@@ -280,6 +280,9 @@ class XLSMWrapper(ExcelWrapper):
             macrosheets = self.get_macrosheet_infos()
             for macrosheet in macrosheets:
                 self.load_cells(macrosheet['sheet'], macrosheet['sheet_xml'])
+                if hasattr(macrosheet['sheet_xml'].xm_macrosheet, 'sheetFormatPr'):
+                    macrosheet['sheet'].default_height = macrosheet['sheet_xml'].xm_macrosheet.sheetFormatPr.get_attribute('defaultRowHeight')
+
                 self._macrosheets[macrosheet['sheet'].name] = macrosheet['sheet']
 
         return self._macrosheets
@@ -291,62 +294,20 @@ class XLSMWrapper(ExcelWrapper):
 
         if self.color_maps is None:
             colors =[
-                (0, 0, 0, 1),
-                (255, 255, 255, 2),
-                (255, 0, 0, 3),
-                (0, 255, 0, 4),
-                (0, 0, 255, 5),
-                (255, 255, 0, 6),
-                (255, 0, 255, 7),
-                (0, 255, 255, 8),
-                (128, 0, 0, 9),
-                (0, 128, 0, 10),
-                (0, 0, 128, 11),
-                (128, 128, 0, 12),
-                (128, 0, 128, 13),
-                (0, 128, 128, 14),
-                (192, 192, 192, 15),
-                (128, 128, 128, 16),
-                (153, 153, 255, 17),
-                (153, 51, 102, 18),
-                (255, 255, 204, 19),
-                (204, 255, 255, 20),
-                (102, 0, 102, 21),
-                (255, 128, 128, 22),
-                (0, 102, 204, 23),
-                (204, 204, 255, 24),
-                (0, 0, 128, 25),
-                (255, 0, 255, 26),
-                (255, 255, 0, 27),
-                (0, 255, 255, 28),
-                (128, 0, 128, 29),
-                (128, 0, 0, 30),
-                (0, 128, 128, 31),
-                (0, 0, 255, 32),
-                (0, 204, 255, 33),
-                (204, 255, 255, 34),
-                (204, 255, 204, 35),
-                (255, 255, 153, 36),
-                (153, 204, 255, 37),
-                (255, 153, 204, 38),
-                (204, 153, 255, 39),
-                (255, 204, 153, 40),
-                (51, 102, 255, 41),
-                (51, 204, 204, 42),
-                (153, 204, 0, 43),
-                (255, 204, 0, 44),
-                (255, 153, 0, 45),
-                (255, 102, 0, 46),
-                (102, 102, 153, 47),
-                (150, 150, 150, 48),
-                (0, 51, 102, 49),
-                (51, 153, 102, 50),
-                (0, 51, 0, 51),
-                (51, 51, 0, 52),
-                (153, 51, 0, 53),
-                (153, 51, 102, 54),
-                (51, 51, 153, 55),
-                (51, 51, 51, 56)
+                (0, 0, 0, 1),(255, 255, 255, 2),(255, 0, 0, 3),(0, 255, 0, 4),
+                (0, 0, 255, 5),(255, 255, 0, 6),(255, 0, 255, 7),(0, 255, 255, 8),
+                (128, 0, 0, 9),(0, 128, 0, 10),(0, 0, 128, 11),(128, 128, 0, 12),
+                (128, 0, 128, 13),(0, 128, 128, 14),(192, 192, 192, 15),(128, 128, 128, 16),
+                (153, 153, 255, 17),(153, 51, 102, 18),(255, 255, 204, 19),(204, 255, 255, 20),
+                (102, 0, 102, 21),(255, 128, 128, 22),(0, 102, 204, 23),(204, 204, 255, 24),
+                (0, 0, 128, 25),(255, 0, 255, 26),(255, 255, 0, 27),(0, 255, 255, 28),
+                (128, 0, 128, 29),(128, 0, 0, 30),(0, 128, 128, 31),(0, 0, 255, 32),
+                (0, 204, 255, 33),(204, 255, 255, 34),(204, 255, 204, 35),(255, 255, 153, 36),
+                (153, 204, 255, 37),(255, 153, 204, 38),(204, 153, 255, 39),(255, 204, 153, 40),
+                (51, 102, 255, 41),(51, 204, 204, 42),(153, 204, 0, 43),(255, 204, 0, 44),
+                (255, 153, 0, 45),(255, 102, 0, 46),(102, 102, 153, 47),(150, 150, 150, 48),
+                (0, 51, 102, 49),(51, 153, 102, 50),(0, 51, 0, 51),(51, 51, 0, 52),
+                (153, 51, 0, 53),(153, 51, 102, 54),(51, 51, 153, 55),(51, 51, 51, 56)
             ]
             self.color_maps = {}
 
@@ -369,17 +330,44 @@ class XLSMWrapper(ExcelWrapper):
 
         sheet = self._macrosheets[sheet_name]
         cell_addr = col+str(row)
-        if cell_addr in sheet.cells:
-            cell = sheet.cells[cell_addr]
+        if info_type_id == 17:
+            style = self.get_style()
+            if row in sheet.row_attributes and RowAttribute.Height in sheet.row_attributes[row]:
+                not_exist = False
+                data = sheet.row_attributes[row][RowAttribute.Height]
+            elif sheet.default_height is not None:
+                data = sheet.default_height
+                NotImplemented = True
+            data = round(float(data) * 4) / 4
+
+        else:
             style = self.get_style()
             cell_format = None
             font = None
-            if 's' in cell.attributes:
-                index = int(cell.attributes['s'])
-                cell_format = style.styleSheet.cellXfs.xf[index]
-                if 'fontId' in cell_format._attributes:
-                    font_index= int(cell_format.get_attribute('fontId'))
-                    font = style.styleSheet.fonts.font[font_index]
+            not_exist = False
+
+            if cell_addr in sheet.cells:
+                cell = sheet.cells[cell_addr]
+                if 's' in cell.attributes:
+                    index = int(cell.attributes['s'])
+                    cell_format = style.styleSheet.cellXfs.xf[index]
+                    if 'fontId' in cell_format._attributes:
+                        font_index= int(cell_format.get_attribute('fontId'))
+                        font = style.styleSheet.fonts.font[font_index]
+            else:
+                for cell_style in style.styleSheet.cellStyles.cellStyle:
+                    if cell_style.get_attribute('name') == 'Normal':
+                        index = int(cell_style.get_attribute('xfId'))
+                        if type(style.styleSheet.cellStyleXfs.xf) is list:
+                            cell_format = style.styleSheet.cellStyleXfs.xf[index]
+                        else:
+                            cell_format = style.styleSheet.cellStyleXfs.xf
+                        if 'fontId' in cell_format._attributes:
+                            font_index = int(cell_format.get_attribute('fontId'))
+                            font = style.styleSheet.fonts.font[font_index]
+                        break
+                NotImplemented = True
+
 
             if info_type_id == 8:
                 h_align_map = {
@@ -396,26 +384,31 @@ class XLSMWrapper(ExcelWrapper):
                 if hasattr(cell_format, 'alignment'):
                     horizontal_alignment = cell_format.alignment.get_attribute('horizontal')
                     data = h_align_map[horizontal_alignment.lower()]
+
                 else:
-                    # need to know the default table style
-                    # <dxfs count="0"/><tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleLight16"/>
-                    pass
+                    data = 1
 
             elif info_type_id == 19:
                 if hasattr(font, 'sz'):
                     size = font.sz
-                    data = int(size.get_attribute('val'))
+                    data = float(size.get_attribute('val'))
 
             elif info_type_id == 24:
-                rgba_str = font.color.get_attribute('rgb')
-                data = self.get_color_index(rgba_str)
+                if 'rgb' in font.color._attributes:
+                    rgba_str = font.color.get_attribute('rgb')
+                    data = self.get_color_index(rgba_str)
+                else:
+                    data = 1
 
             elif info_type_id == 38:
                 # Font Background Color
                 fill_id = int(cell_format.get_attribute('fillId'))
                 fill = style.styleSheet.fills.fill[fill_id]
-                rgba_str = fill.patternFill.fgColor.get_attribute('rgb')
-                data = self.get_color_index(rgba_str)
+                if hasattr(fill.patternFill, 'fgColor'):
+                    rgba_str = fill.patternFill.fgColor.get_attribute('rgb')
+                    data = self.get_color_index(rgba_str)
+                else:
+                    data = 0
 
             elif info_type_id == 50:
                 if hasattr(cell_format, 'alignment'):
@@ -434,13 +427,6 @@ class XLSMWrapper(ExcelWrapper):
 
             else:
                 not_implemented = True
-
-        elif info_type_id == 17:
-            if row in sheet.row_attributes and RowAttribute.Height in sheet.row_attributes[row]:
-                not_exist = False
-                data = sheet.row_attributes[row][RowAttribute.Height]
-                data = round(float(data)*4)/4
-
 
         # return None, None, True
         return data, not_exist, not_implemented

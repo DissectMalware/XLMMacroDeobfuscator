@@ -78,6 +78,7 @@ class Boundsheet:
         self.cells = {}
         self.row_attributes = {}
         self.col_attributes = {}
+        self.default_height = None
 
     def get_row_attribute(self, row, attrib_name):
         # default values if row doesn't exist in row_attributes
