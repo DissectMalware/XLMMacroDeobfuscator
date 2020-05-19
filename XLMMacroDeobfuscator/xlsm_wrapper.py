@@ -7,7 +7,6 @@ from XLMMacroDeobfuscator.boundsheet import *
 import untangle
 from io import StringIO
 import os
-import math
 
 
 class XLSMWrapper(ExcelWrapper):
@@ -225,6 +224,8 @@ class XLSMWrapper(ExcelWrapper):
         return result
 
     def load_cells(self, macrosheet, macrosheet_obj):
+        if not hasattr(macrosheet_obj.xm_macrosheet.sheetData, 'row'):
+            return
         for row in macrosheet_obj.xm_macrosheet.sheetData.row:
             row_attribs = {}
             for attr in row._attributes:
@@ -426,7 +427,6 @@ class XLSMWrapper(ExcelWrapper):
 
             else:
                 not_implemented = True
-
 
         # return None, None, True
         return data, not_exist, not_implemented

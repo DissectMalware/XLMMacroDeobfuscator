@@ -104,14 +104,13 @@ class XLSWrapper2(ExcelWrapper):
                 data = sheet.default_row_height
             data = Cell.convert_twip_to_point(data)
             data = round(float(data) * 4) / 4
-
         else:
             if (row, column) in sheet.used_cells:
                 cell = sheet.cell(row, column)
                 if cell.xf_index is not None and cell.xf_index < len(self.xls_workbook.xf_list):
                     fmt = self.xls_workbook.xf_list[cell.xf_index]
                     font = self.xls_workbook.font_list[fmt.font_index]
-                    not_exist = False
+                    
                 else:
                     normal_style= self.xls_workbook.style_name_map['Normal'][1]
                     fmt = self.xls_workbook.xf_list[normal_style]
@@ -120,6 +119,8 @@ class XLSWrapper2(ExcelWrapper):
                 normal_style = self.xls_workbook.style_name_map['Normal'][1]
                 fmt = self.xls_workbook.xf_list[normal_style]
                 font = self.xls_workbook.font_list[fmt.font_index]
+                
+            not_exist = False
 
             if info_type_id == 8:
                 data = fmt.alignment.hor_align + 1
