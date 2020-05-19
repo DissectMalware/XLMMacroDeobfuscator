@@ -440,7 +440,7 @@ class XLMInterpreter:
                                                                            arguments[0],
                                                                            interactive)
             if status == EvalStatus.FullEvaluation:
-                if 0 <float(text) < 0x110000:
+                if 0 <= float(text) <= 0x110000:
                     text = chr(int(float(text)))
                     cell = self.get_formula_cell(current_cell.sheet, current_cell.column, current_cell.row)
                     cell.value = text
@@ -448,7 +448,7 @@ class XLMInterpreter:
                 else:
                     text = self.convert_parse_tree_to_str(parse_tree_root)
                     return_val = text
-                    status = EvalStatus.Error
+                    status = EvalStatus.PartialEvaluation
             else:
                 text = 'CHAR({})'.format(text)
                 return_val = text
@@ -727,6 +727,7 @@ class XLMInterpreter:
                                 elif op_res.is_integer():
                                     text_left = str(int(op_res))
                                 else:
+                                    op_res = round(op_res, 10)
                                     text_left = str(op_res)
                             else:
                                 text_left = 'Operator ' + op_str

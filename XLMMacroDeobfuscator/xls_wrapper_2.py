@@ -113,10 +113,12 @@ class XLSWrapper2(ExcelWrapper):
                     font = self.xls_workbook.font_list[fmt.font_index]
                     not_exist = False
                 else:
-                    fmt = self.xls_workbook.xf_list[0]
+                    normal_style= self.xls_workbook.style_name_map['Normal'][1]
+                    fmt = self.xls_workbook.xf_list[normal_style]
                     font = self.xls_workbook.font_list[fmt.font_index]
             else:
-                fmt = self.xls_workbook.xf_list[0]
+                normal_style = self.xls_workbook.style_name_map['Normal'][1]
+                fmt = self.xls_workbook.xf_list[normal_style]
                 font = self.xls_workbook.font_list[fmt.font_index]
 
             if info_type_id == 8:
