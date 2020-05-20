@@ -557,19 +557,27 @@ class XLMInterpreter:
         elif function_name == 'DAY':
             if self._symbolic_interpretation == True:
                 if 'DAY' not in self._symbols:
-                    self._symbols['DAY'] = Symbol('DAY', INT)
-                self._current_line_has_symbol = True
+                    self._symbols['DAY'] = Symbol('DAY', REAL)
+                    condition = self.get_domain_condition(self._symbols['DAY'], 1, 31)
+                    if self._smt_domain is None:
+                        self._smt_domain = condition
+                    else:
+                        self._smt_domain = And(self._smt_domain, condition)
 
-            first_arg = arguments[0]
-            next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, first_arg, interactive)
-            if status == EvalStatus.FullEvaluation:
-                if type(text) is datetime.datetime:
-                    text = str(text.day)
-                    return_val = text
-                    status = EvalStatus.FullEvaluation
-                elif self.is_float(text):
-                    text = 'DAY(Serial Date)'
-                    status = EvalStatus.NotImplemented
+                self._current_line_has_symbol = True
+                status = EvalStatus.SymbolicExecution
+                return_val = self._symbols['DAY']
+            else:
+                first_arg = arguments[0]
+                next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, first_arg, interactive)
+                if status == EvalStatus.FullEvaluation:
+                    if type(text) is datetime.datetime:
+                        text = str(text.day)
+                        return_val = text
+                        status = EvalStatus.FullEvaluation
+                    elif self.is_float(text):
+                        text = 'DAY(Serial Date)'
+                        status = EvalStatus.NotImplemented
         elif function_name == 'CONCATENATE':
             text = ''
             for arg in arguments:
