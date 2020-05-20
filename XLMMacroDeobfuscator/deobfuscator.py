@@ -1036,12 +1036,17 @@ def process_file(**kwargs):
     deobfuscated = list()
     file_path = os.path.abspath(kwargs.get("file"))
     file_type = get_file_type(file_path)
+
+    print('File: {}\n'.format(file_path))
+
     if file_type is None:
         return('ERROR: input file type is not supported')
 
     try:
         start = time.time()
         excel_doc = None
+
+
         print('[Loading Cells]')
         if file_type == 'xls':
             if kwargs.get("no_ms_excel"):
@@ -1065,9 +1070,12 @@ def process_file(**kwargs):
         for label in auto_open_labels:
             print('auto_open: {}->{}'.format(label[0], label[1]))
 
+
+
         if kwargs.get("extract_only"):
             show_cells(excel_doc)
         else:
+
             interpreter = XLMInterpreter(excel_doc)
             if kwargs.get("day", 0) > 0:
                 interpreter.day_of_month= kwargs.get("day")
@@ -1123,8 +1131,10 @@ def main():
     args = arg_parser.parse_args()
 
     if not args.file or not os.path.exists(args.file):
+        print('Error: input file does not exist')
+
         arg_parser.print_help()
-        return('Error: input file does not exist')
+
 
     try:
         # Convert args to kwarg dict
