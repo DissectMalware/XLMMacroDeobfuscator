@@ -22,6 +22,7 @@ class XLSMWrapper(ExcelWrapper):
         self._workbook_style = None
         self._defined_names = None
         self._macrosheets = None
+        self._shared_strings = None
         self.xl_international_flags = {XlApplicationInternational.xlLeftBracket: '[',
                                        XlApplicationInternational.xlListSeparator: ',',
                                        XlApplicationInternational.xlRightBracket: ']'}
@@ -223,7 +224,20 @@ class XLSMWrapper(ExcelWrapper):
 
         return result
 
+    def get_shared_strings(self):
+        if self._shared_strings is None:
+            _, base_dir, _ = self._get_workbook_path()
+            content = self.get_xml_file(base_dir + '/sharedStrings.xml')
+            if content is not None:
+                if hasattr(content, 'sst') and hasattr(content.sst, 'si'):
+                    for str in content.sst.si:
+                        if self._shared_strings is None:
+                            self._shared_strings = []
+                        self._shared_strings.append(str.t.cdata)
+        return self._shared_strings
+
     def load_cells(self, macrosheet, macrosheet_obj):
+        strings = self.get_shared_strings()
         if not hasattr(macrosheet_obj.xm_macrosheet.sheetData, 'row'):
             return
         for row in macrosheet_obj.xm_macrosheet.sheetData.row:
@@ -242,9 +256,15 @@ class XLSMWrapper(ExcelWrapper):
                         formula = cell_elm.f
                         formula_text = ('=' + formula.cdata) if formula is not None else None
                     value_text = None
+                    is_string = False
+                    if 't' in cell_elm._attributes and cell_elm.get_attribute('t')=='s':
+                        is_string = True
+
                     if hasattr(cell_elm, 'v'):
                         value = cell_elm.v
                         value_text = value.cdata if value is not None else None
+                        if value_text is not None and is_string:
+                            value_text = strings[int(value_text)]
                     location = cell_elm.get_attribute('r')
                     cell = Cell()
                     sheet_name, cell.column, cell.row = Cell.parse_cell_addr(location)

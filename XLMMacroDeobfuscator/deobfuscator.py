@@ -276,6 +276,8 @@ class XLMInterpreter:
 
         if status == EvalStatus.FullEvaluation:
             if text.startswith('"=') is False and self.is_float(text[1:-1]) is False:
+                if len(text)>1 and text.startswith('"') and text.endswith('"'):
+                    text = text[1:-1].replace('""','"')
                 self.set_cell(dst_sheet, dst_col, dst_row, text)
             else:
                 if text.startswith('"') and text.endswith('"'):
@@ -539,6 +541,23 @@ class XLMInterpreter:
         elif function_name == 'ERROR':
             text = 'ERROR'
             status = EvalStatus.FullEvaluation
+
+        elif function_name == 'MID':
+            sheet_name, col, row = self.get_cell_addr(current_cell, arguments[0])
+            cell = self.get_cell(sheet_name, col, row)
+            if cell is not None:
+                b_next_cell, b_status, b_return_val, b_text = self.evaluate_parse_tree(current_cell,
+                                                                                       arguments[1],
+                                                                                       interactive)
+                l_next_cell, l_status, l_return_val, l_text = self.evaluate_parse_tree(current_cell,
+                                                                                       arguments[2],
+                                                                                       interactive)
+                if self.is_float(b_return_val) and self.is_float(l_return_val):
+                    base = int(float(b_return_val)) - 1
+                    length = int(float(l_return_val))
+                    return_val = cell.value[base: base+length]
+                    text = str(return_val)
+                    status = EvalStatus.FullEvaluation
 
         elif function_name == 'IF':
             visited = False
@@ -881,7 +900,7 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except Exception as exp:
+                except IndexError as exp:
                     print('Error: ' + str(exp))
 
 
