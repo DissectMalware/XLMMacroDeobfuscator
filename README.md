@@ -31,13 +31,14 @@ xlmdeobfuscator --file document.xlsm
 # Usage
 
 ```
-usage: deobfuscator.py [-h] [-f FILE] [-n] [-x] [-2] [-s] [-d DAY]
+usage: deobfuscator.py [-h] [-f FILE_PATH] [-n] [-x] [-2] [-s] [-d DAY]
                        [--output-formula-format OUTPUT_FORMULA_FORMAT]
-                       [--no-indent]
+                       [--no-indent] [--export-json FILE_PATH]
 
 optional arguments:
   -h, --help            show this help message and exit
-  -f FILE, --file FILE  The path of a XLSM file
+  -f FILE_PATH, --file FILE_PATH
+                        The path of a XLSM file
   -n, --noninteractive  Disable interactive shell
   -x, --extract-only    Only extract cells without any emulation
   -2, --no-ms-excel     Do not use MS Excel to process XLS files
@@ -49,6 +50,8 @@ optional arguments:
                         Specify the format for output formulas ([[CELL_ADDR]],
                         [[INT-FORMULA]], and [[STATUS]]
   --no-indent           Do not show indent before formulas
+  --export-json FILE_PATH
+                        Export the output to JSON
 ```
 
 Read requirements.txt to get the list of python libraries that XLMMacroDeobfuscator is dependent on.

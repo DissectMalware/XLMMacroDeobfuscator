@@ -1192,7 +1192,8 @@ def main():
     print('XLMMacroDeobfuscator(v {}) - {}\n'.format( __version__, "https://github.com/DissectMalware/XLMMacroDeobfuscator"))
     arg_parser = argparse.ArgumentParser()
 
-    arg_parser.add_argument("-f", "--file", type=str, action='store', help="The path of a XLSM file")
+    arg_parser.add_argument("-f", "--file", type=str, action='store',
+                            help="The path of a XLSM file", metavar=('FILE_PATH'))
     arg_parser.add_argument("-n", "--noninteractive", default=False, action='store_true',
                             help="Disable interactive shell")
     arg_parser.add_argument("-x", "--extract-only", default=False, action='store_true',
@@ -1210,7 +1211,7 @@ def main():
     arg_parser.add_argument("--no-indent", default=False, action='store_true',
                             help="Do not show indent before formulas")
     arg_parser.add_argument("--export-json", type=str,  action='store',
-                            help="Export the output to JSON")
+                            help="Export the output to JSON", metavar=('FILE_PATH'))
 
     args = arg_parser.parse_args()
 
