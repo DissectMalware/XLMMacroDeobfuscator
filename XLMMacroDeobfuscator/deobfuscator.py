@@ -1056,8 +1056,8 @@ def process_file(**kwargs):
                     excel_doc = XLSWrapper(file_path)
 
                 except Exception as exp:
-                    print("Error using MS Excel to process the XLS file, now will use xlrd2 library\n"+
-                          "(Use --no-ms-excel switch if you do want to use MS Excel)")
+                    print("Error: MS Excel is not installed, now xlrd2 library will be used insteads\n"+
+                          "(Use --no-ms-excel switch if you do not have/want to use MS Excel)")
                     excel_doc = XLSWrapper2(file_path)
         elif file_type == 'xlsm':
             excel_doc = XLSMWrapper(file_path)
@@ -1130,9 +1130,10 @@ def main():
 
     args = arg_parser.parse_args()
 
-    if not args.file or not os.path.exists(args.file):
-        print('Error: input file does not exist')
+    if not args.file:
         arg_parser.print_help()
+    elif not os.path.exists(args.file):
+        print('Error: input file does not exist')
     else:
         try:
             # Convert args to kwarg dict
