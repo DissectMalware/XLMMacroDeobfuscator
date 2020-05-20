@@ -1132,18 +1132,13 @@ def main():
 
     if not args.file or not os.path.exists(args.file):
         print('Error: input file does not exist')
-
         arg_parser.print_help()
-
-
-    try:
-        # Convert args to kwarg dict
-        process_file(**vars(args))
-    except KeyboardInterrupt:
-        pass
+    else:
+        try:
+            # Convert args to kwarg dict
+            process_file(**vars(args))
+        except KeyboardInterrupt:
+            pass
 
 if __name__ == '__main__':
-    data = 'IV'
-    res = Cell.convert_to_column_index(data)
-    calc_data = Cell.convert_to_column_name(res)
     main()
