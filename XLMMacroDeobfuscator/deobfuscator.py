@@ -12,7 +12,8 @@ try:
     HAS_XLSWrapper = True
 except:
     HAS_XLSWrapper = False
-    print("Excel is not present")
+    print('pywin32 is not installed (only required if you want to use MS Excel)')
+
 from XLMMacroDeobfuscator.xls_wrapper_2 import XLSWrapper2
 from XLMMacroDeobfuscator.xlsb_wrapper import XLSBWrapper
 from enum import Enum
@@ -1010,7 +1011,10 @@ def process_file(**kwargs):
             else:
                 try:
                     excel_doc = XLSWrapper(file_path)
+
                 except Exception as exp:
+                    print("Error using MS Excel to process the XLS file, now will use xlrd2 library\n"+
+                          "(Use --no-ms-excel switch if you do want to use MS Excel)")
                     excel_doc = XLSWrapper2(file_path)
         elif file_type == 'xlsm':
             excel_doc = XLSMWrapper(file_path)
