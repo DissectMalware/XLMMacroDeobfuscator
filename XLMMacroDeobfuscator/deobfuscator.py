@@ -1,6 +1,9 @@
 import argparse
+import hashlib
 import os
 import sys
+import json
+import time
 from lark import Lark
 from lark.exceptions import ParseError
 from lark.lexer import Token
@@ -838,7 +841,7 @@ class XLMInterpreter:
         auto_open_labels = self.xlm_wrapper.get_defined_name('auto_open', full_match=False)
         if auto_open_labels is not None and len(auto_open_labels) > 0:
             macros = self.xlm_wrapper.get_macrosheets()
-            print('[Starting Deobfuscation]')
+
             for auto_open_label in auto_open_labels:
                 try:
                     sheet_name, col, row = Cell.parse_cell_addr(auto_open_label[1])
@@ -961,19 +964,25 @@ def get_file_type(path):
 
 
 def show_cells(excel_doc):
+
     macrosheets = excel_doc.get_macrosheets()
     auto_open_labels = excel_doc.get_defined_name('auto_open', full_match=False)
-    for label in auto_open_labels:
-        uprint('auto_open: {}->{}'.format(label[0], label[1]))
+
     for macrosheet_name in macrosheets:
-        uprint('SHEET: {}, {}'.format(macrosheets[macrosheet_name].name,
-                                        macrosheets[macrosheet_name].type))
+        # yield 'SHEET: {}, {}'.format(macrosheets[macrosheet_name].name,
+        #                                macrosheets[macrosheet_name].type)
+
+        yield macrosheets[macrosheet_name].name, macrosheets[macrosheet_name].type
+
         for formula_loc, info in macrosheets[macrosheet_name].cells.items():
             if info.formula is not None:
-                uprint('CELL:{:10}, {:20}, {}'.format(formula_loc, info.formula, info.value))
+                yield info, 'EXTRACTED', info.formula, '', info.value
+                # yield 'CELL:{:10}, {:20}, {}'.format(formula_loc, info.formula, info.value)
         for formula_loc, info in macrosheets[macrosheet_name].cells.items():
             if info.formula is None:
-                uprint('CELL:{:10}, {:20}, {}'.format(formula_loc, str(info.formula), info.value))
+                # yield 'CELL:{:10}, {:20}, {}'.format(formula_loc, str(info.formula), info.value)
+                yield info, 'EXTRACTED', str(info.formula), '', info.value,
+
 
 
 def uprint(*objects, sep=' ', end='\n', file=sys.stdout):
@@ -1000,6 +1009,47 @@ def get_formula_output(interpretation_result, format_str, with_index=True):
         result = result.replace('[[INT-FORMULA]]', formula)
 
     return result
+
+
+def dump_json_file(output_file_path, file, defined_names, records):
+    file_content = open(file, 'rb').read()
+    md5 = hashlib.md5(file_content).hexdigest()
+    sha256 = hashlib.sha256(file_content).hexdigest()
+
+    res = {'file_path':file,
+           'md5_hash': md5,
+           'sha256_hash': sha256,
+           'analysis_timestamp': int(time.time()),
+           'format_version': 1,
+           'analyzed_by': 'XLMMacroDeobfuscator',
+           'link': 'https://github.com/DissectMalware/XLMMacroDeobfuscator',
+           }
+
+    res['defined_names'] = defined_names
+    res['records'] = []
+    for index, i in enumerate(records):
+        if len(i) == 4:
+            res['records'].append({'index': index,
+                                   'sheet': i[0].sheet.name,
+                                   'cell_add': i[0].get_local_address(),
+                                   'status': str(i[1]),
+                                   'formula': i[2]})
+        elif len(i) == 5:
+            res['records'].append({'index': index,
+                                   'sheet': i[0].sheet.name,
+                                   'cell_add': i[0].get_local_address(),
+                                   'status': str(i[1]),
+                                   'formula': i[2],
+                                   'value': str(i[4])})
+
+
+    try:
+        with open(output_file_path, 'w', encoding='utf_8') as output_file:
+            output_file.write(json.dumps(res, indent=4))
+            print('Result is dumped into {}'.format(output_file_path))
+    except Exception as exp:
+        print('Error: unable to dump the result into the specified file\n{}'.format(str(exp)))
+
 
 def get_logo():
     return """
@@ -1034,6 +1084,7 @@ def process_file(**kwargs):
     }
     """
     deobfuscated = list()
+    interpreted_lines = list()
     file_path = os.path.abspath(kwargs.get("file"))
     file_type = get_file_type(file_path)
 
@@ -1045,7 +1096,6 @@ def process_file(**kwargs):
     try:
         start = time.time()
         excel_doc = None
-
 
         print('[Loading Cells]')
         if file_type == 'xls':
@@ -1070,12 +1120,36 @@ def process_file(**kwargs):
         for label in auto_open_labels:
             print('auto_open: {}->{}'.format(label[0], label[1]))
 
-
-
         if kwargs.get("extract_only"):
-            show_cells(excel_doc)
-        else:
 
+            if kwargs.get("export_json"):
+                records = []
+                for i in show_cells(excel_doc):
+                    if len(i) == 5:
+                        records.append(i)
+                print('[Dumping Json]')
+                dump_json_file(kwargs.get("export_json"), file_path, excel_doc.get_defined_names(), records)
+                print('[End of dumping]')
+
+            else:
+                res = []
+                for i in show_cells(excel_doc):
+                    rec_str=''
+                    if len(i) == 2:
+                        rec_str = 'SHEET: {}, {}'.format(i[0], i[1])
+                    elif len(i) == 5:
+                        rec_str = 'CELL:{:10}, {:20}, {}'.format(i[0].get_local_address(), i[2], i[4])
+                    if rec_str:
+                        if not kwargs.get("return_deobfuscated"):
+                            print(rec_str)
+                        res.append(rec_str)
+
+                if kwargs.get("return_deobfuscated"):
+                    return res
+
+
+        else:
+            print('[Starting Deobfuscation]')
             interpreter = XLMInterpreter(excel_doc)
             if kwargs.get("day", 0) > 0:
                 interpreter.day_of_month= kwargs.get("day")
@@ -1090,11 +1164,19 @@ def process_file(**kwargs):
                         current_cell = interpreter.get_formula_cell(macros[sheet_name], col, row)
                         interpreter.interactive_shell(current_cell, "")
             for step in interpreter.deobfuscate_macro(not kwargs.get("noninteractive")):
-                if not kwargs.get("return_deobfuscated"):
-                    uprint(get_formula_output(step,kwargs.get("output_formula_format"), not kwargs.get("no_indent" )))
+                if kwargs.get("return_deobfuscated"):
+                    deobfuscated.append(
+                        get_formula_output(step, kwargs.get("output_formula_format"), not kwargs.get("no_indent")))
+                elif kwargs.get("export_json") :
+                    interpreted_lines.append(step)
                 else:
-                    deobfuscated.append(get_formula_output(step,kwargs.get("output_formula_format"), not kwargs.get("no_indent" )))
+                    uprint(get_formula_output(step, kwargs.get("output_formula_format"), not kwargs.get("no_indent")))
+            print('[END of Deobfuscation]')
 
+            if kwargs.get("export_json"):
+                print('[Dumping Json]')
+                dump_json_file(kwargs.get("export_json"), file_path, excel_doc.get_defined_names(), interpreted_lines)
+                print('[End of dumping]')
         print('time elapsed: ' + str(time.time() - start))
     finally:
         if HAS_XLSWrapper and type(excel_doc) is XLSWrapper:
@@ -1127,6 +1209,8 @@ def main():
                             help="Specify the format for output formulas ([[CELL_ADDR]], [[INT-FORMULA]], and [[STATUS]]", )
     arg_parser.add_argument("--no-indent", default=False, action='store_true',
                             help="Do not show indent before formulas")
+    arg_parser.add_argument("--export-json", type=str,  action='store',
+                            help="Export the output to JSON")
 
     args = arg_parser.parse_args()
 
