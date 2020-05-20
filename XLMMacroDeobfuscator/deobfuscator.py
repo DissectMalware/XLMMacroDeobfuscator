@@ -7,6 +7,8 @@ from lark.lexer import Token
 from lark.tree import Tree
 from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
 from XLMMacroDeobfuscator.xlsm_wrapper import XLSMWrapper
+from XLMMacroDeobfuscator.__init__ import __version__
+
 try:
     from XLMMacroDeobfuscator.xls_wrapper import XLSWrapper
     HAS_XLSWrapper = True
@@ -999,7 +1001,26 @@ def get_formula_output(interpretation_result, format_str, with_index=True):
 
     return result
 
-
+def get_logo():
+    return """
+          _        _______                                                                                    
+|\     /|( \      (       )                                                                                   
+( \   / )| (      | () () |                                                                                   
+ \ (_) / | |      | || || |                                                                                   
+  ) _ (  | |      | |(_)| |                                                                                   
+ / ( ) \ | |      | |   | |                                                                                   
+( /   \ )| (____/\| )   ( |                                                                                   
+|/     \|(_______/|/     \|                                                                                   
+   ______   _______  _______  ______   _______           _______  _______  _______ _________ _______  _______ 
+  (  __  \ (  ____ \(  ___  )(  ___ \ (  ____ \|\     /|(  ____ \(  ____ \(  ___  )\__   __/(  ___  )(  ____ )
+  | (  \  )| (    \/| (   ) || (   ) )| (    \/| )   ( || (    \/| (    \/| (   ) |   ) (   | (   ) || (    )|
+  | |   ) || (__    | |   | || (__/ / | (__    | |   | || (_____ | |      | (___) |   | |   | |   | || (____)|
+  | |   | ||  __)   | |   | ||  __ (  |  __)   | |   | |(_____  )| |      |  ___  |   | |   | |   | ||     __)
+  | |   ) || (      | |   | || (  \ \ | (      | |   | |      ) || |      | (   ) |   | |   | |   | || (\ (   
+  | (__/  )| (____/\| (___) || )___) )| )      | (___) |/\____) || (____/\| )   ( |   | |   | (___) || ) \ \__
+  (______/ (_______/(_______)|/ \___/ |/       (_______)\_______)(_______/|/     \|   )_(   (_______)|/   \__/
+                                                                                                                                                                                                                                                                                                                                                                                        
+    """
 def process_file(**kwargs):
     """
     {
@@ -1077,7 +1098,8 @@ def process_file(**kwargs):
 
 
 def main():
-
+    print(get_logo())
+    print('XLMMacroDeobfuscator(v {}) - {}\n'.format( __version__, "https://github.com/DissectMalware/XLMMacroDeobfuscator"))
     arg_parser = argparse.ArgumentParser()
 
     arg_parser.add_argument("-f", "--file", type=str, action='store', help="The path of a XLSM file")
