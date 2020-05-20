@@ -1,18 +1,23 @@
 import argparse
+import hashlib
 import os
 import sys
+import json
+import time
 from lark import Lark
 from lark.exceptions import ParseError
 from lark.lexer import Token
 from lark.tree import Tree
 from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
 from XLMMacroDeobfuscator.xlsm_wrapper import XLSMWrapper
+from XLMMacroDeobfuscator.__init__ import __version__
+
 try:
     from XLMMacroDeobfuscator.xls_wrapper import XLSWrapper
     HAS_XLSWrapper = True
 except:
     HAS_XLSWrapper = False
-    print('pywin32 is not installed (only required if you want to use MS Excel)')
+    print('pywin32 is not installed (only is required if you want to use MS Excel)')
 
 from XLMMacroDeobfuscator.xls_wrapper_2 import XLSWrapper2
 from XLMMacroDeobfuscator.xlsb_wrapper import XLSBWrapper
@@ -836,7 +841,7 @@ class XLMInterpreter:
         auto_open_labels = self.xlm_wrapper.get_defined_name('auto_open', full_match=False)
         if auto_open_labels is not None and len(auto_open_labels) > 0:
             macros = self.xlm_wrapper.get_macrosheets()
-            print('[Starting Deobfuscation]')
+
             for auto_open_label in auto_open_labels:
                 try:
                     sheet_name, col, row = Cell.parse_cell_addr(auto_open_label[1])
@@ -959,19 +964,25 @@ def get_file_type(path):
 
 
 def show_cells(excel_doc):
+
     macrosheets = excel_doc.get_macrosheets()
     auto_open_labels = excel_doc.get_defined_name('auto_open', full_match=False)
-    for label in auto_open_labels:
-        uprint('auto_open: {}->{}'.format(label[0], label[1]))
+
     for macrosheet_name in macrosheets:
-        uprint('SHEET: {}, {}'.format(macrosheets[macrosheet_name].name,
-                                        macrosheets[macrosheet_name].type))
+        # yield 'SHEET: {}, {}'.format(macrosheets[macrosheet_name].name,
+        #                                macrosheets[macrosheet_name].type)
+
+        yield macrosheets[macrosheet_name].name, macrosheets[macrosheet_name].type
+
         for formula_loc, info in macrosheets[macrosheet_name].cells.items():
             if info.formula is not None:
-                uprint('CELL:{:10}, {:20}, {}'.format(formula_loc, info.formula, info.value))
+                yield info, 'EXTRACTED', info.formula, '', info.value
+                # yield 'CELL:{:10}, {:20}, {}'.format(formula_loc, info.formula, info.value)
         for formula_loc, info in macrosheets[macrosheet_name].cells.items():
             if info.formula is None:
-                uprint('CELL:{:10}, {:20}, {}'.format(formula_loc, str(info.formula), info.value))
+                # yield 'CELL:{:10}, {:20}, {}'.format(formula_loc, str(info.formula), info.value)
+                yield info, 'EXTRACTED', str(info.formula), '', info.value,
+
 
 
 def uprint(*objects, sep=' ', end='\n', file=sys.stdout):
@@ -983,6 +994,83 @@ def uprint(*objects, sep=' ', end='\n', file=sys.stdout):
         print(*map(f, objects), sep=sep, end=end, file=file)
 
 
+def get_formula_output(interpretation_result, format_str, with_index=True):
+    cell_addr = interpretation_result[0].get_local_address()
+    status = interpretation_result[1]
+    formula = interpretation_result[2]
+    indent = ''.join(['\t']*interpretation_result[3])
+    result = ''
+    if format_str is not None and type(format_str) is str:
+        result = format_str
+        result = result.replace('[[CELL_ADDR]]', '{:10}'.format(cell_addr))
+        result = result.replace('[[STATUS]]', '{:20}'.format(status.name))
+        if with_index:
+            formula = indent + formula
+        result = result.replace('[[INT-FORMULA]]', formula)
+
+    return result
+
+
+def dump_json_file(output_file_path, file, defined_names, records):
+    file_content = open(file, 'rb').read()
+    md5 = hashlib.md5(file_content).hexdigest()
+    sha256 = hashlib.sha256(file_content).hexdigest()
+
+    res = {'file_path':file,
+           'md5_hash': md5,
+           'sha256_hash': sha256,
+           'analysis_timestamp': int(time.time()),
+           'format_version': 1,
+           'analyzed_by': 'XLMMacroDeobfuscator',
+           'link': 'https://github.com/DissectMalware/XLMMacroDeobfuscator',
+           }
+
+    res['defined_names'] = defined_names
+    res['records'] = []
+    for index, i in enumerate(records):
+        if len(i) == 4:
+            res['records'].append({'index': index,
+                                   'sheet': i[0].sheet.name,
+                                   'cell_add': i[0].get_local_address(),
+                                   'status': str(i[1]),
+                                   'formula': i[2]})
+        elif len(i) == 5:
+            res['records'].append({'index': index,
+                                   'sheet': i[0].sheet.name,
+                                   'cell_add': i[0].get_local_address(),
+                                   'status': str(i[1]),
+                                   'formula': i[2],
+                                   'value': str(i[4])})
+
+
+    try:
+        with open(output_file_path, 'w', encoding='utf_8') as output_file:
+            output_file.write(json.dumps(res, indent=4))
+            print('Result is dumped into {}'.format(output_file_path))
+    except Exception as exp:
+        print('Error: unable to dump the result into the specified file\n{}'.format(str(exp)))
+
+
+def get_logo():
+    return """
+          _        _______                                                                                    
+|\     /|( \      (       )                                                                                   
+( \   / )| (      | () () |                                                                                   
+ \ (_) / | |      | || || |                                                                                   
+  ) _ (  | |      | |(_)| |                                                                                   
+ / ( ) \ | |      | |   | |                                                                                   
+( /   \ )| (____/\| )   ( |                                                                                   
+|/     \|(_______/|/     \|                                                                                   
+   ______   _______  _______  ______   _______           _______  _______  _______ _________ _______  _______ 
+  (  __  \ (  ____ \(  ___  )(  ___ \ (  ____ \|\     /|(  ____ \(  ____ \(  ___  )\__   __/(  ___  )(  ____ )
+  | (  \  )| (    \/| (   ) || (   ) )| (    \/| )   ( || (    \/| (    \/| (   ) |   ) (   | (   ) || (    )|
+  | |   ) || (__    | |   | || (__/ / | (__    | |   | || (_____ | |      | (___) |   | |   | |   | || (____)|
+  | |   | ||  __)   | |   | ||  __ (  |  __)   | |   | |(_____  )| |      |  ___  |   | |   | |   | ||     __)
+  | |   ) || (      | |   | || (  \ \ | (      | |   | |      ) || |      | (   ) |   | |   | |   | || (\ (   
+  | (__/  )| (____/\| (___) || )___) )| )      | (___) |/\____) || (____/\| )   ( |   | |   | (___) || ) \ \__
+  (______/ (_______/(_______)|/ \___/ |/       (_______)\_______)(_______/|/     \|   )_(   (_______)|/   \__/
+                                                                                                                                                                                                                                                                                                                                                                                        
+    """
 def process_file(**kwargs):
     """
     {
@@ -996,14 +1084,19 @@ def process_file(**kwargs):
     }
     """
     deobfuscated = list()
+    interpreted_lines = list()
     file_path = os.path.abspath(kwargs.get("file"))
     file_type = get_file_type(file_path)
+
+    print('File: {}\n'.format(file_path))
+
     if file_type is None:
         return('ERROR: input file type is not supported')
 
     try:
         start = time.time()
         excel_doc = None
+
         print('[Loading Cells]')
         if file_type == 'xls':
             if kwargs.get("no_ms_excel"):
@@ -1013,8 +1106,8 @@ def process_file(**kwargs):
                     excel_doc = XLSWrapper(file_path)
 
                 except Exception as exp:
-                    print("Error using MS Excel to process the XLS file, now will use xlrd2 library\n"+
-                          "(Use --no-ms-excel switch if you do want to use MS Excel)")
+                    print("Error: MS Excel is not installed, now xlrd2 library will be used insteads\n"+
+                          "(Use --no-ms-excel switch if you do not have/want to use MS Excel)")
                     excel_doc = XLSWrapper2(file_path)
         elif file_type == 'xlsm':
             excel_doc = XLSMWrapper(file_path)
@@ -1028,8 +1121,35 @@ def process_file(**kwargs):
             print('auto_open: {}->{}'.format(label[0], label[1]))
 
         if kwargs.get("extract_only"):
-            show_cells(excel_doc)
+
+            if kwargs.get("export_json"):
+                records = []
+                for i in show_cells(excel_doc):
+                    if len(i) == 5:
+                        records.append(i)
+                print('[Dumping Json]')
+                dump_json_file(kwargs.get("export_json"), file_path, excel_doc.get_defined_names(), records)
+                print('[End of dumping]')
+
+            else:
+                res = []
+                for i in show_cells(excel_doc):
+                    rec_str=''
+                    if len(i) == 2:
+                        rec_str = 'SHEET: {}, {}'.format(i[0], i[1])
+                    elif len(i) == 5:
+                        rec_str = 'CELL:{:10}, {:20}, {}'.format(i[0].get_local_address(), i[2], i[4])
+                    if rec_str:
+                        if not kwargs.get("return_deobfuscated"):
+                            print(rec_str)
+                        res.append(rec_str)
+
+                if kwargs.get("return_deobfuscated"):
+                    return res
+
+
         else:
+            print('[Starting Deobfuscation]')
             interpreter = XLMInterpreter(excel_doc)
             if kwargs.get("day", 0) > 0:
                 interpreter.day_of_month= kwargs.get("day")
@@ -1044,10 +1164,19 @@ def process_file(**kwargs):
                         current_cell = interpreter.get_formula_cell(macros[sheet_name], col, row)
                         interpreter.interactive_shell(current_cell, "")
             for step in interpreter.deobfuscate_macro(not kwargs.get("noninteractive")):
-                if not kwargs.get("return_deobfuscated"):
-                    uprint('CELL:{:10}, {:20},{}{}'.format(step[0].get_local_address(), step[1].name, ''.join( ['\t']*step[3]), step[2]))
+                if kwargs.get("return_deobfuscated"):
+                    deobfuscated.append(
+                        get_formula_output(step, kwargs.get("output_formula_format"), not kwargs.get("no_indent")))
+                elif kwargs.get("export_json") :
+                    interpreted_lines.append(step)
                 else:
-                    deobfuscated.append('CELL:{:10}, {:20},{}{}'.format(step[0].get_local_address(), step[1].name, ''.join( ['\t']*step[3]), step[2]))
+                    uprint(get_formula_output(step, kwargs.get("output_formula_format"), not kwargs.get("no_indent")))
+            print('[END of Deobfuscation]')
+
+            if kwargs.get("export_json"):
+                print('[Dumping Json]')
+                dump_json_file(kwargs.get("export_json"), file_path, excel_doc.get_defined_names(), interpreted_lines)
+                print('[End of dumping]')
         print('time elapsed: ' + str(time.time() - start))
     finally:
         if HAS_XLSWrapper and type(excel_doc) is XLSWrapper:
@@ -1059,10 +1188,12 @@ def process_file(**kwargs):
 
 
 def main():
-
+    print(get_logo())
+    print('XLMMacroDeobfuscator(v {}) - {}\n'.format( __version__, "https://github.com/DissectMalware/XLMMacroDeobfuscator"))
     arg_parser = argparse.ArgumentParser()
 
-    arg_parser.add_argument("-f", "--file", type=str, action='store', help="The path of a XLSM file")
+    arg_parser.add_argument("-f", "--file", type=str, action='store',
+                            help="The path of a XLSM file", metavar=('FILE_PATH'))
     arg_parser.add_argument("-n", "--noninteractive", default=False, action='store_true',
                             help="Disable interactive shell")
     arg_parser.add_argument("-x", "--extract-only", default=False, action='store_true',
@@ -1073,21 +1204,27 @@ def main():
                             help="Open an XLM shell before interpreting the macros in the input")
     arg_parser.add_argument("-d", "--day", type=int, default=-1, action='store',
                             help="Specify the day of month", )
+    arg_parser.add_argument("--output-formula-format", type=str,
+                            default="CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]",
+                            action='store',
+                            help="Specify the format for output formulas ([[CELL_ADDR]], [[INT-FORMULA]], and [[STATUS]]", )
+    arg_parser.add_argument("--no-indent", default=False, action='store_true',
+                            help="Do not show indent before formulas")
+    arg_parser.add_argument("--export-json", type=str,  action='store',
+                            help="Export the output to JSON", metavar=('FILE_PATH'))
 
     args = arg_parser.parse_args()
 
-    if not args.file or not os.path.exists(args.file):
+    if not args.file:
         arg_parser.print_help()
-        return('Error: input file does not exist')
-
-    try:
-        # Convert args to kwarg dict
-        process_file(**vars(args))
-    except KeyboardInterrupt:
-        pass
+    elif not os.path.exists(args.file):
+        print('Error: input file does not exist')
+    else:
+        try:
+            # Convert args to kwarg dict
+            process_file(**vars(args))
+        except KeyboardInterrupt:
+            pass
 
 if __name__ == '__main__':
-    data = 'IV'
-    res = Cell.convert_to_column_index(data)
-    calc_data = Cell.convert_to_column_name(res)
     main()
