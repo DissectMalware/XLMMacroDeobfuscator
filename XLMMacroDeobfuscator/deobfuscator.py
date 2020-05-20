@@ -12,7 +12,7 @@ try:
     HAS_XLSWrapper = True
 except:
     HAS_XLSWrapper = False
-    print('pywin32 is not installed (only required if you want to use MS Excel)')
+    print('pywin32 is not installed (only is required if you want to use MS Excel)')
 
 from XLMMacroDeobfuscator.xls_wrapper_2 import XLSWrapper2
 from XLMMacroDeobfuscator.xlsb_wrapper import XLSBWrapper
@@ -983,6 +983,23 @@ def uprint(*objects, sep=' ', end='\n', file=sys.stdout):
         print(*map(f, objects), sep=sep, end=end, file=file)
 
 
+def get_formula_output(interpretation_result, format_str, with_index=True):
+    cell_addr = interpretation_result[0].get_local_address()
+    status = interpretation_result[1]
+    formula = interpretation_result[2]
+    indent = ''.join(['\t']*interpretation_result[3])
+    result = ''
+    if format_str is not None and type(format_str) is str:
+        result = format_str
+        result = result.replace('[[CELL_ADDR]]', '{:10}'.format(cell_addr))
+        result = result.replace('[[STATUS]]', '{:20}'.format(status.name))
+        if with_index:
+            formula = indent + formula
+        result = result.replace('[[INT-FORMULA]]', formula)
+
+    return result
+
+
 def process_file(**kwargs):
     """
     {
@@ -1045,9 +1062,10 @@ def process_file(**kwargs):
                         interpreter.interactive_shell(current_cell, "")
             for step in interpreter.deobfuscate_macro(not kwargs.get("noninteractive")):
                 if not kwargs.get("return_deobfuscated"):
-                    uprint('CELL:{:10}, {:20},{}{}'.format(step[0].get_local_address(), step[1].name, ''.join( ['\t']*step[3]), step[2]))
+                    uprint(get_formula_output(step,kwargs.get("output_formula_format"), not kwargs.get("no_indent" )))
                 else:
-                    deobfuscated.append('CELL:{:10}, {:20},{}{}'.format(step[0].get_local_address(), step[1].name, ''.join( ['\t']*step[3]), step[2]))
+                    deobfuscated.append(get_formula_output(step,kwargs.get("output_formula_format"), not kwargs.get("no_indent" )))
+
         print('time elapsed: ' + str(time.time() - start))
     finally:
         if HAS_XLSWrapper and type(excel_doc) is XLSWrapper:
@@ -1073,6 +1091,12 @@ def main():
                             help="Open an XLM shell before interpreting the macros in the input")
     arg_parser.add_argument("-d", "--day", type=int, default=-1, action='store',
                             help="Specify the day of month", )
+    arg_parser.add_argument("--output-formula-format", type=str,
+                            default="CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]",
+                            action='store',
+                            help="Specify the format for output formulas ([[CELL_ADDR]], [[INT-FORMULA]], and [[STATUS]]", )
+    arg_parser.add_argument("--no-indent", default=False, action='store_true',
+                            help="Do not show indent before formulas")
 
     args = arg_parser.parse_args()
 
