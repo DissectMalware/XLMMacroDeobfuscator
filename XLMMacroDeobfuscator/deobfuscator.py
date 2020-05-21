@@ -159,15 +159,15 @@ class XLMInterpreter:
                     else:
                         res_col = int(col)
                 elif len(cell.children)== 3:
-                    if cell.children[2] == 'C':
-                        col = cell.children[3]
+                    if cell.children[1] == 'C':
+                        col = cell.children[2]
                         res_row = current_row
                         if col.startswith('['):
                             res_col = current_col + int(col[1:-1])
                         else:
                             res_col = int(col)
-                    elif cell.children[3] == 'C':
-                        row = cell.children[2]
+                    elif cell.children[2] == 'C':
+                        row = cell.children[1]
                         res_col = current_col
                         if row.startswith('['):
                             res_row = current_row + int(row[1:-1])
