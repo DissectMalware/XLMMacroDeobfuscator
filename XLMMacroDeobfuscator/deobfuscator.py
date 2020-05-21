@@ -1043,44 +1043,39 @@ def dump_json_file(output_file_path, file, defined_names, records):
                                    'value': str(i[4])})
 
 
-    try:
-        with open(output_file_path, 'w', encoding='utf_8') as output_file:
-            output_file.write(json.dumps(res, indent=4))
-            print('Result is dumped into {}'.format(output_file_path))
-    except Exception as exp:
-        print('Error: unable to dump the result into the specified file\n{}'.format(str(exp)))
-
+    return res
 
 def get_logo():
     return """
-          _        _______                                                                                    
-|\     /|( \      (       )                                                                                   
-( \   / )| (      | () () |                                                                                   
- \ (_) / | |      | || || |                                                                                   
-  ) _ (  | |      | |(_)| |                                                                                   
- / ( ) \ | |      | |   | |                                                                                   
-( /   \ )| (____/\| )   ( |                                                                                   
-|/     \|(_______/|/     \|                                                                                   
-   ______   _______  _______  ______   _______           _______  _______  _______ _________ _______  _______ 
+          _        _______
+|\     /|( \      (       )
+( \   / )| (      | () () |
+ \ (_) / | |      | || || |
+  ) _ (  | |      | |(_)| |
+ / ( ) \ | |      | |   | |
+( /   \ )| (____/\| )   ( |
+|/     \|(_______/|/     \|
+   ______   _______  _______  ______   _______           _______  _______  _______ _________ _______  _______
   (  __  \ (  ____ \(  ___  )(  ___ \ (  ____ \|\     /|(  ____ \(  ____ \(  ___  )\__   __/(  ___  )(  ____ )
   | (  \  )| (    \/| (   ) || (   ) )| (    \/| )   ( || (    \/| (    \/| (   ) |   ) (   | (   ) || (    )|
   | |   ) || (__    | |   | || (__/ / | (__    | |   | || (_____ | |      | (___) |   | |   | |   | || (____)|
   | |   | ||  __)   | |   | ||  __ (  |  __)   | |   | |(_____  )| |      |  ___  |   | |   | |   | ||     __)
-  | |   ) || (      | |   | || (  \ \ | (      | |   | |      ) || |      | (   ) |   | |   | |   | || (\ (   
+  | |   ) || (      | |   | || (  \ \ | (      | |   | |      ) || |      | (   ) |   | |   | |   | || (\ (
   | (__/  )| (____/\| (___) || )___) )| )      | (___) |/\____) || (____/\| )   ( |   | |   | (___) || ) \ \__
   (______/ (_______/(_______)|/ \___/ |/       (_______)\_______)(_______/|/     \|   )_(   (_______)|/   \__/
-                                                                                                                                                                                                                                                                                                                                                                                        
+
     """
 def process_file(**kwargs):
-    """
+    """ Example of kwargs when using as library
     {
         'file': '/tmp/8a6e4c10c30b773147d0d7c8307d88f1cf242cb01a9747bfec0319befdc1fcaf',
         'noninteractive': True,
         'extract_only': False,
         'no_ms_excel': True,
         'start_with_shell': False,
-        'return_deobfuscated': False,
+        'return_deobfuscated': True,
         'day': 0,
+        'output_formula_format': 'CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]',
     }
     """
     deobfuscated = list()
@@ -1128,8 +1123,17 @@ def process_file(**kwargs):
                     if len(i) == 5:
                         records.append(i)
                 print('[Dumping Json]')
-                dump_json_file(kwargs.get("export_json"), file_path, excel_doc.get_defined_names(), records)
+                res = dump_json_file(kwargs.get("export_json"), file_path, excel_doc.get_defined_names(), records)
                 print('[End of dumping]')
+                if kwargs.get("return_deobfuscated"):
+                    return res
+                try:
+                    with open(output_file_path, 'w', encoding='utf_8') as output_file:
+                        output_file.write(json.dumps(res, indent=4))
+                        print('Result is dumped into {}'.format(output_file_path))
+                except Exception as exp:
+                    print('Error: unable to dump the result into the specified file\n{}'.format(str(exp)))
+
 
             else:
                 res = []
@@ -1155,8 +1159,7 @@ def process_file(**kwargs):
                 interpreter.day_of_month= kwargs.get("day")
 
             if kwargs.get("start_with_shell"):
-                starting_points = interpreter.xlm_wrapper.get_defined_name('auto_open',
-                                                                            full_match=False)
+                starting_points = interpreter.xlm_wrapper.get_defined_name('auto_open', full_match=False)
                 if len(starting_points) > 0:
                     sheet_name, col, row = Cell.parse_cell_addr(starting_points[0][1])
                     macros = interpreter.xlm_wrapper.get_macrosheets()
@@ -1166,8 +1169,8 @@ def process_file(**kwargs):
             for step in interpreter.deobfuscate_macro(not kwargs.get("noninteractive")):
                 if kwargs.get("return_deobfuscated"):
                     deobfuscated.append(
-                        get_formula_output(step, kwargs.get("output_formula_format"), not kwargs.get("no_indent")))
-                elif kwargs.get("export_json") :
+                        get_formula_output(step, kwargs.get("output_formula_format", 'CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]'), not kwargs.get("no_indent")))
+                elif kwargs.get("export_json"):
                     interpreted_lines.append(step)
                 else:
                     uprint(get_formula_output(step, kwargs.get("output_formula_format"), not kwargs.get("no_indent")))
@@ -1175,7 +1178,9 @@ def process_file(**kwargs):
 
             if kwargs.get("export_json"):
                 print('[Dumping Json]')
-                dump_json_file(kwargs.get("export_json"), file_path, excel_doc.get_defined_names(), interpreted_lines)
+                res = dump_json_file(kwargs.get("export_json"), file_path, excel_doc.get_defined_names(), interpreted_lines)
+                if kwargs.get("return_deobfuscated"):
+                    return res
                 print('[End of dumping]')
         print('time elapsed: ' + str(time.time() - start))
     finally:
