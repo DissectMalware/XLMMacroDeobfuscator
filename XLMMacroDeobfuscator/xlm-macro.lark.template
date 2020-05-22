@@ -4,7 +4,7 @@ method_call:    NAME DOT NAME L_PRA arglist R_PRA
 arglist:    (argument LIST_SEPARATOR)* argument
 argument:   expression |
 cell:   a1_notation_cell | r1c1_notation_cell
-a1_notation_cell:   [NAME "!" | "'" NAME "'!"] /\$?[a-z]+\$?\d+/i | NAME    // NAME here is a hack to make it work with LALR parser, A9 is a valid NAME and matches with the CELL regex
+a1_notation_cell:   [NAME "!" | "'" NAME "'!"] /\$?[a-z]+\$?\d+(?!C\d)/i | NAME    // NAME here is a hack to make it work with LALR parser, A9 is a valid NAME and matches with the CELL regex
 r1c1_notation_cell: [NAME "!" | "'" NAME "'!"] ROW [REF | INT ] COL [REF | INT ]
 ?expression:   concat_expression CMPOP concat_expression | concat_expression
 ?concat_expression: additive_expression (CONCATOP additive_expression)*
