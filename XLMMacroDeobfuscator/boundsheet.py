@@ -57,12 +57,14 @@ class Cell:
     @staticmethod
     def parse_cell_addr(cell_addr_str):
         res = Cell._cell_addr_regex.match(cell_addr_str)
-        sheet_name = res.group('sheetname')
-        sheet_name = sheet_name.strip('\'') if sheet_name is not None else sheet_name
-        column = res.group('column')
-        row = res.group('row')
-
-        return sheet_name, column, row
+        if res is not None:
+            sheet_name = res.group('sheetname')
+            sheet_name = sheet_name.strip('\'') if sheet_name is not None else sheet_name
+            column = res.group('column')
+            row = res.group('row')
+            return sheet_name, column, row
+        else:
+            return None, None, None
 
     @staticmethod
     def convert_twip_to_point(twips):
