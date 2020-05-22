@@ -59,7 +59,7 @@ class XLMInterpreter:
         self.day_of_month = None
         self.invoke_interpreter = False
         self.first_unknown_cell = None
-        self.cell_with_unsuccessfull_set = {}
+        self.cell_with_unsuccessfull_set = set()
 
     @staticmethod
     def is_float(text):
@@ -294,7 +294,7 @@ class XLMInterpreter:
                     text = text[1:-1]
                 self.set_cell(dst_sheet, dst_col, dst_row, text)
         else:
-            self.cell_with_unsuccessfull_set.add(dst_sheet, dst_col+dst_row)
+            self.cell_with_unsuccessfull_set.add((dst_sheet, dst_col+dst_row))
 
 
         if destination_arg == 1:
@@ -691,7 +691,7 @@ class XLMInterpreter:
             cell_addr = col + str(row)
             sheet = self.xlm_wrapper.get_macrosheets()[sheet_name]
             missing = True
-            if cell_addr not in sheet.cells or (sheet.cells[cell_addr].value is None and sheet.cells[cell_addr].formula is None):
+            if cell_addr not in sheet.cells and (sheet_name, cell_addr) in self.cell_with_unsuccessfull_set:
                 if interactive:
                     self.invoke_interpreter = True
                     if self.first_unknown_cell is None:
@@ -923,7 +923,7 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except Exception as exp:
+                except KeyboardInterrupt as exp:
                     print('Error: ' + str(exp))
 
 
