@@ -979,7 +979,7 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except IndentationError as exp:
+                except Exception as exp:
                     print('Error: ' + str(exp))
 
 
@@ -1312,7 +1312,7 @@ def main():
     arg_parser.add_argument("--export-json", type=str,  action='store',
                             help="Export the output to JSON", metavar=('FILE_PATH'))
     arg_parser.add_argument("--start-point", type=str, default="", action='store',
-                            help="Export the output to JSON", metavar=('CELL_ADDR'))
+                            help="Start interpretation from a specific cell address", metavar=('CELL_ADDR'))
 
     args = arg_parser.parse_args()
 

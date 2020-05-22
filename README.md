@@ -31,9 +31,31 @@ xlmdeobfuscator --file document.xlsm
 # Usage
 
 ```
-usage: deobfuscator.py [-h] [-f FILE_PATH] [-n] [-x] [-2] [-s] [-d DAY]
+
+          _        _______
+|\     /|( \      (       )
+( \   / )| (      | () () |
+ \ (_) / | |      | || || |
+  ) _ (  | |      | |(_)| |
+ / ( ) \ | |      | |   | |
+( /   \ )| (____/\| )   ( |
+|/     \|(_______/|/     \|
+   ______   _______  _______  ______   _______           _______  _______  _______ _________ _______  _______
+  (  __  \ (  ____ \(  ___  )(  ___ \ (  ____ \|\     /|(  ____ \(  ____ \(  ___  )\__   __/(  ___  )(  ____ )
+  | (  \  )| (    \/| (   ) || (   ) )| (    \/| )   ( || (    \/| (    \/| (   ) |   ) (   | (   ) || (    )|
+  | |   ) || (__    | |   | || (__/ / | (__    | |   | || (_____ | |      | (___) |   | |   | |   | || (____)|
+  | |   | ||  __)   | |   | ||  __ (  |  __)   | |   | |(_____  )| |      |  ___  |   | |   | |   | ||     __)
+  | |   ) || (      | |   | || (  \ \ | (      | |   | |      ) || |      | (   ) |   | |   | |   | || (\ (
+  | (__/  )| (____/\| (___) || )___) )| )      | (___) |/\____) || (____/\| )   ( |   | |   | (___) || ) \ \__
+  (______/ (_______/(_______)|/ \___/ |/       (_______)\_______)(_______/|/     \|   )_(   (_______)|/   \__/
+
+    
+XLMMacroDeobfuscator(v 0.1.3) - https://github.com/DissectMalware/XLMMacroDeobfuscator
+
+usage: xlmdeobfuscator [-h] [-f FILE_PATH] [-n] [-x] [-2] [-s] [-d DAY]
                        [--output-formula-format OUTPUT_FORMULA_FORMAT]
                        [--no-indent] [--export-json FILE_PATH]
+                       [--start-point CELL_ADDR]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -52,6 +74,9 @@ optional arguments:
   --no-indent           Do not show indent before formulas
   --export-json FILE_PATH
                         Export the output to JSON
+  --start-point CELL_ADDR
+                        Start interpretation from a specific cell address
+
 ```
 
 Read requirements.txt to get the list of python libraries that XLMMacroDeobfuscator is dependent on.
