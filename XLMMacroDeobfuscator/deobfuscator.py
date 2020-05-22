@@ -985,7 +985,7 @@ def show_cells(excel_doc):
 
 
 
-def uprint(*objects, sep=' ', end='\n', file=sys.stdout):
+def uprint(*objects, sep=' ', end='\n', file=sys.stdout, silent_mode=False):
     enc = file.encoding
     if enc == 'UTF-8':
         print(*objects, sep=sep, end=end, file=file)
@@ -1011,22 +1011,16 @@ def get_formula_output(interpretation_result, format_str, with_index=True):
     return result
 
 
-def dump_json_file(output_file_path, file, defined_names, records):
+def convert_to_json_str(file, defined_names, records):
     file_content = open(file, 'rb').read()
     md5 = hashlib.md5(file_content).hexdigest()
     sha256 = hashlib.sha256(file_content).hexdigest()
 
-    res = {'file_path':file,
-           'md5_hash': md5,
-           'sha256_hash': sha256,
-           'analysis_timestamp': int(time.time()),
-           'format_version': 1,
-           'analyzed_by': 'XLMMacroDeobfuscator',
-           'link': 'https://github.com/DissectMalware/XLMMacroDeobfuscator',
-           }
+    res = {'file_path': file, 'md5_hash': md5, 'sha256_hash': sha256, 'analysis_timestamp': int(time.time()),
+           'format_version': 1, 'analyzed_by': 'XLMMacroDeobfuscator',
+           'link': 'https://github.com/DissectMalware/XLMMacroDeobfuscator', 'defined_names': defined_names,
+           'records': []}
 
-    res['defined_names'] = defined_names
-    res['records'] = []
     for index, i in enumerate(records):
         if len(i) == 4:
             res['records'].append({'index': index,
@@ -1042,8 +1036,8 @@ def dump_json_file(output_file_path, file, defined_names, records):
                                    'formula': i[2],
                                    'value': str(i[4])})
 
-
     return res
+
 
 def get_logo():
     return """
@@ -1065,6 +1059,8 @@ def get_logo():
   (______/ (_______/(_______)|/ \___/ |/       (_______)\_______)(_______/|/     \|   )_(   (_______)|/   \__/
 
     """
+
+
 def process_file(**kwargs):
     """ Example of kwargs when using as library
     {
@@ -1116,25 +1112,26 @@ def process_file(**kwargs):
             print('auto_open: {}->{}'.format(label[0], label[1]))
 
         if kwargs.get("extract_only"):
-
             if kwargs.get("export_json"):
                 records = []
                 for i in show_cells(excel_doc):
                     if len(i) == 5:
                         records.append(i)
-                print('[Dumping Json]')
-                res = dump_json_file(kwargs.get("export_json"), file_path, excel_doc.get_defined_names(), records)
-                print('[End of dumping]')
-                if kwargs.get("return_deobfuscated"):
-                    return res
+
+                print('[Dumping to Json]')
+                res = convert_to_json_str(file_path, excel_doc.get_defined_names(), records)
+
                 try:
+                    output_file_path = kwargs.get("export_json")
                     with open(output_file_path, 'w', encoding='utf_8') as output_file:
                         output_file.write(json.dumps(res, indent=4))
                         print('Result is dumped into {}'.format(output_file_path))
                 except Exception as exp:
                     print('Error: unable to dump the result into the specified file\n{}'.format(str(exp)))
+                print('[End of Dumping]')
 
-
+                if not kwargs.get("return_deobfuscated"):
+                    return res
             else:
                 res = []
                 for i in show_cells(excel_doc):
@@ -1151,7 +1148,6 @@ def process_file(**kwargs):
                 if kwargs.get("return_deobfuscated"):
                     return res
 
-
         else:
             print('[Starting Deobfuscation]')
             interpreter = XLMInterpreter(excel_doc)
@@ -1166,22 +1162,34 @@ def process_file(**kwargs):
                     if sheet_name in macros:
                         current_cell = interpreter.get_formula_cell(macros[sheet_name], col, row)
                         interpreter.interactive_shell(current_cell, "")
+
+            output_format = kwargs.get("output_formula_format", 'CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]')
+
             for step in interpreter.deobfuscate_macro(not kwargs.get("noninteractive")):
                 if kwargs.get("return_deobfuscated"):
                     deobfuscated.append(
-                        get_formula_output(step, kwargs.get("output_formula_format", 'CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]'), not kwargs.get("no_indent")))
+                        get_formula_output(step, output_format, not kwargs.get("no_indent")))
                 elif kwargs.get("export_json"):
                     interpreted_lines.append(step)
                 else:
-                    uprint(get_formula_output(step, kwargs.get("output_formula_format"), not kwargs.get("no_indent")))
+                    uprint(get_formula_output(step, output_format, not kwargs.get("no_indent")))
             print('[END of Deobfuscation]')
 
             if kwargs.get("export_json"):
                 print('[Dumping Json]')
-                res = dump_json_file(kwargs.get("export_json"), file_path, excel_doc.get_defined_names(), interpreted_lines)
+                res = convert_to_json_str(file_path, excel_doc.get_defined_names(), interpreted_lines)
+                try:
+                    output_file_path = kwargs.get("export_json")
+                    with open(output_file_path, 'w', encoding='utf_8') as output_file:
+                        output_file.write(json.dumps(res, indent=4))
+                        print('Result is dumped into {}'.format(output_file_path))
+                except Exception as exp:
+                    print('Error: unable to dump the result into the specified file\n{}'.format(str(exp)))
+
+                print('[End of Dumping]')
                 if kwargs.get("return_deobfuscated"):
                     return res
-                print('[End of dumping]')
+
         print('time elapsed: ' + str(time.time() - start))
     finally:
         if HAS_XLSWrapper and type(excel_doc) is XLSWrapper:
