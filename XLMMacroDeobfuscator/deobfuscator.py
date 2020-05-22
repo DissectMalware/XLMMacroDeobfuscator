@@ -739,6 +739,7 @@ class XLMInterpreter:
                     text = "{}".format(cell_addr)
                 else:
                     text = ''
+                    status = EvalStatus.FullEvaluation
 
         elif parse_tree_root.data in self._expr_rule_names:
             text_left = None
@@ -798,6 +799,7 @@ class XLMInterpreter:
                         left_arg = parse_tree_root.children[index]
                         next_cell, l_status, return_val, text_left = self.evaluate_parse_tree(current_cell, left_arg,
                                                                                               interactive)
+
 
             if concat_status == EvalStatus.PartialEvaluation and l_status== EvalStatus.FullEvaluation:
                 l_status = concat_status
