@@ -18,7 +18,7 @@ MULTIOP:    "*" | "/"
 CMPOP:      "<" [">"] | ">" | "="
 CONCATOP:   "&"
 COLON:      ":"
-STRING:   /\"[^"]*?\"/i
+STRING:   /\"([^\"]|\"\")*\"/i
 BOOLEAN: "TRUE" | "FALSE"
 ROW: "R"
 COL: "C"

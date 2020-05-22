@@ -1,18 +1,24 @@
 import argparse
+import hashlib
 import os
 import sys
+import json
+import time
 from lark import Lark
 from lark.exceptions import ParseError
 from lark.lexer import Token
 from lark.tree import Tree
 from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
 from XLMMacroDeobfuscator.xlsm_wrapper import XLSMWrapper
+from XLMMacroDeobfuscator.__init__ import __version__
+
 try:
     from XLMMacroDeobfuscator.xls_wrapper import XLSWrapper
     HAS_XLSWrapper = True
 except:
     HAS_XLSWrapper = False
-    print("Excel is not present")
+    print('pywin32 is not installed (only is required if you want to use MS Excel)')
+
 from XLMMacroDeobfuscator.xls_wrapper_2 import XLSWrapper2
 from XLMMacroDeobfuscator.xlsb_wrapper import XLSBWrapper
 from enum import Enum
@@ -53,6 +59,7 @@ class XLMInterpreter:
         self.day_of_month = None
         self.invoke_interpreter = False
         self.first_unknown_cell = None
+        self.cell_with_unsuccessfull_set = set()
 
     @staticmethod
     def is_float(text):
@@ -153,15 +160,15 @@ class XLMInterpreter:
                     else:
                         res_col = int(col)
                 elif len(cell.children)== 3:
-                    if cell.children[2] == 'C':
-                        col = cell.children[3]
+                    if cell.children[1] == 'C':
+                        col = cell.children[2]
                         res_row = current_row
                         if col.startswith('['):
                             res_col = current_col + int(col[1:-1])
                         else:
                             res_col = int(col)
-                    elif cell.children[3] == 'C':
-                        row = cell.children[2]
+                    elif cell.children[2] == 'C':
+                        row = cell.children[1]
                         res_col = current_col
                         if row.startswith('['):
                             res_row = current_row + int(row[1:-1])
@@ -275,12 +282,20 @@ class XLMInterpreter:
             dst_sheet, dst_col, dst_row = self.get_cell_addr(current_cell, arguments[0])
 
         if status == EvalStatus.FullEvaluation:
+            if (dst_sheet, dst_col+dst_row) in self.cell_with_unsuccessfull_set:
+                self.cell_with_unsuccessfull_set.remove((dst_sheet, dst_col+dst_row))
+
             if text.startswith('"=') is False and self.is_float(text[1:-1]) is False:
+                if len(text)>1 and text.startswith('"') and text.endswith('"'):
+                    text = text[1:-1].replace('""','"')
                 self.set_cell(dst_sheet, dst_col, dst_row, text)
             else:
                 if text.startswith('"') and text.endswith('"'):
-                    text = text[1:-1]
+                    text = text[1:-1].replace('""', '"')
                 self.set_cell(dst_sheet, dst_col, dst_row, text)
+        else:
+            self.cell_with_unsuccessfull_set.add((dst_sheet, dst_col+dst_row))
+
 
         if destination_arg == 1:
             text = "{}({},{})".format(name,
@@ -440,7 +455,7 @@ class XLMInterpreter:
                                                                            arguments[0],
                                                                            interactive)
             if status == EvalStatus.FullEvaluation:
-                if 0 <float(text) < 0x110000:
+                if 0 <= float(text) <= 0x110000:
                     text = chr(int(float(text)))
                     cell = self.get_formula_cell(current_cell.sheet, current_cell.column, current_cell.row)
                     cell.value = text
@@ -448,11 +463,23 @@ class XLMInterpreter:
                 else:
                     text = self.convert_parse_tree_to_str(parse_tree_root)
                     return_val = text
-                    status = EvalStatus.Error
+                    status = EvalStatus.PartialEvaluation
             else:
                 text = 'CHAR({})'.format(text)
                 return_val = text
                 status = EvalStatus.PartialEvaluation
+
+        elif function_name == 'ROUND':
+            l_next_cell, l_status, l_return_val, l_text = self.evaluate_parse_tree(current_cell,
+                                                                                   arguments[0],
+                                                                                   interactive)
+            r_next_cell, r_status, r_return_val, r_text = self.evaluate_parse_tree(current_cell,
+                                                                                   arguments[1],
+                                                                                   interactive)
+            if l_status == EvalStatus.FullEvaluation and r_status == EvalStatus.FullEvaluation:
+                return_val = round(float(l_return_val), int(float(r_return_val)))
+                text = str(return_val)
+                status = EvalStatus.FullEvaluation
 
         elif function_name == 'SEARCH':
             next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell,
@@ -539,6 +566,23 @@ class XLMInterpreter:
         elif function_name == 'ERROR':
             text = 'ERROR'
             status = EvalStatus.FullEvaluation
+
+        elif function_name == 'MID':
+            sheet_name, col, row = self.get_cell_addr(current_cell, arguments[0])
+            cell = self.get_cell(sheet_name, col, row)
+            if cell is not None:
+                b_next_cell, b_status, b_return_val, b_text = self.evaluate_parse_tree(current_cell,
+                                                                                       arguments[1],
+                                                                                       interactive)
+                l_next_cell, l_status, l_return_val, l_text = self.evaluate_parse_tree(current_cell,
+                                                                                       arguments[2],
+                                                                                       interactive)
+                if self.is_float(b_return_val) and self.is_float(l_return_val):
+                    base = int(float(b_return_val)) - 1
+                    length = int(float(l_return_val))
+                    return_val = cell.value[base: base+length]
+                    text = str(return_val)
+                    status = EvalStatus.FullEvaluation
 
         elif function_name == 'IF':
             visited = False
@@ -659,7 +703,7 @@ class XLMInterpreter:
             cell_addr = col + str(row)
             sheet = self.xlm_wrapper.get_macrosheets()[sheet_name]
             missing = True
-            if cell_addr not in sheet.cells or (sheet.cells[cell_addr].value is None and sheet.cells[cell_addr].formula is None):
+            if cell_addr not in sheet.cells and (sheet_name, cell_addr) in self.cell_with_unsuccessfull_set:
                 if interactive:
                     self.invoke_interpreter = True
                     if self.first_unknown_cell is None:
@@ -668,12 +712,20 @@ class XLMInterpreter:
             if cell_addr in sheet.cells:
                 cell = sheet.cells[cell_addr]
                 if cell.value is not None:
-                    if self.is_float(cell.value) is False:
-                        text = '"{}"'.format(cell.value.replace('"','""'))
+                    if type(cell.value) is str:
+                        if self.is_float(cell.value) is False and not \
+                            (len(cell.value)>1 and cell.value.startswith('"') and cell.value.endswith('"')):
+                            text = '"{}"'.format(cell.value.replace('"','""'))
+                            return_val = text
+                        else:
+                            text = cell.value
+                            return_val = text
                     else:
-                        text = cell.value
+                        if type(cell.value) is float and cell.value - int(cell.value) == 0:
+                            cell.value = int(cell.value)
+                        text = str(cell.value)
+                        return_val = cell.value
                     status = EvalStatus.FullEvaluation
-                    return_val = text
                     missing = False
                 elif cell.formula is not None:
                     parse_tree = self.xlm_parser.parse(cell.formula)
@@ -683,7 +735,11 @@ class XLMInterpreter:
                 else:
                     text = "{}".format(cell_addr)
             else:
-                text = "{}".format(cell_addr)
+                if (sheet_name, cell_addr) in self.cell_with_unsuccessfull_set:
+                    text = "{}".format(cell_addr)
+                else:
+                    text = ''
+                    status = EvalStatus.FullEvaluation
 
         elif parse_tree_root.data in self._expr_rule_names:
             text_left = None
@@ -696,7 +752,6 @@ class XLMInterpreter:
                     right_arg = parse_tree_root.children[index + 1]
                     next_cell, r_status, return_val, text_right = self.evaluate_parse_tree(current_cell, right_arg,
                                                                                            interactive)
-
                     if op_str == '&':
                         if len(text_left)> 1 and text_left.startswith('"') and text_left.endswith('"'):
                             text_left = text_left[1:-1].replace('""', '"')
@@ -727,6 +782,7 @@ class XLMInterpreter:
                                 elif op_res.is_integer():
                                     text_left = str(int(op_res))
                                 else:
+                                    op_res = round(op_res, 10)
                                     text_left = str(op_res)
                             else:
                                 text_left = 'Operator ' + op_str
@@ -743,6 +799,7 @@ class XLMInterpreter:
                         left_arg = parse_tree_root.children[index]
                         next_cell, l_status, return_val, text_left = self.evaluate_parse_tree(current_cell, left_arg,
                                                                                               interactive)
+
 
             if concat_status == EvalStatus.PartialEvaluation and l_status== EvalStatus.FullEvaluation:
                 l_status = concat_status
@@ -815,7 +872,7 @@ class XLMInterpreter:
         auto_open_labels = self.xlm_wrapper.get_defined_name('auto_open', full_match=False)
         if auto_open_labels is not None and len(auto_open_labels) > 0:
             macros = self.xlm_wrapper.get_macrosheets()
-            print('[Starting Deobfuscation]')
+
             for auto_open_label in auto_open_labels:
                 try:
                     sheet_name, col, row = Cell.parse_cell_addr(auto_open_label[1])
@@ -938,22 +995,31 @@ def get_file_type(path):
 
 
 def show_cells(excel_doc):
+
     macrosheets = excel_doc.get_macrosheets()
     auto_open_labels = excel_doc.get_defined_name('auto_open', full_match=False)
-    for label in auto_open_labels:
-        uprint('auto_open: {}->{}'.format(label[0], label[1]))
+
     for macrosheet_name in macrosheets:
-        uprint('SHEET: {}, {}'.format(macrosheets[macrosheet_name].name,
-                                        macrosheets[macrosheet_name].type))
+        # yield 'SHEET: {}, {}'.format(macrosheets[macrosheet_name].name,
+        #                                macrosheets[macrosheet_name].type)
+
+        yield macrosheets[macrosheet_name].name, macrosheets[macrosheet_name].type
+
         for formula_loc, info in macrosheets[macrosheet_name].cells.items():
             if info.formula is not None:
-                uprint('CELL:{:10}, {:20}, {}'.format(formula_loc, info.formula, info.value))
+                yield info, 'EXTRACTED', info.formula, '', info.value
+                # yield 'CELL:{:10}, {:20}, {}'.format(formula_loc, info.formula, info.value)
         for formula_loc, info in macrosheets[macrosheet_name].cells.items():
             if info.formula is None:
-                uprint('CELL:{:10}, {:20}, {}'.format(formula_loc, str(info.formula), info.value))
+                # yield 'CELL:{:10}, {:20}, {}'.format(formula_loc, str(info.formula), info.value)
+                yield info, 'EXTRACTED', str(info.formula), '', info.value,
 
 
-def uprint(*objects, sep=' ', end='\n', file=sys.stdout):
+
+def uprint(*objects, sep=' ', end='\n', file=sys.stdout, silent_mode=False):
+    if silent_mode:
+        return
+
     enc = file.encoding
     if enc == 'UTF-8':
         print(*objects, sep=sep, end=end, file=file)
@@ -962,34 +1028,111 @@ def uprint(*objects, sep=' ', end='\n', file=sys.stdout):
         print(*map(f, objects), sep=sep, end=end, file=file)
 
 
-def process_file(**kwargs):
+def get_formula_output(interpretation_result, format_str, with_index=True):
+    cell_addr = interpretation_result[0].get_local_address()
+    status = interpretation_result[1]
+    formula = interpretation_result[2]
+    indent = ''.join(['\t']*interpretation_result[3])
+    result = ''
+    if format_str is not None and type(format_str) is str:
+        result = format_str
+        result = result.replace('[[CELL_ADDR]]', '{:10}'.format(cell_addr))
+        result = result.replace('[[STATUS]]', '{:20}'.format(status.name))
+        if with_index:
+            formula = indent + formula
+        result = result.replace('[[INT-FORMULA]]', formula)
+
+    return result
+
+
+def convert_to_json_str(file, defined_names, records):
+    file_content = open(file, 'rb').read()
+    md5 = hashlib.md5(file_content).hexdigest()
+    sha256 = hashlib.sha256(file_content).hexdigest()
+
+    res = {'file_path': file, 'md5_hash': md5, 'sha256_hash': sha256, 'analysis_timestamp': int(time.time()),
+           'format_version': 1, 'analyzed_by': 'XLMMacroDeobfuscator',
+           'link': 'https://github.com/DissectMalware/XLMMacroDeobfuscator', 'defined_names': defined_names,
+           'records': []}
+
+    for index, i in enumerate(records):
+        if len(i) == 4:
+            res['records'].append({'index': index,
+                                   'sheet': i[0].sheet.name,
+                                   'cell_add': i[0].get_local_address(),
+                                   'status': str(i[1]),
+                                   'formula': i[2]})
+        elif len(i) == 5:
+            res['records'].append({'index': index,
+                                   'sheet': i[0].sheet.name,
+                                   'cell_add': i[0].get_local_address(),
+                                   'status': str(i[1]),
+                                   'formula': i[2],
+                                   'value': str(i[4])})
+
+    return res
+
+
+def get_logo():
+    return """
+          _        _______
+|\     /|( \      (       )
+( \   / )| (      | () () |
+ \ (_) / | |      | || || |
+  ) _ (  | |      | |(_)| |
+ / ( ) \ | |      | |   | |
+( /   \ )| (____/\| )   ( |
+|/     \|(_______/|/     \|
+   ______   _______  _______  ______   _______           _______  _______  _______ _________ _______  _______
+  (  __  \ (  ____ \(  ___  )(  ___ \ (  ____ \|\     /|(  ____ \(  ____ \(  ___  )\__   __/(  ___  )(  ____ )
+  | (  \  )| (    \/| (   ) || (   ) )| (    \/| )   ( || (    \/| (    \/| (   ) |   ) (   | (   ) || (    )|
+  | |   ) || (__    | |   | || (__/ / | (__    | |   | || (_____ | |      | (___) |   | |   | |   | || (____)|
+  | |   | ||  __)   | |   | ||  __ (  |  __)   | |   | |(_____  )| |      |  ___  |   | |   | |   | ||     __)
+  | |   ) || (      | |   | || (  \ \ | (      | |   | |      ) || |      | (   ) |   | |   | |   | || (\ (
+  | (__/  )| (____/\| (___) || )___) )| )      | (___) |/\____) || (____/\| )   ( |   | |   | (___) || ) \ \__
+  (______/ (_______/(_______)|/ \___/ |/       (_______)\_______)(_______/|/     \|   )_(   (_______)|/   \__/
+
     """
+
+
+def process_file(**kwargs):
+    """ Example of kwargs when using as library
     {
         'file': '/tmp/8a6e4c10c30b773147d0d7c8307d88f1cf242cb01a9747bfec0319befdc1fcaf',
-        'noninteractive': False,
+        'noninteractive': True,
         'extract_only': False,
         'no_ms_excel': True,
         'start_with_shell': False,
-        'return_deobfuscated': False,
+        'return_deobfuscated': True,
+        'day': 0,
+        'output_formula_format': 'CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]',
     }
     """
     deobfuscated = list()
+    interpreted_lines = list()
     file_path = os.path.abspath(kwargs.get("file"))
     file_type = get_file_type(file_path)
+
+    uprint('File: {}\n'.format(file_path), silent_mode=SILENT)
+
     if file_type is None:
         return('ERROR: input file type is not supported')
 
     try:
         start = time.time()
         excel_doc = None
-        print('[Loading Cells]')
+
+        uprint('[Loading Cells]', silent_mode=SILENT)
         if file_type == 'xls':
             if kwargs.get("no_ms_excel"):
                 excel_doc = XLSWrapper2(file_path)
             else:
                 try:
                     excel_doc = XLSWrapper(file_path)
+
                 except Exception as exp:
+                    print("Error: MS Excel is not installed, now xlrd2 library will be used insteads\n"+
+                          "(Use --no-ms-excel switch if you do not have/want to use MS Excel)")
                     excel_doc = XLSWrapper2(file_path)
         elif file_type == 'xlsm':
             excel_doc = XLSMWrapper(file_path)
@@ -1000,30 +1143,88 @@ def process_file(**kwargs):
 
         auto_open_labels = excel_doc.get_defined_name('auto_open', full_match=False)
         for label in auto_open_labels:
-            print('auto_open: {}->{}'.format(label[0], label[1]))
+            uprint('auto_open: {}->{}'.format(label[0], label[1]))
 
         if kwargs.get("extract_only"):
-            show_cells(excel_doc)
+            if kwargs.get("export_json"):
+                records = []
+                for i in show_cells(excel_doc):
+                    if len(i) == 5:
+                        records.append(i)
+
+                uprint('[Dumping to Json]', silent_mode=SILENT)
+                res = convert_to_json_str(file_path, excel_doc.get_defined_names(), records)
+
+                try:
+                    output_file_path = kwargs.get("export_json")
+                    with open(output_file_path, 'w', encoding='utf_8') as output_file:
+                        output_file.write(json.dumps(res, indent=4))
+                        uprint('Result is dumped into {}'.format(output_file_path), silent_mode=SILENT)
+                except Exception as exp:
+                    print('Error: unable to dump the result into the specified file\n{}'.format(str(exp)))
+                uprint('[End of Dumping]', SILENT)
+
+                if not kwargs.get("return_deobfuscated"):
+                    return res
+            else:
+                res = []
+                for i in show_cells(excel_doc):
+                    rec_str=''
+                    if len(i) == 2:
+                        rec_str = 'SHEET: {}, {}'.format(i[0], i[1])
+                    elif len(i) == 5:
+                        rec_str = 'CELL:{:10}, {:20}, {}'.format(i[0].get_local_address(), i[2], i[4])
+                    if rec_str:
+                        if not kwargs.get("return_deobfuscated"):
+                            uprint(rec_str)
+                        res.append(rec_str)
+
+                if kwargs.get("return_deobfuscated"):
+                    return res
+
         else:
+            uprint('[Starting Deobfuscation]', silent_mode=SILENT)
             interpreter = XLMInterpreter(excel_doc)
-            if kwargs.get("day")>0:
+            if kwargs.get("day", 0) > 0:
                 interpreter.day_of_month= kwargs.get("day")
 
             if kwargs.get("start_with_shell"):
-                starting_points = interpreter.xlm_wrapper.get_defined_name('auto_open',
-                                                                            full_match=False)
+                starting_points = interpreter.xlm_wrapper.get_defined_name('auto_open', full_match=False)
                 if len(starting_points) > 0:
                     sheet_name, col, row = Cell.parse_cell_addr(starting_points[0][1])
                     macros = interpreter.xlm_wrapper.get_macrosheets()
                     if sheet_name in macros:
                         current_cell = interpreter.get_formula_cell(macros[sheet_name], col, row)
                         interpreter.interactive_shell(current_cell, "")
+
+            output_format = kwargs.get("output_formula_format", 'CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]')
+
             for step in interpreter.deobfuscate_macro(not kwargs.get("noninteractive")):
-                if not kwargs.get("return_deobfuscated"):
-                    uprint('CELL:{:10}, {:20},{}{}'.format(step[0].get_local_address(), step[1].name, ''.join( ['\t']*step[3]), step[2]))
+                if kwargs.get("return_deobfuscated"):
+                    deobfuscated.append(
+                        get_formula_output(step, output_format, not kwargs.get("no_indent")))
+                elif kwargs.get("export_json"):
+                    interpreted_lines.append(step)
                 else:
-                    deobfuscated.append('CELL:{:10}, {:20},{}{}'.format(step[0].get_local_address(), step[1].name, ''.join( ['\t']*step[3]), step[2]))
-        print('time elapsed: ' + str(time.time() - start))
+                    uprint(get_formula_output(step, output_format, not kwargs.get("no_indent")))
+            uprint('[END of Deobfuscation]', silent_mode=SILENT)
+
+            if kwargs.get("export_json"):
+                uprint('[Dumping Json]', silent_mode=SILENT)
+                res = convert_to_json_str(file_path, excel_doc.get_defined_names(), interpreted_lines)
+                try:
+                    output_file_path = kwargs.get("export_json")
+                    with open(output_file_path, 'w', encoding='utf_8') as output_file:
+                        output_file.write(json.dumps(res, indent=4))
+                        uprint('Result is dumped into {}'.format(output_file_path), silent_mode=SILENT)
+                except Exception as exp:
+                    print('Error: unable to dump the result into the specified file\n{}'.format(str(exp)))
+
+                uprint('[End of Dumping]', silent_mode=SILENT)
+                if kwargs.get("return_deobfuscated"):
+                    return res
+
+        uprint('time elapsed: ' + str(time.time() - start), silent_mode=SILENT)
     finally:
         if HAS_XLSWrapper and type(excel_doc) is XLSWrapper:
             excel_doc._excel.Application.DisplayAlerts = False
@@ -1034,10 +1235,12 @@ def process_file(**kwargs):
 
 
 def main():
-
+    print(get_logo())
+    print('XLMMacroDeobfuscator(v {}) - {}\n'.format( __version__, "https://github.com/DissectMalware/XLMMacroDeobfuscator"))
     arg_parser = argparse.ArgumentParser()
 
-    arg_parser.add_argument("-f", "--file", type=str, action='store', help="The path of a XLSM file")
+    arg_parser.add_argument("-f", "--file", type=str, action='store',
+                            help="The path of a XLSM file", metavar=('FILE_PATH'))
     arg_parser.add_argument("-n", "--noninteractive", default=False, action='store_true',
                             help="Disable interactive shell")
     arg_parser.add_argument("-x", "--extract-only", default=False, action='store_true',
@@ -1048,21 +1251,28 @@ def main():
                             help="Open an XLM shell before interpreting the macros in the input")
     arg_parser.add_argument("-d", "--day", type=int, default=-1, action='store',
                             help="Specify the day of month", )
+    arg_parser.add_argument("--output-formula-format", type=str,
+                            default="CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]",
+                            action='store',
+                            help="Specify the format for output formulas ([[CELL_ADDR]], [[INT-FORMULA]], and [[STATUS]]", )
+    arg_parser.add_argument("--no-indent", default=False, action='store_true',
+                            help="Do not show indent before formulas")
+    arg_parser.add_argument("--export-json", type=str,  action='store',
+                            help="Export the output to JSON", metavar=('FILE_PATH'))
 
     args = arg_parser.parse_args()
 
-    if not args.file or not os.path.exists(args.file):
+    if not args.file:
         arg_parser.print_help()
-        return('Error: input file does not exist')
+    elif not os.path.exists(args.file):
+        print('Error: input file does not exist')
+    else:
+        try:
+            # Convert args to kwarg dict
+            process_file(**vars(args))
+        except KeyboardInterrupt:
+            pass
 
-    try:
-        # Convert args to kwarg dict
-        process_file(**vars(args))
-    except KeyboardInterrupt:
-        pass
-
+SILENT = False
 if __name__ == '__main__':
-    data = 'IV'
-    res = Cell.convert_to_column_index(data)
-    calc_data = Cell.convert_to_column_name(res)
     main()

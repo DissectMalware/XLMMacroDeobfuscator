@@ -20,6 +20,13 @@ class XLSWrapper2(ExcelWrapper):
                                        XlApplicationInternational.xlListSeparator: ',',
                                        XlApplicationInternational.xlRightBracket: ']'}
 
+
+        control_chars = ''.join(map(chr, range(0,32)))
+        control_chars += ''.join(map(chr,  range(127,160)))
+        control_chars += '\ufefe\uffff\ufeff\ufffe\uffef\ufff0\ufff1\ufff6\ufefd\udddd\ufffd'
+        self._control_char_re = re.compile('[%s]' % re.escape(control_chars))
+
+
     def get_xl_international_char(self, flag_name):
         result = None
         if flag_name in self.xl_international_flags:
@@ -27,16 +34,21 @@ class XLSWrapper2(ExcelWrapper):
 
         return result
 
+    def remove_nonprintable_chars(self, input_str):
+        input_str =  input_str.encode("utf-16").decode('utf-16','ignore')
+        return self._control_char_re.sub('', input_str)
+
     def get_defined_names(self):
         result = {}
 
         name_objects = self.xls_workbook.name_map
 
         for index, (name_obj, cell) in enumerate(name_objects.items()):
-            name = name_obj.replace('\x00', '').lower()
+            name = self.remove_nonprintable_chars(name_obj).lower()
             if name in result:
                 name = name + index
-            result[name] = cell[0].result.text
+            if cell[0].result is not None:
+                result[name] = cell[0].result.text
 
         return result
 
@@ -104,20 +116,23 @@ class XLSWrapper2(ExcelWrapper):
                 data = sheet.default_row_height
             data = Cell.convert_twip_to_point(data)
             data = round(float(data) * 4) / 4
-
         else:
             if (row, column) in sheet.used_cells:
                 cell = sheet.cell(row, column)
                 if cell.xf_index is not None and cell.xf_index < len(self.xls_workbook.xf_list):
                     fmt = self.xls_workbook.xf_list[cell.xf_index]
                     font = self.xls_workbook.font_list[fmt.font_index]
-                    not_exist = False
+                    
                 else:
-                    fmt = self.xls_workbook.xf_list[0]
+                    normal_style= self.xls_workbook.style_name_map['Normal'][1]
+                    fmt = self.xls_workbook.xf_list[normal_style]
                     font = self.xls_workbook.font_list[fmt.font_index]
             else:
-                fmt = self.xls_workbook.xf_list[0]
+                normal_style = self.xls_workbook.style_name_map['Normal'][1]
+                fmt = self.xls_workbook.xf_list[normal_style]
                 font = self.xls_workbook.font_list[fmt.font_index]
+                
+            not_exist = False
 
             if info_type_id == 8:
                 data = fmt.alignment.hor_align + 1
@@ -199,7 +214,6 @@ class XLSWrapper2(ExcelWrapper):
             #     data = fmt.alignment.rotation
             else:
                 not_implemented = True
-
 
 
         return data, not_exist, not_implemented

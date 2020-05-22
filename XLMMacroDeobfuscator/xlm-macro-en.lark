@@ -16,7 +16,7 @@ ADDITIVEOP: "+" | "-"
 MULTIOP:    "*" | "/"
 CMPOP:      "<" | ">" | "=" | "<>"
 CONCATOP:   "&"
-STRING:   /\"[^"]*?\"/i
+STRING:   /\"([^\"]|\"\")*\"/i
 BOOLEAN: "TRUE" | "FALSE"
 ROW: "R"
 COL: "C"
