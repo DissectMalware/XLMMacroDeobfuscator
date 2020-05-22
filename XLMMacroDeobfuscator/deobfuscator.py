@@ -469,6 +469,18 @@ class XLMInterpreter:
                 return_val = text
                 status = EvalStatus.PartialEvaluation
 
+        elif function_name == 'ROUND':
+            l_next_cell, l_status, l_return_val, l_text = self.evaluate_parse_tree(current_cell,
+                                                                                   arguments[0],
+                                                                                   interactive)
+            r_next_cell, r_status, r_return_val, r_text = self.evaluate_parse_tree(current_cell,
+                                                                                   arguments[1],
+                                                                                   interactive)
+            if l_status == EvalStatus.FullEvaluation and r_status == EvalStatus.FullEvaluation:
+                return_val = round(float(l_return_val), int(float(r_return_val)))
+                text = str(return_val)
+                status = EvalStatus.FullEvaluation
+
         elif function_name == 'SEARCH':
             next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell,
                                                                            arguments[0],
