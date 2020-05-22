@@ -1002,7 +1002,10 @@ def show_cells(excel_doc):
 
 
 
-def uprint(*objects, sep=' ', end='\n', file=sys.stdout):
+def uprint(*objects, sep=' ', end='\n', file=sys.stdout, silent_mode=False):
+    if silent_mode:
+        return
+
     enc = file.encoding
     if enc == 'UTF-8':
         print(*objects, sep=sep, end=end, file=file)
@@ -1028,22 +1031,16 @@ def get_formula_output(interpretation_result, format_str, with_index=True):
     return result
 
 
-def dump_json_file(output_file_path, file, defined_names, records):
+def convert_to_json_str(file, defined_names, records):
     file_content = open(file, 'rb').read()
     md5 = hashlib.md5(file_content).hexdigest()
     sha256 = hashlib.sha256(file_content).hexdigest()
 
-    res = {'file_path':file,
-           'md5_hash': md5,
-           'sha256_hash': sha256,
-           'analysis_timestamp': int(time.time()),
-           'format_version': 1,
-           'analyzed_by': 'XLMMacroDeobfuscator',
-           'link': 'https://github.com/DissectMalware/XLMMacroDeobfuscator',
-           }
+    res = {'file_path': file, 'md5_hash': md5, 'sha256_hash': sha256, 'analysis_timestamp': int(time.time()),
+           'format_version': 1, 'analyzed_by': 'XLMMacroDeobfuscator',
+           'link': 'https://github.com/DissectMalware/XLMMacroDeobfuscator', 'defined_names': defined_names,
+           'records': []}
 
-    res['defined_names'] = defined_names
-    res['records'] = []
     for index, i in enumerate(records):
         if len(i) == 4:
             res['records'].append({'index': index,
@@ -1059,45 +1056,42 @@ def dump_json_file(output_file_path, file, defined_names, records):
                                    'formula': i[2],
                                    'value': str(i[4])})
 
-
-    try:
-        with open(output_file_path, 'w', encoding='utf_8') as output_file:
-            output_file.write(json.dumps(res, indent=4))
-            print('Result is dumped into {}'.format(output_file_path))
-    except Exception as exp:
-        print('Error: unable to dump the result into the specified file\n{}'.format(str(exp)))
+    return res
 
 
 def get_logo():
     return """
-          _        _______                                                                                    
-|\     /|( \      (       )                                                                                   
-( \   / )| (      | () () |                                                                                   
- \ (_) / | |      | || || |                                                                                   
-  ) _ (  | |      | |(_)| |                                                                                   
- / ( ) \ | |      | |   | |                                                                                   
-( /   \ )| (____/\| )   ( |                                                                                   
-|/     \|(_______/|/     \|                                                                                   
-   ______   _______  _______  ______   _______           _______  _______  _______ _________ _______  _______ 
+          _        _______
+|\     /|( \      (       )
+( \   / )| (      | () () |
+ \ (_) / | |      | || || |
+  ) _ (  | |      | |(_)| |
+ / ( ) \ | |      | |   | |
+( /   \ )| (____/\| )   ( |
+|/     \|(_______/|/     \|
+   ______   _______  _______  ______   _______           _______  _______  _______ _________ _______  _______
   (  __  \ (  ____ \(  ___  )(  ___ \ (  ____ \|\     /|(  ____ \(  ____ \(  ___  )\__   __/(  ___  )(  ____ )
   | (  \  )| (    \/| (   ) || (   ) )| (    \/| )   ( || (    \/| (    \/| (   ) |   ) (   | (   ) || (    )|
   | |   ) || (__    | |   | || (__/ / | (__    | |   | || (_____ | |      | (___) |   | |   | |   | || (____)|
   | |   | ||  __)   | |   | ||  __ (  |  __)   | |   | |(_____  )| |      |  ___  |   | |   | |   | ||     __)
-  | |   ) || (      | |   | || (  \ \ | (      | |   | |      ) || |      | (   ) |   | |   | |   | || (\ (   
+  | |   ) || (      | |   | || (  \ \ | (      | |   | |      ) || |      | (   ) |   | |   | |   | || (\ (
   | (__/  )| (____/\| (___) || )___) )| )      | (___) |/\____) || (____/\| )   ( |   | |   | (___) || ) \ \__
   (______/ (_______/(_______)|/ \___/ |/       (_______)\_______)(_______/|/     \|   )_(   (_______)|/   \__/
-                                                                                                                                                                                                                                                                                                                                                                                        
+
     """
+
+
 def process_file(**kwargs):
-    """
+    """ Example of kwargs when using as library
     {
         'file': '/tmp/8a6e4c10c30b773147d0d7c8307d88f1cf242cb01a9747bfec0319befdc1fcaf',
         'noninteractive': True,
         'extract_only': False,
         'no_ms_excel': True,
         'start_with_shell': False,
-        'return_deobfuscated': False,
+        'return_deobfuscated': True,
         'day': 0,
+        'output_formula_format': 'CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]',
     }
     """
     deobfuscated = list()
@@ -1105,7 +1099,7 @@ def process_file(**kwargs):
     file_path = os.path.abspath(kwargs.get("file"))
     file_type = get_file_type(file_path)
 
-    print('File: {}\n'.format(file_path))
+    uprint('File: {}\n'.format(file_path), silent_mode=SILENT)
 
     if file_type is None:
         return('ERROR: input file type is not supported')
@@ -1114,7 +1108,7 @@ def process_file(**kwargs):
         start = time.time()
         excel_doc = None
 
-        print('[Loading Cells]')
+        uprint('[Loading Cells]', silent_mode=SILENT)
         if file_type == 'xls':
             if kwargs.get("no_ms_excel"):
                 excel_doc = XLSWrapper2(file_path)
@@ -1135,19 +1129,29 @@ def process_file(**kwargs):
 
         auto_open_labels = excel_doc.get_defined_name('auto_open', full_match=False)
         for label in auto_open_labels:
-            print('auto_open: {}->{}'.format(label[0], label[1]))
+            uprint('auto_open: {}->{}'.format(label[0], label[1]))
 
         if kwargs.get("extract_only"):
-
             if kwargs.get("export_json"):
                 records = []
                 for i in show_cells(excel_doc):
                     if len(i) == 5:
                         records.append(i)
-                print('[Dumping Json]')
-                dump_json_file(kwargs.get("export_json"), file_path, excel_doc.get_defined_names(), records)
-                print('[End of dumping]')
 
+                uprint('[Dumping to Json]', silent_mode=SILENT)
+                res = convert_to_json_str(file_path, excel_doc.get_defined_names(), records)
+
+                try:
+                    output_file_path = kwargs.get("export_json")
+                    with open(output_file_path, 'w', encoding='utf_8') as output_file:
+                        output_file.write(json.dumps(res, indent=4))
+                        uprint('Result is dumped into {}'.format(output_file_path), silent_mode=SILENT)
+                except Exception as exp:
+                    print('Error: unable to dump the result into the specified file\n{}'.format(str(exp)))
+                uprint('[End of Dumping]', SILENT)
+
+                if not kwargs.get("return_deobfuscated"):
+                    return res
             else:
                 res = []
                 for i in show_cells(excel_doc):
@@ -1158,43 +1162,55 @@ def process_file(**kwargs):
                         rec_str = 'CELL:{:10}, {:20}, {}'.format(i[0].get_local_address(), i[2], i[4])
                     if rec_str:
                         if not kwargs.get("return_deobfuscated"):
-                            print(rec_str)
+                            uprint(rec_str)
                         res.append(rec_str)
 
                 if kwargs.get("return_deobfuscated"):
                     return res
 
-
         else:
-            print('[Starting Deobfuscation]')
+            uprint('[Starting Deobfuscation]', silent_mode=SILENT)
             interpreter = XLMInterpreter(excel_doc)
             if kwargs.get("day", 0) > 0:
                 interpreter.day_of_month= kwargs.get("day")
 
             if kwargs.get("start_with_shell"):
-                starting_points = interpreter.xlm_wrapper.get_defined_name('auto_open',
-                                                                            full_match=False)
+                starting_points = interpreter.xlm_wrapper.get_defined_name('auto_open', full_match=False)
                 if len(starting_points) > 0:
                     sheet_name, col, row = Cell.parse_cell_addr(starting_points[0][1])
                     macros = interpreter.xlm_wrapper.get_macrosheets()
                     if sheet_name in macros:
                         current_cell = interpreter.get_formula_cell(macros[sheet_name], col, row)
                         interpreter.interactive_shell(current_cell, "")
+
+            output_format = kwargs.get("output_formula_format", 'CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]')
+
             for step in interpreter.deobfuscate_macro(not kwargs.get("noninteractive")):
                 if kwargs.get("return_deobfuscated"):
                     deobfuscated.append(
-                        get_formula_output(step, kwargs.get("output_formula_format"), not kwargs.get("no_indent")))
-                elif kwargs.get("export_json") :
+                        get_formula_output(step, output_format, not kwargs.get("no_indent")))
+                elif kwargs.get("export_json"):
                     interpreted_lines.append(step)
                 else:
-                    uprint(get_formula_output(step, kwargs.get("output_formula_format"), not kwargs.get("no_indent")))
-            print('[END of Deobfuscation]')
+                    uprint(get_formula_output(step, output_format, not kwargs.get("no_indent")))
+            uprint('[END of Deobfuscation]', silent_mode=SILENT)
 
             if kwargs.get("export_json"):
-                print('[Dumping Json]')
-                dump_json_file(kwargs.get("export_json"), file_path, excel_doc.get_defined_names(), interpreted_lines)
-                print('[End of dumping]')
-        print('time elapsed: ' + str(time.time() - start))
+                uprint('[Dumping Json]', silent_mode=SILENT)
+                res = convert_to_json_str(file_path, excel_doc.get_defined_names(), interpreted_lines)
+                try:
+                    output_file_path = kwargs.get("export_json")
+                    with open(output_file_path, 'w', encoding='utf_8') as output_file:
+                        output_file.write(json.dumps(res, indent=4))
+                        uprint('Result is dumped into {}'.format(output_file_path), silent_mode=SILENT)
+                except Exception as exp:
+                    print('Error: unable to dump the result into the specified file\n{}'.format(str(exp)))
+
+                uprint('[End of Dumping]', silent_mode=SILENT)
+                if kwargs.get("return_deobfuscated"):
+                    return res
+
+        uprint('time elapsed: ' + str(time.time() - start), silent_mode=SILENT)
     finally:
         if HAS_XLSWrapper and type(excel_doc) is XLSWrapper:
             excel_doc._excel.Application.DisplayAlerts = False
@@ -1243,5 +1259,6 @@ def main():
         except KeyboardInterrupt:
             pass
 
+SILENT = False
 if __name__ == '__main__':
     main()
