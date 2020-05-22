@@ -151,7 +151,7 @@ class XLMInterpreter:
                     if current_child.type == 'NAME':
                         res_sheet = current_child.value
                     elif self.is_float(current_child.value):
-                        val = int(current_child.value)
+                        val = int(float(current_child.value))
                         if last_seen == 'r':
                             res_row = val
                         else:
