@@ -147,33 +147,27 @@ class XLMInterpreter:
                 current_col = Cell.convert_to_column_index(current_cell.column)
                 current_row = int(current_cell.row)
 
-                if len(cell.children)== 4:
-                    row = cell.children[1]
-                    col = cell.children[3]
-                    if row.startswith('['):
-                        res_row = current_row + int(row[1:-1])
-                    else:
-                        res_row = int(row)
-
-                    if col.startswith('['):
-                        res_col = current_col + int(col[1:-1])
-                    else:
-                        res_col = int(col)
-                elif len(cell.children)== 3:
-                    if cell.children[1] == 'C':
-                        col = cell.children[2]
+                for current_child in cell.children:
+                    if current_child.type == 'NAME':
+                        res_sheet = current_child.value
+                    elif self.is_float(current_child.value):
+                        val = int(current_child.value)
+                        if last_seen == 'r':
+                            res_row = val
+                        else:
+                            res_col = val
+                    elif current_child.value.startswith('['):
+                        val = int(current_child.value[1:-1])
+                        if last_seen == 'r':
+                            res_row = current_row + val
+                        else:
+                            res_col = current_col + val
+                    elif current_child.lower() == 'r':
+                        last_seen = 'r'
                         res_row = current_row
-                        if col.startswith('['):
-                            res_col = current_col + int(col[1:-1])
-                        else:
-                            res_col = int(col)
-                    elif cell.children[2] == 'C':
-                        row = cell.children[1]
+                    elif current_child.lower() == 'c':
+                        last_seen = 'c'
                         res_col = current_col
-                        if row.startswith('['):
-                            res_row = current_row + int(row[1:-1])
-                        else:
-                            res_row = int(row)
                     else:
                         raise Exception('Cell addresss, Syntax Error')
 
