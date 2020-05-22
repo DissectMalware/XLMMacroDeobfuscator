@@ -986,6 +986,9 @@ def show_cells(excel_doc):
 
 
 def uprint(*objects, sep=' ', end='\n', file=sys.stdout, silent_mode=False):
+    if silent_mode:
+        return
+
     enc = file.encoding
     if enc == 'UTF-8':
         print(*objects, sep=sep, end=end, file=file)
@@ -1079,7 +1082,7 @@ def process_file(**kwargs):
     file_path = os.path.abspath(kwargs.get("file"))
     file_type = get_file_type(file_path)
 
-    print('File: {}\n'.format(file_path))
+    uprint('File: {}\n'.format(file_path), silent_mode=SILENT)
 
     if file_type is None:
         return('ERROR: input file type is not supported')
@@ -1088,7 +1091,7 @@ def process_file(**kwargs):
         start = time.time()
         excel_doc = None
 
-        print('[Loading Cells]')
+        uprint('[Loading Cells]', silent_mode=SILENT)
         if file_type == 'xls':
             if kwargs.get("no_ms_excel"):
                 excel_doc = XLSWrapper2(file_path)
@@ -1109,7 +1112,7 @@ def process_file(**kwargs):
 
         auto_open_labels = excel_doc.get_defined_name('auto_open', full_match=False)
         for label in auto_open_labels:
-            print('auto_open: {}->{}'.format(label[0], label[1]))
+            uprint('auto_open: {}->{}'.format(label[0], label[1]))
 
         if kwargs.get("extract_only"):
             if kwargs.get("export_json"):
@@ -1118,17 +1121,17 @@ def process_file(**kwargs):
                     if len(i) == 5:
                         records.append(i)
 
-                print('[Dumping to Json]')
+                uprint('[Dumping to Json]', silent_mode=SILENT)
                 res = convert_to_json_str(file_path, excel_doc.get_defined_names(), records)
 
                 try:
                     output_file_path = kwargs.get("export_json")
                     with open(output_file_path, 'w', encoding='utf_8') as output_file:
                         output_file.write(json.dumps(res, indent=4))
-                        print('Result is dumped into {}'.format(output_file_path))
+                        uprint('Result is dumped into {}'.format(output_file_path), silent_mode=SILENT)
                 except Exception as exp:
                     print('Error: unable to dump the result into the specified file\n{}'.format(str(exp)))
-                print('[End of Dumping]')
+                uprint('[End of Dumping]', SILENT)
 
                 if not kwargs.get("return_deobfuscated"):
                     return res
@@ -1142,14 +1145,14 @@ def process_file(**kwargs):
                         rec_str = 'CELL:{:10}, {:20}, {}'.format(i[0].get_local_address(), i[2], i[4])
                     if rec_str:
                         if not kwargs.get("return_deobfuscated"):
-                            print(rec_str)
+                            uprint(rec_str)
                         res.append(rec_str)
 
                 if kwargs.get("return_deobfuscated"):
                     return res
 
         else:
-            print('[Starting Deobfuscation]')
+            uprint('[Starting Deobfuscation]', silent_mode=SILENT)
             interpreter = XLMInterpreter(excel_doc)
             if kwargs.get("day", 0) > 0:
                 interpreter.day_of_month= kwargs.get("day")
@@ -1173,24 +1176,24 @@ def process_file(**kwargs):
                     interpreted_lines.append(step)
                 else:
                     uprint(get_formula_output(step, output_format, not kwargs.get("no_indent")))
-            print('[END of Deobfuscation]')
+            uprint('[END of Deobfuscation]', silent_mode=SILENT)
 
             if kwargs.get("export_json"):
-                print('[Dumping Json]')
+                uprint('[Dumping Json]', silent_mode=SILENT)
                 res = convert_to_json_str(file_path, excel_doc.get_defined_names(), interpreted_lines)
                 try:
                     output_file_path = kwargs.get("export_json")
                     with open(output_file_path, 'w', encoding='utf_8') as output_file:
                         output_file.write(json.dumps(res, indent=4))
-                        print('Result is dumped into {}'.format(output_file_path))
+                        uprint('Result is dumped into {}'.format(output_file_path), silent_mode=SILENT)
                 except Exception as exp:
                     print('Error: unable to dump the result into the specified file\n{}'.format(str(exp)))
 
-                print('[End of Dumping]')
+                uprint('[End of Dumping]', silent_mode=SILENT)
                 if kwargs.get("return_deobfuscated"):
                     return res
 
-        print('time elapsed: ' + str(time.time() - start))
+        uprint('time elapsed: ' + str(time.time() - start), silent_mode=SILENT)
     finally:
         if HAS_XLSWrapper and type(excel_doc) is XLSWrapper:
             excel_doc._excel.Application.DisplayAlerts = False
@@ -1239,5 +1242,6 @@ def main():
         except KeyboardInterrupt:
             pass
 
+SILENT = False
 if __name__ == '__main__':
     main()
