@@ -937,7 +937,7 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except KeyboardInterrupt as exp:
+                except Exception as exp:
                     print('Error: ' + str(exp))
 
 
