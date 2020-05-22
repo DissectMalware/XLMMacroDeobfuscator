@@ -59,6 +59,7 @@ class XLMInterpreter:
         self.day_of_month = None
         self.invoke_interpreter = False
         self.first_unknown_cell = None
+        self.cell_with_unsuccessfull_set = {}
 
     @staticmethod
     def is_float(text):
@@ -281,6 +282,9 @@ class XLMInterpreter:
             dst_sheet, dst_col, dst_row = self.get_cell_addr(current_cell, arguments[0])
 
         if status == EvalStatus.FullEvaluation:
+            if (dst_sheet, dst_col+dst_row) in self.cell_with_unsuccessfull_set:
+                self.cell_with_unsuccessfull_set.remove((dst_sheet, dst_col+dst_row))
+
             if text.startswith('"=') is False and self.is_float(text[1:-1]) is False:
                 if len(text)>1 and text.startswith('"') and text.endswith('"'):
                     text = text[1:-1].replace('""','"')
@@ -289,6 +293,9 @@ class XLMInterpreter:
                 if text.startswith('"') and text.endswith('"'):
                     text = text[1:-1]
                 self.set_cell(dst_sheet, dst_col, dst_row, text)
+        else:
+            self.cell_with_unsuccessfull_set.add(dst_sheet, dst_col+dst_row)
+
 
         if destination_arg == 1:
             text = "{}({},{})".format(name,
@@ -693,12 +700,20 @@ class XLMInterpreter:
             if cell_addr in sheet.cells:
                 cell = sheet.cells[cell_addr]
                 if cell.value is not None:
-                    if self.is_float(cell.value) is False:
-                        text = '"{}"'.format(cell.value.replace('"','""'))
+                    if type(cell.value) is str:
+                        if self.is_float(cell.value) is False and not \
+                            (len(cell.value)>1 and cell.value.startswith('"') and cell.value.endswith('"')):
+                            text = '"{}"'.format(cell.value.replace('"','""'))
+                            return_val = text
+                        else:
+                            text = cell.value
+                            return_val = text
                     else:
-                        text = cell.value
+                        if type(cell.value) is float and cell.value - int(cell.value) == 0:
+                            cell.value = int(cell.value)
+                        text = str(cell.value)
+                        return_val = cell.value
                     status = EvalStatus.FullEvaluation
-                    return_val = text
                     missing = False
                 elif cell.formula is not None:
                     parse_tree = self.xlm_parser.parse(cell.formula)
@@ -708,7 +723,10 @@ class XLMInterpreter:
                 else:
                     text = "{}".format(cell_addr)
             else:
-                text = "{}".format(cell_addr)
+                if (sheet_name, cell_addr) in self.cell_with_unsuccessfull_set:
+                    text = "{}".format(cell_addr)
+                else:
+                    text = ''
 
         elif parse_tree_root.data in self._expr_rule_names:
             text_left = None
@@ -721,7 +739,6 @@ class XLMInterpreter:
                     right_arg = parse_tree_root.children[index + 1]
                     next_cell, r_status, return_val, text_right = self.evaluate_parse_tree(current_cell, right_arg,
                                                                                            interactive)
-
                     if op_str == '&':
                         if len(text_left)> 1 and text_left.startswith('"') and text_left.endswith('"'):
                             text_left = text_left[1:-1].replace('""', '"')
