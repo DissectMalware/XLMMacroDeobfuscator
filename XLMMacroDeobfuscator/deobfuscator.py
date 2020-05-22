@@ -291,7 +291,7 @@ class XLMInterpreter:
                 self.set_cell(dst_sheet, dst_col, dst_row, text)
             else:
                 if text.startswith('"') and text.endswith('"'):
-                    text = text[1:-1]
+                    text = text[1:-1].replace('""', '"')
                 self.set_cell(dst_sheet, dst_col, dst_row, text)
         else:
             self.cell_with_unsuccessfull_set.add((dst_sheet, dst_col+dst_row))
