@@ -124,6 +124,8 @@ class XLSWrapper(ExcelWrapper):
     def get_cell_info(self,sheet_name, col, row, type_ID):
         sheet = self._excel.Excel4MacroSheets(sheet_name)
         cell = col+row
+        data = None
+
 
         if int(type_ID) == 2:
             data = sheet.Range(col+row).Row
@@ -155,6 +157,9 @@ class XLSWrapper(ExcelWrapper):
 
         elif int(type_ID) == 24:
             data = sheet.Range(cell).Font.ColorIndex
+        
+        elif int(type_ID) == 50:
+            data = sheet.Range(cell).VerticalAlignment
 
         return data
 
