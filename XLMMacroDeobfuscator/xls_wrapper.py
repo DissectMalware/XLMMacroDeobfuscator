@@ -67,9 +67,9 @@ class XLSWrapper(ExcelWrapper):
             row_offset = xls_sheet.UsedRange.Row
             formulas = xls_sheet.UsedRange.Formula
             if formulas is not None:
-                for row_no, row in enumerate(xls_sheet.UsedRange.Formula):
+                for row_no, row in enumerate(formulas):
                     for col_no, col in enumerate(row):
-                        if len(col) > 0:
+                        if col:
                             cell = Cell()
                             cell.sheet = macrosheet
                             if len(col)>1 and col.startswith('='):
@@ -80,8 +80,9 @@ class XLSWrapper(ExcelWrapper):
                             col_addr = col_offset + col_no
                             cell.row = row_addr
                             cell.column = Cell.convert_to_column_name(col_addr)
-                            if cell.formula is not None or cell.value is not None:
-                                cells[(col_addr, row_addr)] = cell
+
+                            cells[(col_addr, row_addr)] = cell
+
             self._excel.Application.ScreenUpdating = True
 
         except pywintypes.com_error as error:
@@ -92,10 +93,9 @@ class XLSWrapper(ExcelWrapper):
             if values is not None:
                 for row_no, row in enumerate(values):
                     for col_no, col in enumerate(row):
-                        row_addr = row_offset + row_no
-                        col_addr = col_offset + col_no
-
-                        if col is not None:
+                        if col:
+                            row_addr = row_offset + row_no
+                            col_addr = col_offset + col_no
                             if (col_addr, row_addr) in cells:
                                 cell = cells[(col_addr, row_addr)]
                                 cell.value = col
@@ -103,8 +103,9 @@ class XLSWrapper(ExcelWrapper):
                                 cell = Cell()
                                 cell.sheet = macrosheet
                                 cell.value = col
-                                if cell.value is not None:
-                                    cells[(col_addr, row_addr)] = cell
+                                cell.row = row_addr
+                                cell.column = Cell.convert_to_column_name(col_addr)
+                                cells[(col_addr, row_addr)] = cell
         except pywintypes.com_error as error:
             print('CELL(Constant): ' + str(error.args[2]))
 
@@ -121,19 +122,18 @@ class XLSWrapper(ExcelWrapper):
 
         return self._macrosheets
 
-    def get_cell_info(self,sheet_name, col, row, type_ID):
+    def get_cell_info(self, sheet_name, col, row, type_ID):
         sheet = self._excel.Excel4MacroSheets(sheet_name)
-        cell = col+row
+        cell = col + row
+        data = None
 
         if int(type_ID) == 2:
-            data = sheet.Range(col+row).Row
+            data = sheet.Range(col + row).Row
             print(data)
-            return data
 
         elif int(type_ID) == 3:
             data = sheet.Range(cell).Column
             print(data)
-            return data
 
         elif int(type_ID) == 8:
             data = sheet.Range(cell).HorizontalAlignment
@@ -156,7 +156,12 @@ class XLSWrapper(ExcelWrapper):
         elif int(type_ID) == 24:
             data = sheet.Range(cell).Font.ColorIndex
 
-        return data
+        elif int(type_ID) == 50:
+            data = sheet.Range(cell).VerticalAlignment
+        else:
+            print("Unknown info_type (%d) at cell %s" % (type_ID, cell))
+
+        return data, False, False
 
 
 if __name__ == '__main__':
