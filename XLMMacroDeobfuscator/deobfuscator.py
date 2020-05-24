@@ -586,7 +586,7 @@ class XLMInterpreter:
             text = str(self.day_of_month)
             return_val = text
             status = EvalStatus.FullEvaluation
-        return EvalResult(None, return_val, status, text)
+        return EvalResult(None, status, return_val, text)
 
     def now_handler(self, arguments, current_cell, interactive, parse_tree_root):
         return_val = text = datetime.datetime.now()
