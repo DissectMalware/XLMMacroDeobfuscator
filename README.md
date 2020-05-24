@@ -22,12 +22,16 @@ pip install -U https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/ma
 ```
 
 # Running the emulator
-To run the script 
+To deobfuscate macros in Excel documents: 
 
 ```
 xlmdeobfuscator --file document.xlsm
 ```
 
+To export the output in JSON format
+```
+xlmdeobfuscator --file document.xlsm --export-json result.json
+```
 # Usage
 
 ```
@@ -57,17 +61,16 @@ usage: xlmdeobfuscator [-h] [-f FILE_PATH] [-n] [-x] [-2] [-s] [-d DAY]
                        [--no-indent] [--export-json FILE_PATH]
                        [--start-point CELL_ADDR]
 
-optional arguments:
   -h, --help            show this help message and exit
   -f FILE_PATH, --file FILE_PATH
                         The path of a XLSM file
   -n, --noninteractive  Disable interactive shell
   -x, --extract-only    Only extract cells without any emulation
-  -2, --no-ms-excel     Do not use MS Excel to process XLS files
   -s, --start-with-shell
                         Open an XLM shell before interpreting the macros in
                         the input
   -d DAY, --day DAY     Specify the day of month
+  --with-ms-excel       Use MS Excel to process XLS files
   --output-formula-format OUTPUT_FORMULA_FORMAT
                         Specify the format for output formulas ([[CELL_ADDR]],
                         [[INT-FORMULA]], and [[STATUS]]
@@ -76,6 +79,7 @@ optional arguments:
                         Export the output to JSON
   --start-point CELL_ADDR
                         Start interpretation from a specific cell address
+  -2, --no-ms-excel     [Deprecated] Do not use MS Excel to process XLS files
 
 ```
 
@@ -83,7 +87,7 @@ Read requirements.txt to get the list of python libraries that XLMMacroDeobfusca
 
 You can run XLMMacroDeobfuscator on any OS to extract and deobfuscate macros in xls, xlsm, and xlsb files. No need to install MS Excel.
 
-Note: if you want to use MS Excel (on Windows), you need to install pywin32 library. if you do not want to use MS Excel, use --no-ms-excel.
-Otherwise, xlmdeobfuscator, first, attempts to load xls files with MS Excel, if it fails it uses xlrd2.
+Note: if you want to use MS Excel (on Windows), you need to install pywin32 library and use --with-ms-excel switch.
+If --with-ms-excel is used, xlmdeobfuscator, first, attempts to load xls files with MS Excel, if it fails it uses xlrd2.
 
 \* This code is still heavily under development. Expect to see radical changes in the code.

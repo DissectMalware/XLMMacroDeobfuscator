@@ -1412,7 +1412,7 @@ def main():
     arg_parser.add_argument("-x", "--extract-only", default=False, action='store_true',
                             help="Only extract cells without any emulation")
     arg_parser.add_argument("-2", "--no-ms-excel", default=False, action='store_true',
-                            help="Do not use MS Excel to process XLS files")
+                            help="[Deprecated] Do not use MS Excel to process XLS files")
     arg_parser.add_argument("--with-ms-excel", default=False, action='store_true',
                             help="Use MS Excel to process XLS files")
     arg_parser.add_argument("-s", "--start-with-shell", default=False, action='store_true',
