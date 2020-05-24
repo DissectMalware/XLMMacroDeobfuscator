@@ -155,6 +155,7 @@ class XLMInterpreter:
             'ROUND': self.round_handler,
             'RUN': self.run_handler,
             'SEARCH': self.search_handler,
+            # 'SELECT': self.select_handler
 
         }
 
@@ -811,6 +812,11 @@ class XLMInterpreter:
     def error_handler(self, arguments, current_cell, interactive, parse_tree_root):
         return EvalResult(None, EvalStatus.Error, 0, self.convert_ptree_to_str(parse_tree_root))
 
+    def select_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        range_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        select_eval_result  = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
+        p = 1
+
     # endregion
 
     def evaluate_parse_tree(self, current_cell, parse_tree_root, interactive=True):
@@ -1082,7 +1088,7 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except IndentationError as exp:
+                except Exception as exp:
                     print('Error: ' + str(exp))
 
 
@@ -1246,6 +1252,7 @@ def process_file(**kwargs):
         'noninteractive': True,
         'extract_only': False,
         'no_ms_excel': True,
+        'with_ms_excel': False,
         'start_with_shell': False,
         'return_deobfuscated': True,
         'day': 0,
@@ -1269,7 +1276,11 @@ def process_file(**kwargs):
 
         uprint('[Loading Cells]', silent_mode=SILENT)
         if file_type == 'xls':
-            if kwargs.get("no_ms_excel"):
+            if kwargs.get("no_ms_excel", False):
+                print('--with-ms-excel switch is now deprecated (by default, MS-Excel is not used)\n'
+                      'If you want to use MS-Excel, use --with-ms-excel')
+
+            if not kwargs.get("with_ms_excel", False):
                 excel_doc = XLSWrapper2(file_path)
             else:
                 try:
@@ -1402,6 +1413,8 @@ def main():
                             help="Only extract cells without any emulation")
     arg_parser.add_argument("-2", "--no-ms-excel", default=False, action='store_true',
                             help="Do not use MS Excel to process XLS files")
+    arg_parser.add_argument("--with-ms-excel", default=False, action='store_true',
+                            help="Use MS Excel to process XLS files")
     arg_parser.add_argument("-s", "--start-with-shell", default=False, action='store_true',
                             help="Open an XLM shell before interpreting the macros in the input")
     arg_parser.add_argument("-d", "--day", type=int, default=-1, action='store',
