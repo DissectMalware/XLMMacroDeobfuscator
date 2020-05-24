@@ -567,10 +567,8 @@ class XLMInterpreter:
     def concatenate_handler(self, arguments, current_cell, interactive, parse_tree_root):
         text = ''
         for arg in arguments:
-            sheet_name, col, row = self.get_cell_addr(current_cell, arg)
-            cell = self.get_cell(sheet_name, col, row)
-            if cell is not None:
-                text += EvalResult.unwrap_str_literal(cell.value)
+            arg_eval_result = self.evaluate_parse_tree(current_cell, arg, interactive)
+            text += arg_eval_result.get_text(unwrap=True)
         return_val = text
         text = EvalResult.wrap_str_literal(text)
         status = EvalStatus.FullEvaluation
