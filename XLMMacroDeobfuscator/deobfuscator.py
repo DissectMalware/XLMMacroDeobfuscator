@@ -75,11 +75,19 @@ class EvalResult:
         return result
 
     @staticmethod
-    def wrap_str_literal(str):
-        if EvalResult.is_float(str) or (len(str) > 1 and str.startswith('"') and str.endswith('"')):
-            return str
+    def wrap_str_literal(data):
+        result = ''
+        if EvalResult.is_float(data) or (len(data) > 1 and data.startswith('"') and data.endswith('"')):
+            result = str(data)
+        elif type(data) is float:
+            if data.is_integer():
+                data = int(data)
+            result = str(data)
+        elif type(data) is int or type(data) is bool:
+            result = str(data)
         else:
-            return '"{}"'.format(str.replace('"', '""'))
+            result = '"{}"'.format(data.replace('"', '""'))
+        return result
 
     def get_text(self, unwrap=False):
         result = ''
@@ -930,14 +938,8 @@ class XLMInterpreter:
             if cell_addr in sheet.cells:
                 cell = sheet.cells[cell_addr]
                 if cell.value is not None:
-                    if type(cell.value) is str:
-                        text = cell.value
-                        return_val = text
-                    else:
-                        if type(cell.value) is float and cell.value.is_integer():
-                            cell.value = int(cell.value)
-                        text = str(cell.value)
-                        return_val = cell.value
+                    text = EvalResult.wrap_str_literal( cell.value)
+                    return_val = text
                     status = EvalStatus.FullEvaluation
 
                 elif cell.formula is not None:
@@ -1068,13 +1070,13 @@ class XLMInterpreter:
                                                                                         current_cell.column,
                                                                                         str(int(current_cell.row) + 1))
                                 if stack_record:
-                                    evaluation_result.text = (desc + ' ' + evaluation_result.text).strip()
+                                    evaluation_result.text = (desc + ' ' + evaluation_result.get_text(unwrap=False)).strip()
 
                                 if self._indent_current_line:
                                     previous_indent = self._indent_level
                                     self._indent_current_line = False
 
-                                yield (current_cell, evaluation_result.status, evaluation_result.text, previous_indent)
+                                yield (current_cell, evaluation_result.status, evaluation_result.get_text(unwrap=False), previous_indent)
 
                                 if evaluation_result.next_cell is not None:
                                     current_cell = evaluation_result.next_cell
