@@ -28,10 +28,17 @@ To deobfuscate macros in Excel documents:
 xlmdeobfuscator --file document.xlsm
 ```
 
-To export the output in JSON format
+To only get the deobfuscated macros and without any indentation:
+
+```
+xlmdeobfuscator --file document.xlsm --no-indent --output-formula-format "[[INT-FORMULA]]"
+```
+
+To export the output in JSON format 
 ```
 xlmdeobfuscator --file document.xlsm --export-json result.json
 ```
+To see a sample JSON output, please check [this link](https://pastebin.com/bwmS7mi0) out.
 # Usage
 
 ```
