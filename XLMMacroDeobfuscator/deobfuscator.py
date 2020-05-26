@@ -69,10 +69,10 @@ class EvalResult:
             return False
 
     @staticmethod
-    def unwrap_str_literal(str):
-        result = str
-        if len(str) > 1 and str.startswith('"') and str.endswith('"'):
-            result = str[1:-1].replace('""', '"')
+    def unwrap_str_literal(string):
+        result = str(string)
+        if len(result) > 1 and result.startswith('"') and result.endswith('"'):
+            result = result[1:-1].replace('""', '"')
         return result
 
     @staticmethod
