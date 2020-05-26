@@ -90,7 +90,7 @@ usage: xlmdeobfuscator [-h] [-f FILE_PATH] [-n] [-x] [-2] [-s] [-d DAY]
 
 ```
 
-#Library
+# Library
 The following example shows how XLMMacroDeobfuscator can be used in a python project to deobfuscate XLM macros:
 
 ```python
