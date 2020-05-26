@@ -708,24 +708,24 @@ class XLMInterpreter:
 
         xlm = self
         min = 1
-        best_day = -1
+        best_day = 0
         for day in range(1, 32):
             non_printable_ascii = 0
             total_count = 0
             xlm = copy.copy(xlm)
             xlm.day_of_month = day
             try:
-                for step in xlm.deobfuscate_macro(False, silent_mode=True):
+                for index, step in enumerate(xlm.deobfuscate_macro(False, silent_mode=True)):
                     for char in step[2]:
                         if not (32 <= ord(char) <= 128):
                             non_printable_ascii += 1
-                        total_count += 1
+                    total_count += len(step[2])
 
-                    if (non_printable_ascii / total_count) > min:
+                    if index > 10 and (non_printable_ascii / total_count) > min:
                         break
 
                 if total_count != 0 and (non_printable_ascii / total_count) < min:
-                    min = non_printable_ascii
+                    min = (non_printable_ascii / total_count)
                     best_day = day
                     if min == 0:
                         break
@@ -1616,6 +1616,8 @@ def process_file(**kwargs):
                     interpreted_lines.append(step)
                 else:
                     uprint(get_formula_output(step, output_format, not kwargs.get("no_indent")))
+            if interpreter.day_of_month is not None:
+                uprint('[Day of Month] {}'.format(interpreter.day_of_month))
             uprint('[END of Deobfuscation]', silent_mode=SILENT)
 
             if kwargs.get("export_json"):
