@@ -389,29 +389,47 @@ class XLMInterpreter:
         return result
 
     def evaluate_formula(self, current_cell, name, arguments, interactive, destination_arg=1):
-        if destination_arg == 1:
-            src_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
-            dst_sheet, dst_col, dst_row = self.get_cell_addr(current_cell, arguments[1])
+
+        source, destination = (arguments[0], arguments[1]) if destination_arg == 1 else (arguments[1], arguments[0])
+
+        src_eval_result = self.evaluate_parse_tree(current_cell, source, interactive)
+
+        if destination.data == 'range':
+            dst_start_sheet, dst_start_col, dst_start_row = self.get_cell_addr(current_cell, destination.children[0])
+            dst_end_sheet, dst_end_col, dst_end_row = self.get_cell_addr(current_cell, destination.children[2])
         else:
-            src_eval_result = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
-            dst_sheet, dst_col, dst_row = self.get_cell_addr(current_cell, arguments[0])
+            dst_start_sheet, dst_start_col, dst_start_row = self.get_cell_addr(current_cell, destination)
+            dst_end_sheet, dst_end_col, dst_end_row = dst_start_sheet, dst_start_col, dst_start_row
+
+        destination_str = self.convert_ptree_to_str(destination)
 
         text = src_eval_result.get_text(unwrap=True)
         if src_eval_result.status == EvalStatus.FullEvaluation:
-            if (dst_sheet, dst_col + dst_row) in self.cell_with_unsuccessfull_set:
-                self.cell_with_unsuccessfull_set.remove((dst_sheet, dst_col + dst_row))
+            for row in range(int(dst_start_row), int(dst_end_row)+1):
+                for col in range(Cell.convert_to_column_index(dst_start_col),
+                                 Cell.convert_to_column_index(dst_end_col)+1):
+                    if (dst_start_sheet, Cell.convert_to_column_name(col) + str(row)) in self.cell_with_unsuccessfull_set:
+                        self.cell_with_unsuccessfull_set.remove((dst_start_sheet,
+                                                                 Cell.convert_to_column_name(col) + str(row)))
 
-            self.set_cell(dst_sheet, dst_col, dst_row, text)
+                    self.set_cell(dst_start_sheet,
+                                  Cell.convert_to_column_name(col),
+                                  str(row),
+                                  text)
         else:
-            self.cell_with_unsuccessfull_set.add((dst_sheet, dst_col + dst_row))
+            for row in range(int(dst_start_row), int(dst_end_row)+1):
+                for col in range(Cell.convert_to_column_index(dst_start_col),
+                                 Cell.convert_to_column_index(dst_end_col)+1):
+                    self.cell_with_unsuccessfull_set.add((dst_start_sheet,
+                                                             Cell.convert_to_column_name(col) + str(row)))
 
         if destination_arg == 1:
-            text = "{}({},{})".format(name,
+            text = "{}({},{})".format( name,
                                        src_eval_result.get_text(),
-                                       '{}!{}{}'.format(dst_sheet, dst_col, dst_row))
+                                       destination_str)
         else:
-            text = "{}({},{})".format(name,
-                                       '{}!{}{}'.format(dst_sheet, dst_col, dst_row),
+            text = "{}({},{})".format( name,
+                                       destination_str,
                                        src_eval_result.get_text())
         return_val = 0
         return EvalResult(None, src_eval_result.status, return_val, text)
@@ -1252,7 +1270,7 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except IndentationError as exp:
+                except Exception as exp:
                     print('Error: ' + str(exp))
 
 
