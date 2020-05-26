@@ -970,12 +970,22 @@ class XLMInterpreter:
                 self.active_cell = self.get_cell(sheet, col, row)
                 status = EvalStatus.FullEvaluation
 
-        else:
+        elif arguments[0].data == 'range':
             # e.g., SELECT(D1:D10:D1)
             sheet, col, row = self.selected_range[2]
             if sheet:
                 self.active_cell = self.get_cell(sheet, col, row)
                 status = EvalStatus.FullEvaluation
+        elif arguments[0].data == 'cell':
+            # select(R1C1)
+            if self.active_cell:
+                sheet, col, row = self.get_cell_addr(self.active_cell, arguments[0])
+            else:
+                sheet, col, row = self.get_cell_addr(current_cell, arguments[0])
+            if sheet:
+                self.active_cell = self.get_cell(sheet, col, row)
+                status = EvalStatus.FullEvaluation
+
 
         text = self.convert_ptree_to_str(parse_tree_root)
         return_val = 0
