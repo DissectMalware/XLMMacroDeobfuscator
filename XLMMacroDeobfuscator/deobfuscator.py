@@ -270,7 +270,7 @@ class XLMInterpreter:
                     label = label.strip('"')
                     root_parse_tree = self.xlm_parser.parse('='+label)
                     res_sheet, res_col, res_row = self.get_cell_addr(current_cell, root_parse_tree.children[0])
-                    p = 1
+
 
         else:
             cell = cell_parse_tree.children[0]
@@ -688,9 +688,9 @@ class XLMInterpreter:
                     # text = str(arg1_eval_result.value.day)
                     # return_val = text
                     # status = EvalStatus.FullEvaluation
-                    SILENT = True
+
                     return_val, status, text = self.guess_day()
-                    SILENT = False
+
 
                 elif self.is_float(arg1_eval_result.value):
                     text = 'DAY(Serial Date)'
@@ -705,6 +705,7 @@ class XLMInterpreter:
         return EvalResult(None, status, return_val, text)
 
     def guess_day(self):
+
         xlm = self
         min = 1
         best_day = -1
@@ -714,7 +715,7 @@ class XLMInterpreter:
             xlm = copy.copy(xlm)
             xlm.day_of_month = day
             try:
-                for step in xlm.deobfuscate_macro(False):
+                for step in xlm.deobfuscate_macro(False, silent_mode=True):
                     for char in step[2]:
                         if not (32 <= ord(char) <= 128):
                             non_printable_ascii += 1
@@ -728,13 +729,12 @@ class XLMInterpreter:
                     best_day = day
                     if min == 0:
                         break
-            except:
+            except Exception as exp:
                 pass
         self.day_of_month = best_day
         text = str(self.day_of_month)
         return_val = text
         status = EvalStatus.FullEvaluation
-
         return return_val, status, text
 
     def now_handler(self, arguments, current_cell, interactive, parse_tree_root):
@@ -1247,7 +1247,7 @@ class XLMInterpreter:
                     break
             return result
 
-    def deobfuscate_macro(self, interactive, start_point=""):
+    def deobfuscate_macro(self, interactive, start_point="", silent_mode=False):
         result = []
 
         self.auto_open_labels = self.xlm_wrapper.get_defined_name('auto_open', full_match=False)
@@ -1333,7 +1333,7 @@ class XLMInterpreter:
                                 formula = current_cell.formula
                                 stack_record = False
                 except Exception as exp:
-                    print('Error: ' + str(exp))
+                    uprint('Error: ' + str(exp), silent_mode=silent_mode)
 
 
 def test_parser():
