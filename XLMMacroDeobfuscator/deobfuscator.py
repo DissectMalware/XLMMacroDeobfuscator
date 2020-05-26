@@ -11,6 +11,7 @@ from lark.tree import Tree
 from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
 from XLMMacroDeobfuscator.xlsm_wrapper import XLSMWrapper
 from XLMMacroDeobfuscator.__init__ import __version__
+import copy
 
 try:
     from XLMMacroDeobfuscator.xls_wrapper import XLSWrapper
@@ -118,10 +119,12 @@ class EvalResult:
 class XLMInterpreter:
     def __init__(self, xlm_wrapper):
         self.xlm_wrapper = xlm_wrapper
+        self._formula_cache = {}
         self.cell_addr_regex_str = r"((?P<sheetname>[^\s]+?|'.+?')!)?\$?(?P<column>[a-zA-Z]+)\$?(?P<row>\d+)"
         self.cell_addr_regex = re.compile(self.cell_addr_regex_str)
         self.xlm_parser = self.get_parser()
         self.defined_names = self.xlm_wrapper.get_defined_names()
+        self.auto_open_labels = None
         self._branch_stack = []
         self._while_stack = []
         self._workspace_defaults = {}
@@ -177,6 +180,16 @@ class XLMInterpreter:
             'NEXT': self.next_handler
 
         }
+
+    def __copy__(self):
+        result = XLMInterpreter(self.xlm_wrapper)
+        result.auto_open_labels = self.auto_open_labels
+        result._workspace_defaults = self._workspace_defaults
+        result._window_defaults = self._window_defaults
+        result._cell_defaults = self._cell_defaults
+        result._formula_cache = self._formula_cache
+
+        return result
 
     @staticmethod
     def is_float(text):
@@ -257,7 +270,7 @@ class XLMInterpreter:
                     label = label.strip('"')
                     root_parse_tree = self.xlm_parser.parse('='+label)
                     res_sheet, res_col, res_row = self.get_cell_addr(current_cell, root_parse_tree.children[0])
-                    p = 1
+
 
         else:
             cell = cell_parse_tree.children[0]
@@ -671,9 +684,14 @@ class XLMInterpreter:
             arg1_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
             if arg1_eval_result.status == EvalStatus.FullEvaluation:
                 if type(arg1_eval_result.value) is datetime.datetime:
-                    text = str(arg1_eval_result.value.day)
-                    return_val = text
-                    status = EvalStatus.FullEvaluation
+                    #
+                    # text = str(arg1_eval_result.value.day)
+                    # return_val = text
+                    # status = EvalStatus.FullEvaluation
+
+                    return_val, status, text = self.guess_day()
+
+
                 elif self.is_float(arg1_eval_result.value):
                     text = 'DAY(Serial Date)'
                     status = EvalStatus.NotImplemented
@@ -685,6 +703,39 @@ class XLMInterpreter:
             return_val = text
             status = EvalStatus.FullEvaluation
         return EvalResult(None, status, return_val, text)
+
+    def guess_day(self):
+
+        xlm = self
+        min = 1
+        best_day = 0
+        for day in range(1, 32):
+            non_printable_ascii = 0
+            total_count = 0
+            xlm = copy.copy(xlm)
+            xlm.day_of_month = day
+            try:
+                for index, step in enumerate(xlm.deobfuscate_macro(False, silent_mode=True)):
+                    for char in step[2]:
+                        if not (32 <= ord(char) <= 128):
+                            non_printable_ascii += 1
+                    total_count += len(step[2])
+
+                    if index > 10 and (non_printable_ascii / total_count) > min:
+                        break
+
+                if total_count != 0 and (non_printable_ascii / total_count) < min:
+                    min = (non_printable_ascii / total_count)
+                    best_day = day
+                    if min == 0:
+                        break
+            except Exception as exp:
+                pass
+        self.day_of_month = best_day
+        text = str(self.day_of_month)
+        return_val = text
+        status = EvalStatus.FullEvaluation
+        return return_val, status, text
 
     def now_handler(self, arguments, current_cell, interactive, parse_tree_root):
         return_val = text = datetime.datetime.now()
@@ -1196,22 +1247,22 @@ class XLMInterpreter:
                     break
             return result
 
-    def deobfuscate_macro(self, interactive, start_point=""):
+    def deobfuscate_macro(self, interactive, start_point="", silent_mode=False):
         result = []
 
-        auto_open_labels = self.xlm_wrapper.get_defined_name('auto_open', full_match=False)
-        if len(auto_open_labels) == 0:
+        self.auto_open_labels = self.xlm_wrapper.get_defined_name('auto_open', full_match=False)
+        if len(self.auto_open_labels) == 0:
             if len(start_point) > 0:
-                auto_open_labels = [('auto_open', start_point)]
+                self.auto_open_labels = [('auto_open', start_point)]
             elif interactive:
                 print('There is no entry point, please specify a cell address to start')
                 print('Example: Sheet1!A1')
-                auto_open_labels = [('auto_open', input().strip())]
+                self.auto_open_labels = [('auto_open', input().strip())]
 
-        if auto_open_labels is not None and len(auto_open_labels) > 0:
+        if self.auto_open_labels is not None and len(self.auto_open_labels) > 0:
             macros = self.xlm_wrapper.get_macrosheets()
 
-            for auto_open_label in auto_open_labels:
+            for auto_open_label in self.auto_open_labels:
                 try:
                     sheet_name, col, row = Cell.parse_cell_addr(auto_open_label[1])
                     if sheet_name in macros:
@@ -1225,7 +1276,11 @@ class XLMInterpreter:
                             stack_record = True
                             while current_cell is not None:
                                 if type(formula) is str:
-                                    parse_tree = self.xlm_parser.parse(formula)
+                                    if formula not in self._formula_cache:
+                                        parse_tree = self.xlm_parser.parse(formula)
+                                        self._formula_cache[formula] = parse_tree
+                                    else:
+                                        parse_tree = self._formula_cache[formula]
                                 else:
                                     parse_tree = formula
                                 if stack_record:
@@ -1278,7 +1333,7 @@ class XLMInterpreter:
                                 formula = current_cell.formula
                                 stack_record = False
                 except Exception as exp:
-                    print('Error: ' + str(exp))
+                    uprint('Error: ' + str(exp), silent_mode=silent_mode)
 
 
 def test_parser():
@@ -1561,6 +1616,8 @@ def process_file(**kwargs):
                     interpreted_lines.append(step)
                 else:
                     uprint(get_formula_output(step, output_format, not kwargs.get("no_indent")))
+            if interpreter.day_of_month is not None:
+                uprint('[Day of Month] {}'.format(interpreter.day_of_month))
             uprint('[END of Deobfuscation]', silent_mode=SILENT)
 
             if kwargs.get("export_json"):
