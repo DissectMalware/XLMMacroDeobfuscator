@@ -93,10 +93,18 @@ class EvalResult:
     def get_text(self, unwrap=False):
         result = ''
         if self.text is not None:
+
+            if self.is_float(self.text):
+                self.text = float(self.text)
+                if self.text.is_integer():
+                    self.text = int(self.text)
+                    self.text = str(self.text)
+
             if unwrap:
                 result = self.unwrap_str_literal(self.text)
             else:
                 result = self.text
+
         return result
 
     def set_text(self, data, wrap=False):
