@@ -11,7 +11,6 @@ from lark.tree import Tree
 from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
 from XLMMacroDeobfuscator.xlsm_wrapper import XLSMWrapper
 from XLMMacroDeobfuscator.__init__ import __version__
-from build.lib.XLMMacroDeobfuscator.deobfuscator import EvalStatus
 
 try:
     from XLMMacroDeobfuscator.xls_wrapper import XLSWrapper
