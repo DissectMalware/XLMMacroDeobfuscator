@@ -39,7 +39,7 @@ To export the output in JSON format
 xlmdeobfuscator --file document.xlsm --export-json result.json
 ```
 To see a sample JSON output, please check [this link](https://pastebin.com/bwmS7mi0) out.
-# Command Line (xlmdeobfuscator)
+# Command Line 
 
 ```
 
@@ -106,11 +106,21 @@ for record in result:
     print(record)
 ```
 
-Read requirements.txt to get the list of python libraries that XLMMacroDeobfuscator is dependent on.
+# Requirements
 
-You can run XLMMacroDeobfuscator on any OS to extract and deobfuscate macros in xls, xlsm, and xlsb files. No need to install MS Excel.
+Please read requirements.txt to get the list of python libraries that XLMMacroDeobfuscator is dependent on.
+
+xlmdeobfuscator can be executed on any OS to extract and deobfuscate macros in xls, xlsm, and xlsb files. You do not need to install MS Excel.
 
 Note: if you want to use MS Excel (on Windows), you need to install pywin32 library and use --with-ms-excel switch.
-If --with-ms-excel is used, xlmdeobfuscator, first, attempts to load xls files with MS Excel, if it fails it uses xlrd2.
+If --with-ms-excel is used, xlmdeobfuscator, first, attempts to load xls files with MS Excel, if it fails it uses [xlrd2 library](https://github.com/DissectMalware/xlrd2).
+
+# How to Contribute
+If you found a bug or would like to suggest an improvement, please create a new issue on the [issues page](https://github.com/DissectMalware/XLMMacroDeobfuscator/issues).
+
+Feel free to contribute to the project forking the project and submitting a pull request.
+
+You can reach [me (@DissectMlaware) on Twitter](https://twitter.com/DissectMalware) via a direct message.
+
 
 \* This code is still heavily under development. Expect to see radical changes in the code.
