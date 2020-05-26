@@ -39,7 +39,7 @@ To export the output in JSON format
 xlmdeobfuscator --file document.xlsm --export-json result.json
 ```
 To see a sample JSON output, please check [this link](https://pastebin.com/bwmS7mi0) out.
-# Usage
+# Command Line (xlmdeobfuscator)
 
 ```
 
@@ -88,6 +88,22 @@ usage: xlmdeobfuscator [-h] [-f FILE_PATH] [-n] [-x] [-2] [-s] [-d DAY]
                         Start interpretation from a specific cell address
   -2, --no-ms-excel     [Deprecated] Do not use MS Excel to process XLS files
 
+```
+
+#Library
+The following example shows how XLMMacroDeobfuscator can be used in a python project to deobfuscate XLM macros:
+
+```python
+from XLMMacroDeobfuscator.deobfuscator import process_file
+
+result = process_file(file='path/to/an/excel/file', 
+            noninteractive= True, 
+            noindent= True, 
+            output_formula_format='[[CELL_ADDR]], [[INT-FORMULA]]',
+            return_deobfuscated= True)
+
+for record in result:
+    print(record)
 ```
 
 Read requirements.txt to get the list of python libraries that XLMMacroDeobfuscator is dependent on.
