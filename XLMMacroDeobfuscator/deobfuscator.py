@@ -158,7 +158,6 @@ class XLMInterpreter:
 
             # methods
             'AND': self.and_handler,
-            'OR': self.or_handler,
             'CALL': self.call_handler,
             'CHAR': self.char_handler,
             'CLOSE': self.halt_handler,
@@ -170,15 +169,16 @@ class XLMInterpreter:
             'GOTO': self.goto_handler,
             'HALT': self.halt_handler,
             'IF': self.if_handler,
+            'LEN': self.len_handler,
             'MID': self.mid_handler,
+            'NEXT': self.next_handler,
             'NOW': self.now_handler,
+            'OR': self.or_handler,
             'ROUND': self.round_handler,
             'RUN': self.run_handler,
             'SEARCH': self.search_handler,
             'SELECT': self.select_handler,
             'WHILE': self.while_handler,
-            'NEXT': self.next_handler
-
         }
 
     def __copy__(self):
@@ -556,9 +556,17 @@ class XLMInterpreter:
     def active_cell_handler(self, arguments, current_cell, interactive, parse_tree_root):
         status = EvalStatus.PartialEvaluation
         if self.active_cell:
-            return_val = self.active_cell.value
+            if self.active_cell.formula:
+                parse_tree = self.xlm_parser.parse(self.active_cell.formula)
+                eval_res = self.evaluate_parse_tree(current_cell, parse_tree, interactive)
+                val = eval_res.value
+                status = eval_res.status
+            else:
+                val = self.active_cell.value
+                status = EvalStatus.FullEvaluation
+
+            return_val = val
             text = str(return_val)
-            status = EvalStatus.FullEvaluation
         else:
             text = self.convert_ptree_to_str(parse_tree_root)
             return_val= text
@@ -1038,6 +1046,19 @@ class XLMInterpreter:
             status = EvalStatus.IGNORED
 
         return EvalResult(next_cell, status, 0, 'NEXT')
+
+    def len_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        if arg_eval_result.status == EvalStatus.FullEvaluation:
+            return_val = len(arg_eval_result.get_text(unwrap=True))
+            text = str(return_val)
+            status = EvalStatus.FullEvaluation
+        else:
+            text = self.convert_ptree_to_str(parse_tree_root)
+            return_val = text
+            status = EvalStatus.PartialEvaluation
+        return EvalResult(None, status, return_val, text)
+
 
     # endregion
 
