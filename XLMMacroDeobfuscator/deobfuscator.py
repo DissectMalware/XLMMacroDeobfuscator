@@ -1498,7 +1498,7 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except IndentationError as exp:
+                except Exception as exp:
                     uprint('Error: ' + str(exp), silent_mode=silent_mode)
 
 
@@ -1605,7 +1605,7 @@ def get_formula_output(interpretation_result, format_str, with_index=True):
     return result
 
 
-def convert_to_json_str(file, defined_names, records):
+def convert_to_json_str(file, defined_names, records, memory=None, files=None):
     file_content = open(file, 'rb').read()
     md5 = hashlib.md5(file_content).hexdigest()
     sha256 = hashlib.sha256(file_content).hexdigest()
@@ -1613,7 +1613,7 @@ def convert_to_json_str(file, defined_names, records):
     res = {'file_path': file, 'md5_hash': md5, 'sha256_hash': sha256, 'analysis_timestamp': int(time.time()),
            'format_version': 1, 'analyzed_by': 'XLMMacroDeobfuscator',
            'link': 'https://github.com/DissectMalware/XLMMacroDeobfuscator', 'defined_names': defined_names,
-           'records': []}
+           'records': [], 'memory_records':[]}
 
     for index, i in enumerate(records):
         if len(i) == 4:
@@ -1629,6 +1629,14 @@ def convert_to_json_str(file, defined_names, records):
                                    'status': str(i[1]),
                                    'formula': i[2],
                                    'value': str(i[4])})
+    if memory:
+        for mem_rec in memory:
+            res['memory_records'].append({
+                'base': mem_rec['base'],
+                'size': mem_rec['size'],
+                'data_base64': bytearray(mem_rec['data']).hex()
+            })
+
 
     return res
 
@@ -1784,11 +1792,18 @@ def process_file(**kwargs):
                     uprint(get_formula_output(step, output_format, not kwargs.get("no_indent")))
             if interpreter.day_of_month is not None:
                 uprint('[Day of Month] {}'.format(interpreter.day_of_month))
+
+            if not kwargs.get("export_json") and not kwargs.get("return_deobfuscated"):
+                for mem_record in interpreter._memory:
+                    uprint('Memory: base {}, size {}\n{}\n'.format(mem_record['base'],
+                                                                 mem_record['size'],
+                                                                 bytearray(mem_record['data']).hex()))
+
             uprint('[END of Deobfuscation]', silent_mode=SILENT)
 
             if kwargs.get("export_json"):
                 uprint('[Dumping Json]', silent_mode=SILENT)
-                res = convert_to_json_str(file_path, excel_doc.get_defined_names(), interpreted_lines)
+                res = convert_to_json_str(file_path, excel_doc.get_defined_names(), interpreted_lines, interpreter._memory)
                 try:
                     output_file_path = kwargs.get("export_json")
                     with open(output_file_path, 'w', encoding='utf_8') as output_file:
