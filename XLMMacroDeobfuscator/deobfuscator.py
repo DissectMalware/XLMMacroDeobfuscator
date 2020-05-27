@@ -4,6 +4,8 @@ import os
 import sys
 import json
 import time
+from _ast import arguments
+
 from lark import Lark
 from lark.exceptions import ParseError
 from lark.lexer import Token
@@ -127,12 +129,14 @@ class XLMInterpreter:
         self.auto_open_labels = None
         self._branch_stack = []
         self._while_stack = []
+        self._memory = []
+        self._registered_functions = {}
         self._workspace_defaults = {}
         self._window_defaults = {}
         self._cell_defaults = {}
         self._expr_rule_names = ['expression', 'concat_expression', 'additive_expression', 'multiplicative_expression']
         self._operators = {'+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.truediv,
-                           '>': operator.gt, '<': operator.lt, '<>':operator.ne}
+                           '>': operator.gt, '<': operator.lt, '<>': operator.ne, '=':operator.eq}
         self._indent_level = 0
         self._indent_current_line = False
         self.day_of_month = None
@@ -174,11 +178,17 @@ class XLMInterpreter:
             'NEXT': self.next_handler,
             'NOW': self.now_handler,
             'OR': self.or_handler,
+            'REGISTER': self.register_handler,
             'ROUND': self.round_handler,
             'RUN': self.run_handler,
             'SEARCH': self.search_handler,
             'SELECT': self.select_handler,
             'WHILE': self.while_handler,
+
+            # Windows API
+            'Kernel32.VirtualAlloc': self.VirtualAlloc_handler,
+            'Kernel32.WriteProcessMemory': self.WriteProcessMemory_handler,
+            'Kernel32.RtlCopyMemory': self.RtlCopyMemory_handler,
         }
 
     def __copy__(self):
@@ -266,9 +276,9 @@ class XLMInterpreter:
                 res_sheet, res_col, res_row = Cell.parse_cell_addr(names[label.strip('"')])
             else:
 
-                if len(label)>1 and label.startswith('"') and label.endswith('"'):
+                if len(label) > 1 and label.startswith('"') and label.endswith('"'):
                     label = label.strip('"')
-                    root_parse_tree = self.xlm_parser.parse('='+label)
+                    root_parse_tree = self.xlm_parser.parse('=' + label)
                     res_sheet, res_col, res_row = self.get_cell_addr(current_cell, root_parse_tree.children[0])
 
 
@@ -425,32 +435,33 @@ class XLMInterpreter:
 
         text = src_eval_result.get_text(unwrap=True)
         if src_eval_result.status == EvalStatus.FullEvaluation:
-            for row in range(int(dst_start_row), int(dst_end_row)+1):
+            for row in range(int(dst_start_row), int(dst_end_row) + 1):
                 for col in range(Cell.convert_to_column_index(dst_start_col),
-                                 Cell.convert_to_column_index(dst_end_col)+1):
-                    if (dst_start_sheet, Cell.convert_to_column_name(col) + str(row)) in self.cell_with_unsuccessfull_set:
+                                 Cell.convert_to_column_index(dst_end_col) + 1):
+                    if (
+                    dst_start_sheet, Cell.convert_to_column_name(col) + str(row)) in self.cell_with_unsuccessfull_set:
                         self.cell_with_unsuccessfull_set.remove((dst_start_sheet,
                                                                  Cell.convert_to_column_name(col) + str(row)))
 
                     self.set_cell(dst_start_sheet,
                                   Cell.convert_to_column_name(col),
                                   str(row),
-                                  text)
+                                  str(src_eval_result.value))
         else:
-            for row in range(int(dst_start_row), int(dst_end_row)+1):
+            for row in range(int(dst_start_row), int(dst_end_row) + 1):
                 for col in range(Cell.convert_to_column_index(dst_start_col),
-                                 Cell.convert_to_column_index(dst_end_col)+1):
+                                 Cell.convert_to_column_index(dst_end_col) + 1):
                     self.cell_with_unsuccessfull_set.add((dst_start_sheet,
-                                                             Cell.convert_to_column_name(col) + str(row)))
+                                                          Cell.convert_to_column_name(col) + str(row)))
 
         if destination_arg == 1:
-            text = "{}({},{})".format( name,
-                                       src_eval_result.get_text(),
-                                       destination_str)
+            text = "{}({},{})".format(name,
+                                      src_eval_result.get_text(),
+                                      destination_str)
         else:
-            text = "{}({},{})".format( name,
-                                       destination_str,
-                                       src_eval_result.get_text())
+            text = "{}({},{})".format(name,
+                                      destination_str,
+                                      src_eval_result.get_text())
         return_val = 0
         return EvalResult(None, src_eval_result.status, return_val, text)
 
@@ -484,12 +495,19 @@ class XLMInterpreter:
         if method_name in self._handlers:
             eval_result = self._handlers[method_name](arguments, current_cell, interactive, parse_tree_root)
         else:
+
             eval_result = self.evaluate_argument_list(current_cell, method_name, arguments)
 
         return eval_result
 
     def evaluate_function(self, current_cell, parse_tree_root, interactive):
         function_name = parse_tree_root.children[0]
+
+        if function_name in self._registered_functions:
+            parse_tree_root.children[0] = parse_tree_root.children[0].update(None,
+                                                                             self._registered_functions[function_name][
+                                                                                 'name'])
+            function_name = parse_tree_root.children[0]
 
         if self.ignore_processing and function_name != 'NEXT':
             if function_name == 'WHILE':
@@ -569,7 +587,7 @@ class XLMInterpreter:
             text = str(return_val)
         else:
             text = self.convert_ptree_to_str(parse_tree_root)
-            return_val= text
+            return_val = text
 
         return EvalResult(None, status, return_val, text)
 
@@ -995,7 +1013,6 @@ class XLMInterpreter:
                 self.active_cell = self.get_cell(sheet, col, row)
                 status = EvalStatus.FullEvaluation
 
-
         text = self.convert_ptree_to_str(parse_tree_root)
         return_val = 0
 
@@ -1037,10 +1054,10 @@ class XLMInterpreter:
                 top_record = self._while_stack.pop()
                 if top_record['status'] is True:
                     next_cell = top_record['start_point']
-            self._indent_level = self._indent_level -1 if self._indent_level >0 else 0
+            self._indent_level = self._indent_level - 1 if self._indent_level > 0 else 0
             self._indent_current_line = True
         else:
-            self.next_count -=1
+            self.next_count -= 1
 
         if next_cell is None:
             status = EvalStatus.IGNORED
@@ -1059,9 +1076,123 @@ class XLMInterpreter:
             status = EvalStatus.PartialEvaluation
         return EvalResult(None, status, return_val, text)
 
+    def register_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        if len(arguments) >= 4:
+            arg_list = []
+            status = EvalStatus.FullEvaluation
+            for index, arg in enumerate(arguments):
+                if index > 3:
+                    break
+                res_eval = self.evaluate_parse_tree(current_cell, arg, interactive)
+                arg_list.append(res_eval.get_text(unwrap=True))
+            function_name = "{}.{}".format(arg_list[0], arg_list[1])
+            # signature: https://support.office.com/en-us/article/using-the-call-and-register-functions-06fa83c1-2869-4a89-b665-7e63d188307f
+            function_signature = arg_list[2]
+            function_alias = arg_list[3]
+            # overrides previously registered function
+            self._registered_functions[function_alias] = {'name': function_name, 'signature': function_signature}
+        else:
+            status = EvalStatus.Error
+        text = self.convert_ptree_to_str(parse_tree_root)
+        return_val = 0
+
+        return EvalResult(None, status, return_val, text)
+
+    def VirtualAlloc_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        base_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        size_eval_res = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
+        if base_eval_res.status == EvalStatus.FullEvaluation and size_eval_res.status == EvalStatus.FullEvaluation:
+            base = int(base_eval_res.get_text(unwrap=True))
+            occupied_addresses = [rec['base'] + rec['size'] for rec in self._memory]
+            for memory_record in self._memory:
+                if memory_record['base'] <= base <= (memory_record['base'] + memory_record['size']):
+                    base = map(max, occupied_addresses) + 4096
+            size = int(size_eval_res.get_text(unwrap=True))
+            self._memory.append({
+                    'base': base,
+                    'size': size,
+                    'data': [0] * size
+                })
+            return_val = base
+            status = EvalStatus.FullEvaluation
+        else:
+            status = EvalStatus.PartialEvaluation
+            return_val = 0
+
+        text = self.convert_ptree_to_str(parse_tree_root)
+        return EvalResult(None, status, return_val, text)
+
+    def WriteProcessMemory_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        status = EvalStatus.PartialEvaluation
+        if len(arguments)>4:
+            status = EvalStatus.FullEvaluation
+            args_eval_result = []
+            for arg in arguments:
+                arg_eval_res = self.evaluate_parse_tree(current_cell, arg, interactive)
+                if arg_eval_res.status != EvalStatus.FullEvaluation:
+                    status = arg_eval_res.status
+                args_eval_result.append(arg_eval_res)
+            if status == EvalStatus.FullEvaluation:
+                base_address = int(args_eval_result[1].value)
+                mem_data = args_eval_result[2].value
+                mem_data = bytearray([ord(x) for x in mem_data])
+                size = int(args_eval_result[3].value)
+
+                if not self.write_memory(base_address, mem_data, size):
+                    status = EvalStatus.Error
+
+                text = 'Kernel32.WriteProcessMemory({},{},"{}",{},{})'.format(
+                    args_eval_result[0].get_text(),
+                    base_address,
+                    mem_data.hex(),
+                    size,
+                    args_eval_result[4].get_text())
+
+                return_val = 0
+
+            if status != EvalStatus.FullEvaluation:
+                text = self.convert_ptree_to_str(current_cell, parse_tree_root)
+                return_val = 0
+
+            return EvalResult(None, status, return_val, text)
+
+    def RtlCopyMemory_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        status = EvalStatus.PartialEvaluation
+
+        if len(arguments) == 3:
+            destination_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+            src_eval_res = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
+            size_res = self.evaluate_parse_tree(current_cell, arguments[2], interactive)
+            if destination_eval_res.status == EvalStatus.FullEvaluation and \
+                src_eval_res.status == EvalStatus.FullEvaluation:
+                mem_data = src_eval_res.value
+                mem_data = bytearray([ord(x) for x in mem_data])
+                if not self.write_memory(int(destination_eval_res.value), mem_data, len(mem_data)):
+                    status = EvalStatus.Error
+                text = 'Kernel32.RtlCopyMemory({},"{}",{})'.format(
+                        destination_eval_res.get_text(),
+                        mem_data.hex(),
+                        size_res.get_text())
+
+        if status != status.PartialEvaluation:
+            text = self.convert_ptree_to_str(parse_tree_root)
+
+        return_val = 0
+        return EvalResult(None, status, return_val, text)
 
     # endregion
 
+    def write_memory(self, base_address, mem_data, size):
+        result = True
+        for mem_rec in self._memory:
+            if mem_rec['base'] <= base_address <= mem_rec['base'] + mem_rec['size']:
+                if mem_rec['base'] <= base_address + size <= mem_rec['base'] + mem_rec['size']:
+                    for i in range(0, size):
+                        mem_rec['data'][i] = mem_data[i]
+                else:
+                    result = False
+                break
+        return result
     def evaluate_parse_tree(self, current_cell, parse_tree_root, interactive=True):
         next_cell = None
         status = EvalStatus.NotImplemented
@@ -1194,7 +1325,7 @@ class XLMInterpreter:
             if cell_addr in sheet.cells:
                 cell = sheet.cells[cell_addr]
                 if cell.value is not None:
-                    text = EvalResult.wrap_str_literal( cell.value)
+                    text = EvalResult.wrap_str_literal(cell.value)
                     return_val = text
                     status = EvalStatus.FullEvaluation
 
@@ -1232,7 +1363,6 @@ class XLMInterpreter:
         retunr_val = 0
 
         return EvalResult(None, status, retunr_val, text)
-
 
     def interactive_shell(self, current_cell, message):
         print('\nProcess Interruption:')
@@ -1320,10 +1450,9 @@ class XLMInterpreter:
                                 else:
                                     previous_indent = self._indent_level
 
-
                                 evaluation_result = self.evaluate_parse_tree(current_cell, parse_tree, interactive)
 
-                                if len(self._while_stack)== 0 and evaluation_result.text != 'NEXT':
+                                if len(self._while_stack) == 0 and evaluation_result.text != 'NEXT':
                                     observed_cells.append(current_cell.get_local_address())
 
                                     if self.has_loop(observed_cells):
@@ -1349,14 +1478,17 @@ class XLMInterpreter:
                                                                                         current_cell.column,
                                                                                         str(int(current_cell.row) + 1))
                                 if stack_record:
-                                    evaluation_result.text = (desc + ' ' + evaluation_result.get_text(unwrap=False)).strip()
+                                    evaluation_result.text = (
+                                                desc + ' ' + evaluation_result.get_text(unwrap=False)).strip()
 
                                 if self._indent_current_line:
                                     previous_indent = self._indent_level
                                     self._indent_current_line = False
 
                                 if evaluation_result.status != EvalStatus.IGNORED:
-                                    yield (current_cell, evaluation_result.status, evaluation_result.get_text(unwrap=False), previous_indent)
+                                    yield (
+                                    current_cell, evaluation_result.status, evaluation_result.get_text(unwrap=False),
+                                    previous_indent)
 
                                 if evaluation_result.next_cell is not None:
                                     current_cell = evaluation_result.next_cell
@@ -1364,7 +1496,7 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except Exception as exp:
+                except IndentationError as exp:
                     uprint('Error: ' + str(exp), silent_mode=silent_mode)
 
 
