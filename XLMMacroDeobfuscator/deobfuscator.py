@@ -561,6 +561,7 @@ class XLMInterpreter:
             status = EvalStatus.FullEvaluation
         else:
             text = self.convert_ptree_to_str(parse_tree_root)
+            return_val= text
 
         return EvalResult(None, status, return_val, text)
 
