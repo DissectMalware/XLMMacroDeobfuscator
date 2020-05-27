@@ -1165,6 +1165,7 @@ class XLMInterpreter:
             size_res = self.evaluate_parse_tree(current_cell, arguments[2], interactive)
             if destination_eval_res.status == EvalStatus.FullEvaluation and \
                 src_eval_res.status == EvalStatus.FullEvaluation:
+                status = EvalStatus.FullEvaluation
                 mem_data = src_eval_res.value
                 mem_data = bytearray([ord(x) for x in mem_data])
                 if not self.write_memory(int(destination_eval_res.value), mem_data, len(mem_data)):
@@ -1174,7 +1175,7 @@ class XLMInterpreter:
                         mem_data.hex(),
                         size_res.get_text())
 
-        if status != status.PartialEvaluation:
+        if status == status.PartialEvaluation:
             text = self.convert_ptree_to_str(parse_tree_root)
 
         return_val = 0
@@ -1187,8 +1188,9 @@ class XLMInterpreter:
         for mem_rec in self._memory:
             if mem_rec['base'] <= base_address <= mem_rec['base'] + mem_rec['size']:
                 if mem_rec['base'] <= base_address + size <= mem_rec['base'] + mem_rec['size']:
+                    offset = base_address - mem_rec['base']
                     for i in range(0, size):
-                        mem_rec['data'][i] = mem_data[i]
+                        mem_rec['data'][offset + i] = mem_data[i]
                 else:
                     result = False
                 break
