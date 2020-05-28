@@ -356,6 +356,8 @@ class XLMInterpreter:
 
             cell = sheet.cells[addr]
 
+            text = EvalResult.unwrap_str_literal(text)
+
             if text.startswith('='):
                 cell.formula = text
 
