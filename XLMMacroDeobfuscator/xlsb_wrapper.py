@@ -79,8 +79,8 @@ class XLSBWrapper(ExcelWrapper):
 
     def get_cell_info(self, sheet_name, col, row, info_type_id):
         data = None
-        not_exist = True
-        not_implemented = False
+        not_exist = False
+        not_implemented = True
 
         return data, not_exist, not_implemented
 

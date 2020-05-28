@@ -1381,10 +1381,9 @@ class XLMInterpreter:
             if line:
                 try:
                     parse_tree = self.xlm_parser.parse(line)
-                    next_cell, status, return_val, text = self.evaluate_parse_tree(current_cell, parse_tree,
-                                                                                   interactive=False)
-                    print(return_val)
-                    if status == EvalStatus.End:
+                    ret_result = self.evaluate_parse_tree(current_cell, parse_tree, interactive=False)
+                    print(ret_result.value)
+                    if ret_result.status == EvalStatus.End:
                         break
                 except ParseError as exp:
                     print("Invalid XLM macro")
