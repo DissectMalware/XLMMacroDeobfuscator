@@ -1,11 +1,12 @@
 import argparse
 import hashlib
+import msoffcrypto
 import os
 import sys
 import json
 import time
 from _ast import arguments
-
+from tempfile import mkstemp
 from lark import Lark
 from lark.exceptions import ParseError
 from lark.lexer import Token
@@ -1643,6 +1644,59 @@ def convert_to_json_str(file, defined_names, records, memory=None, files=None):
     return res
 
 
+def try_decrypt(file, passwords=None):
+
+    WRITE_PROTECT_ENCRYPTION_PASSWORD = 'VelvetSweatshop'
+
+    #: list of common passwords to be tried by default, used by malware
+    DEFAULT_PASSWORDS = [WRITE_PROTECT_ENCRYPTION_PASSWORD, '123', '1234', '12345', '123456', '4321']
+
+    try:
+        encrypted = msoffcrypto.OfficeFile(open(file, "rb"))
+    except Exception as exc:  # e.g. ppt, not yet supported by msoffcrypto
+            raise exc
+    if not encrypted.is_encrypted():
+        raise ValueError('Given input file {} is not encrypted!'
+                         .format(file))
+
+    if encrypted.is_encrypted() is True:
+        if isinstance(passwords, str):
+            passwords = (passwords,)
+        elif not passwords:
+            passwords = DEFAULT_PASSWORDS
+        temp_file_args = {}
+        temp_file_args['prefix'] = 'decrypt-'
+        temp_file_args['suffix'] = os.path.splitext(file)[1]
+        temp_file_args['text'] = False
+        decrypt_file = None
+
+        for password in passwords:
+            write_descriptor = None
+            write_handle = None
+            decrypt_file = None
+            try:
+                encrypted.load_key(password=password)
+                write_descriptor, decrypt_file = mkstemp(**temp_file_args)
+                write_handle = os.fdopen(write_descriptor, 'wb')
+                write_descriptor = None  # is now handled via write_handle
+                encrypted.decrypt(write_handle)
+                write_handle.close()
+                write_handle = None
+                break
+            except Exception:
+                if write_handle:
+                    write_handle.close()
+                elif write_descriptor:
+                    os.close(write_descriptor)
+                if decrypt_file and os.path.isfile(decrypt_file):
+                    os.unlink(decrypt_file)
+                decrypt_file = None
+        return decrypt_file
+
+
+
+
+
 def get_logo():
     return """
           _        _______
@@ -1684,9 +1738,12 @@ def process_file(**kwargs):
     interpreted_lines = list()
     file_path = os.path.abspath(kwargs.get("file"))
     file_type = get_file_type(file_path)
+    passwords = kwargs.get("password")
+
+    file_path = try_decrypt(file_path,passwords)
 
     uprint('File: {}\n'.format(file_path), silent_mode=SILENT)
-
+    print(file_type)
     if file_type is None:
         return ('ERROR: input file type is not supported')
 
@@ -1858,6 +1915,8 @@ def main():
                             help="Export the output to JSON", metavar=('FILE_PATH'))
     arg_parser.add_argument("--start-point", type=str, default="", action='store',
                             help="Start interpretation from a specific cell address", metavar=('CELL_ADDR'))
+    arg_parser.add_argument("-p", "--password", type=str, action='store', default='',
+                            help="Password to decrypt protected document")
 
     args = arg_parser.parse_args()
 
