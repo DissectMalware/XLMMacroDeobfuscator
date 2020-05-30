@@ -148,6 +148,7 @@ class XLMInterpreter:
         self.active_cell = None
         self.ignore_processing = False
         self.next_count = 0
+        self.char_error_count = 0
 
         self._handlers = {
             # functions
@@ -740,6 +741,7 @@ class XLMInterpreter:
         min = 1
         best_day = 0
         for day in range(1, 32):
+            self.char_error_count = 0
             non_printable_ascii = 0
             total_count = 0
             xlm = copy.copy(xlm)
@@ -751,11 +753,11 @@ class XLMInterpreter:
                             non_printable_ascii += 1
                     total_count += len(step[2])
 
-                    if index > 10 and (non_printable_ascii / total_count) > min:
+                    if index > 10 and ((non_printable_ascii + xlm.char_error_count) / total_count) > min:
                         break
 
-                if total_count != 0 and (non_printable_ascii / total_count) < min:
-                    min = (non_printable_ascii / total_count)
+                if total_count != 0 and ((non_printable_ascii + xlm.char_error_count) / total_count) < min:
+                    min = ((non_printable_ascii + xlm.char_error_count) / total_count)
                     best_day = day
                     if min == 0:
                         break
@@ -940,6 +942,7 @@ class XLMInterpreter:
                 status = EvalStatus.FullEvaluation
             else:
                 return_val = text = self.convert_ptree_to_str(parse_tree_root)
+                self.char_error_count += 1
                 status = EvalStatus.Error
         else:
             text = 'CHAR({})'.format(arg_eval_result.text)
@@ -1239,15 +1242,15 @@ class XLMInterpreter:
                     text_right = right_arg_eval_res.get_text(unwrap=True)
 
                     if op_str == '&':
-                        if left_arg_eval_res.status == EvalStatus.FullEvaluation and right_arg_eval_res.status == EvalStatus.PartialEvaluation:
+                        if left_arg_eval_res.status == EvalStatus.FullEvaluation and right_arg_eval_res.status != EvalStatus.FullEvaluation:
                             text_left = '{}&{}'.format(text_left, text_right)
                             left_arg_eval_res.status = EvalStatus.PartialEvaluation
                             concat_status = EvalStatus.PartialEvaluation
-                        elif left_arg_eval_res.status == EvalStatus.PartialEvaluation and right_arg_eval_res.status == EvalStatus.FullEvaluation:
+                        elif left_arg_eval_res.status != EvalStatus.FullEvaluation and right_arg_eval_res.status == EvalStatus.FullEvaluation:
                             text_left = '{}&{}'.format(text_left, text_right)
                             left_arg_eval_res.status = EvalStatus.FullEvaluation
                             concat_status = EvalStatus.PartialEvaluation
-                        elif left_arg_eval_res.status == EvalStatus.PartialEvaluation and right_arg_eval_res.status == EvalStatus.PartialEvaluation:
+                        elif left_arg_eval_res.status != EvalStatus.FullEvaluation and right_arg_eval_res.status != EvalStatus.FullEvaluation:
                             text_left = '{}&{}'.format(text_left, text_right)
                             left_arg_eval_res.status = EvalStatus.PartialEvaluation
                             concat_status = EvalStatus.PartialEvaluation
@@ -1643,57 +1646,34 @@ def convert_to_json_str(file, defined_names, records, memory=None, files=None):
     return res
 
 
-def try_decrypt(file, passwords=None):
+def try_decrypt(file, password=''):
 
-    WRITE_PROTECT_ENCRYPTION_PASSWORD = 'VelvetSweatshop'
-
-    #: list of common passwords to be tried by default, used by malware
-    DEFAULT_PASSWORDS = [WRITE_PROTECT_ENCRYPTION_PASSWORD, '123', '1234', '12345', '123456', '4321']
+    is_encrypted = False
+    tmp_file_path = None
 
     try:
-        encrypted = msoffcrypto.OfficeFile(open(file, "rb"))
-    except Exception as exc:  # e.g. ppt, not yet supported by msoffcrypto
-            raise exc
-    if not encrypted.is_encrypted():
-        raise ValueError('Given input file {} is not encrypted!'
-                         .format(file))
+        msoffcrypto_obj = msoffcrypto.OfficeFile(open(file, "rb"))
 
-    if encrypted.is_encrypted() is True:
-        if isinstance(passwords, str):
-            passwords = (passwords,)
-        elif not passwords:
-            passwords = DEFAULT_PASSWORDS
-        temp_file_args = {}
-        temp_file_args['prefix'] = 'decrypt-'
-        temp_file_args['suffix'] = os.path.splitext(file)[1]
-        temp_file_args['text'] = False
-        decrypt_file = None
+        if msoffcrypto_obj.is_encrypted():
+            is_encrypted = True
 
-        for password in passwords:
-            write_descriptor = None
-            write_handle = None
-            decrypt_file = None
+            temp_file_args = {'prefix': 'decrypt-', 'suffix': os.path.splitext(file)[1], 'text': False}
+
+            tmp_file_handle = None
             try:
-                encrypted.load_key(password=password)
-                write_descriptor, decrypt_file = mkstemp(**temp_file_args)
-                write_handle = os.fdopen(write_descriptor, 'wb')
-                write_descriptor = None  # is now handled via write_handle
-                encrypted.decrypt(write_handle)
-                write_handle.close()
-                write_handle = None
-                break
-            except Exception:
-                if write_handle:
-                    write_handle.close()
-                elif write_descriptor:
-                    os.close(write_descriptor)
-                if decrypt_file and os.path.isfile(decrypt_file):
-                    os.unlink(decrypt_file)
-                decrypt_file = None
-        return decrypt_file
+                msoffcrypto_obj.load_key(password=password)
+                tmp_file_handle, tmp_file_path = mkstemp(**temp_file_args)
+                with os.fdopen(tmp_file_handle, 'wb') as tmp_file:
+                    msoffcrypto_obj.decrypt(tmp_file)
+            except:
+                if tmp_file_handle:
+                    tmp_file_handle.close()
+                    os.remove(tmp_file_path)
+                    tmp_file_path = None
+    except Exception as exp:
+        uprint(str(exp), silent_mode=SILENT)
 
-
-
+    return tmp_file_path, is_encrypted
 
 
 def get_logo():
@@ -1735,16 +1715,25 @@ def process_file(**kwargs):
     """
     deobfuscated = list()
     interpreted_lines = list()
-    file_path = os.path.abspath(kwargs.get("file"))
+    file_path = os.path.abspath(kwargs.get('file'))
     file_type = get_file_type(file_path)
-    passwords = kwargs.get("password")
-
-    file_path = try_decrypt(file_path,passwords)
+    password = kwargs.get('password', 'VelvetSweatshop')
 
     uprint('File: {}\n'.format(file_path), silent_mode=SILENT)
-    print(file_type)
+
     if file_type is None:
-        return ('ERROR: input file type is not supported')
+        raise Exception('Input file type is not supported.')
+
+    decrypted_file_path = is_encrypted = None
+
+    decrypted_file_path, is_encrypted = try_decrypt(file_path, password)
+    if is_encrypted:
+        uprint('Encrypted {} file'.format(file_type), silent_mode=SILENT)
+        if decrypted_file_path is None:
+            raise Exception('Failed to decrypt the file\nUse --password switch to provide the correct password'.format(file_path))
+        file_path = decrypted_file_path
+    else:
+        uprint('Unencrypted {} file\n'.format(file_type), silent_mode=SILENT)
 
     try:
         start = time.time()
@@ -1771,7 +1760,7 @@ def process_file(**kwargs):
         elif file_type == 'xlsb':
             excel_doc = XLSBWrapper(file_path)
         if excel_doc is None:
-            return ("File format is not supported")
+            raise Exception('Input file type is not supported.')
 
         auto_open_labels = excel_doc.get_defined_name('auto_open', full_match=False)
         for label in auto_open_labels:
@@ -1915,7 +1904,7 @@ def main():
     arg_parser.add_argument("--start-point", type=str, default="", action='store',
                             help="Start interpretation from a specific cell address", metavar=('CELL_ADDR'))
     arg_parser.add_argument("-p", "--password", type=str, action='store', default='',
-                            help="Password to decrypt protected document")
+                            help="Password to decrypt the protected document")
 
     args = arg_parser.parse_args()
 
@@ -1926,7 +1915,11 @@ def main():
     else:
         try:
             # Convert args to kwarg dict
-            process_file(**vars(args))
+            try:
+                process_file(**vars(args))
+            except Exception as exp:
+                print(str(exp))
+
         except KeyboardInterrupt:
             pass
 

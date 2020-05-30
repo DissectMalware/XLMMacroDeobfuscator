@@ -61,23 +61,26 @@ To see a sample JSON output, please check [this link](https://pastebin.com/bwmS7
   (______/ (_______/(_______)|/ \___/ |/       (_______)\_______)(_______/|/     \|   )_(   (_______)|/   \__/
 
     
-XLMMacroDeobfuscator(v 0.1.3) - https://github.com/DissectMalware/XLMMacroDeobfuscator
+XLMMacroDeobfuscator(v0.1.4) - https://github.com/DissectMalware/XLMMacroDeobfuscator
 
-usage: xlmdeobfuscator [-h] [-f FILE_PATH] [-n] [-x] [-2] [-s] [-d DAY]
+usage: deobfuscator.py [-h] [-f FILE_PATH] [-n] [-x] [-2] [--with-ms-excel]
+                       [-s] [-d DAY]
                        [--output-formula-format OUTPUT_FORMULA_FORMAT]
                        [--no-indent] [--export-json FILE_PATH]
-                       [--start-point CELL_ADDR]
+                       [--start-point CELL_ADDR] [-p PASSWORD]
 
+optional arguments:
   -h, --help            show this help message and exit
   -f FILE_PATH, --file FILE_PATH
                         The path of a XLSM file
   -n, --noninteractive  Disable interactive shell
   -x, --extract-only    Only extract cells without any emulation
+  -2, --no-ms-excel     [Deprecated] Do not use MS Excel to process XLS files
+  --with-ms-excel       Use MS Excel to process XLS files
   -s, --start-with-shell
                         Open an XLM shell before interpreting the macros in
                         the input
   -d DAY, --day DAY     Specify the day of month
-  --with-ms-excel       Use MS Excel to process XLS files
   --output-formula-format OUTPUT_FORMULA_FORMAT
                         Specify the format for output formulas ([[CELL_ADDR]],
                         [[INT-FORMULA]], and [[STATUS]]
@@ -86,7 +89,8 @@ usage: xlmdeobfuscator [-h] [-f FILE_PATH] [-n] [-x] [-2] [-s] [-d DAY]
                         Export the output to JSON
   --start-point CELL_ADDR
                         Start interpretation from a specific cell address
-  -2, --no-ms-excel     [Deprecated] Do not use MS Excel to process XLS files
+  -p PASSWORD, --password PASSWORD
+                        Password to decrypt the protected document
 
 ```
 
