@@ -233,7 +233,8 @@ class XLSMWrapper(ExcelWrapper):
                     for str in content.sst.si:
                         if self._shared_strings is None:
                             self._shared_strings = []
-                        self._shared_strings.append(str.t.cdata)
+                        if hasattr(str, 't'):
+                            self._shared_strings.append(str.t.cdata)
         return self._shared_strings
 
     def load_cells(self, macrosheet, macrosheet_obj):

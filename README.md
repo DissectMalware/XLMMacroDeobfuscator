@@ -22,13 +22,24 @@ pip install -U https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/ma
 ```
 
 # Running the emulator
-To run the script 
+To deobfuscate macros in Excel documents: 
 
 ```
 xlmdeobfuscator --file document.xlsm
 ```
 
-# Usage
+To only get the deobfuscated macros and without any indentation:
+
+```
+xlmdeobfuscator --file document.xlsm --no-indent --output-formula-format "[[INT-FORMULA]]"
+```
+
+To export the output in JSON format 
+```
+xlmdeobfuscator --file document.xlsm --export-json result.json
+```
+To see a sample JSON output, please check [this link](https://pastebin.com/bwmS7mi0) out.
+# Command Line 
 
 ```
 
@@ -50,12 +61,13 @@ xlmdeobfuscator --file document.xlsm
   (______/ (_______/(_______)|/ \___/ |/       (_______)\_______)(_______/|/     \|   )_(   (_______)|/   \__/
 
     
-XLMMacroDeobfuscator(v 0.1.3) - https://github.com/DissectMalware/XLMMacroDeobfuscator
+XLMMacroDeobfuscator(v0.1.4) - https://github.com/DissectMalware/XLMMacroDeobfuscator
 
-usage: xlmdeobfuscator [-h] [-f FILE_PATH] [-n] [-x] [-2] [-s] [-d DAY]
+usage: deobfuscator.py [-h] [-f FILE_PATH] [-n] [-x] [-2] [--with-ms-excel]
+                       [-s] [-d DAY]
                        [--output-formula-format OUTPUT_FORMULA_FORMAT]
                        [--no-indent] [--export-json FILE_PATH]
-                       [--start-point CELL_ADDR]
+                       [--start-point CELL_ADDR] [-p PASSWORD]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -63,7 +75,8 @@ optional arguments:
                         The path of a XLSM file
   -n, --noninteractive  Disable interactive shell
   -x, --extract-only    Only extract cells without any emulation
-  -2, --no-ms-excel     Do not use MS Excel to process XLS files
+  -2, --no-ms-excel     [Deprecated] Do not use MS Excel to process XLS files
+  --with-ms-excel       Use MS Excel to process XLS files
   -s, --start-with-shell
                         Open an XLM shell before interpreting the macros in
                         the input
@@ -76,14 +89,42 @@ optional arguments:
                         Export the output to JSON
   --start-point CELL_ADDR
                         Start interpretation from a specific cell address
+  -p PASSWORD, --password PASSWORD
+                        Password to decrypt the protected document
 
 ```
 
-Read requirements.txt to get the list of python libraries that XLMMacroDeobfuscator is dependent on.
+# Library
+The following example shows how XLMMacroDeobfuscator can be used in a python project to deobfuscate XLM macros:
 
-You can run XLMMacroDeobfuscator on any OS to extract and deobfuscate macros in xls, xlsm, and xlsb files. No need to install MS Excel.
+```python
+from XLMMacroDeobfuscator.deobfuscator import process_file
 
-Note: if you want to use MS Excel (on Windows), you need to install pywin32 library. if you do not want to use MS Excel, use --no-ms-excel.
-Otherwise, xlmdeobfuscator, first, attempts to load xls files with MS Excel, if it fails it uses xlrd2.
+result = process_file(file='path/to/an/excel/file', 
+            noninteractive= True, 
+            noindent= True, 
+            output_formula_format='[[CELL_ADDR]], [[INT-FORMULA]]',
+            return_deobfuscated= True)
+
+for record in result:
+    print(record)
+```
+
+# Requirements
+
+Please read requirements.txt to get the list of python libraries that XLMMacroDeobfuscator is dependent on.
+
+xlmdeobfuscator can be executed on any OS to extract and deobfuscate macros in xls, xlsm, and xlsb files. You do not need to install MS Excel.
+
+Note: if you want to use MS Excel (on Windows), you need to install pywin32 library and use --with-ms-excel switch.
+If --with-ms-excel is used, xlmdeobfuscator, first, attempts to load xls files with MS Excel, if it fails it uses [xlrd2 library](https://github.com/DissectMalware/xlrd2).
+
+# How to Contribute
+If you found a bug or would like to suggest an improvement, please create a new issue on the [issues page](https://github.com/DissectMalware/XLMMacroDeobfuscator/issues).
+
+Feel free to contribute to the project forking the project and submitting a pull request.
+
+You can reach [me (@DissectMlaware) on Twitter](https://twitter.com/DissectMalware) via a direct message.
+
 
 \* This code is still heavily under development. Expect to see radical changes in the code.

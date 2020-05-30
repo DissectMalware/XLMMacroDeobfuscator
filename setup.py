@@ -38,6 +38,7 @@ setup(
         "lark-parser",
         "xlrd2",
         "untangle==1.1.1"
+        "msoffcrypto-tool"
     ],
     classifiers=[
         "Development Status :: 4 - Beta",
