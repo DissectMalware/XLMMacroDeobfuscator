@@ -88,7 +88,7 @@ class XLSBWrapper(ExcelWrapper):
 if __name__ == '__main__':
 
     # path = r"tmp\xlsb\179ef8970e996201815025c1390c88e1ab2ea59733e1c38ec5dbed9326d7242a"
-    path = r"tmp\xlsb\[CONVERTED]01558388b33abe05f25afb6e96b0c899221fe75b037c088fa60fe8bbf668f606.xlsb"
+    path = r"C:\Users\dan\PycharmProjects\xlm\TMP\Doc55752.xlsb"
 
     path = os.path.abspath(path)
     excel_doc = XLSBWrapper(path)
