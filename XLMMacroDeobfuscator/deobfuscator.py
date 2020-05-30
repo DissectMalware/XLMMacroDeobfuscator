@@ -741,7 +741,7 @@ class XLMInterpreter:
         min = 1
         best_day = 0
         for day in range(1, 32):
-            self.char_error_count = 0
+            xlm.char_error_count = 0
             non_printable_ascii = 0
             total_count = 0
             xlm = copy.copy(xlm)
