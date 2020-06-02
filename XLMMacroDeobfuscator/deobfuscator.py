@@ -26,6 +26,7 @@ except:
 
 from XLMMacroDeobfuscator.xls_wrapper_2 import XLSWrapper2
 from XLMMacroDeobfuscator.xlsb_wrapper import XLSBWrapper
+from xlrd2.biffh import XLRDError
 from enum import Enum
 import time
 import datetime
@@ -1745,15 +1746,20 @@ def process_file(**kwargs):
                       'If you want to use MS-Excel, use --with-ms-excel')
 
             if not kwargs.get("with_ms_excel", False):
-                excel_doc = XLSWrapper2(file_path)
+                try:
+                    excel_doc = XLSWrapper2(file_path)
+                except XLRDError:
+                    print("Can't find workbook in OLE2 compound document")
             else:
                 try:
                     excel_doc = XLSWrapper(file_path)
-
                 except Exception as exp:
                     print("Error: MS Excel is not installed, now xlrd2 library will be used insteads\n" +
                           "(Use --no-ms-excel switch if you do not have/want to use MS Excel)")
-                    excel_doc = XLSWrapper2(file_path)
+                    try:
+                        excel_doc = XLSWrapper2(file_path)
+                    except XLRDError:
+                        print("Can't find workbook in OLE2 compound document")
         elif file_type == 'xlsm':
             excel_doc = XLSMWrapper(file_path)
         elif file_type == 'xlsb':
