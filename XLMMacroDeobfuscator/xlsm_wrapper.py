@@ -193,12 +193,14 @@ class XLSMWrapper(ExcelWrapper):
         return sheet_type, sheet_path
 
     def get_defined_names(self):
-        result = {}
-        workbook_obj = self.get_workbook()
-        if hasattr(workbook_obj.workbook, 'definedNames'):
-            for defined_name in workbook_obj.workbook.definedNames.definedName:
-                result[defined_name.get_attribute('name').replace('_xlnm.', '').lower()] = defined_name.cdata
-        return result
+        if self._defined_names is None:
+            workbook_obj = self.get_workbook()
+            self._defined_names = {}
+            if hasattr(workbook_obj.workbook, 'definedNames'):
+                for defined_name in workbook_obj.workbook.definedNames.definedName:
+                    self._defined_names[defined_name.get_attribute('name').replace('_xlnm.', '').lower()] = defined_name.cdata
+
+        return self._defined_names
 
     def get_macrosheet_infos(self):
         result = []
@@ -278,18 +280,15 @@ class XLSMWrapper(ExcelWrapper):
                         if attrib != 'r':
                             cell.attributes[attrib] = cell_elm._attributes[attrib]
 
-
     def get_defined_name(self, name, full_match=True):
         result = []
         name = name.lower()
-        if self._defined_names is None:
-            self._defined_names = self.get_defined_names()
 
         if full_match:
-            if name in self._defined_names:
+            if name in self.get_defined_names():
                 result = self._defined_names[name]
         else:
-            for defined_name, cell_address in self._defined_names.items():
+            for defined_name, cell_address in self.get_defined_names().items():
                 if defined_name.startswith(name):
                     result.append((defined_name, cell_address))
 
