@@ -1920,7 +1920,7 @@ def main():
 
     config_parser = argparse.ArgumentParser(add_help=False)
 
-    config_parser.add_argument("-c", "--config_file",
+    config_parser.add_argument("-c", "--config-file",
                              help="Specify a config file (each argument must be on one line)", metavar="FILE_PATH")
     args, remaining_argv = config_parser.parse_known_args()
 
