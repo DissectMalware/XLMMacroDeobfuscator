@@ -39,6 +39,23 @@ To export the output in JSON format
 xlmdeobfuscator --file document.xlsm --export-json result.json
 ```
 To see a sample JSON output, please check [this link](https://pastebin.com/bwmS7mi0) out.
+
+To use a config file
+```
+xlmdeobfuscator --file document.xlsm -c default.config
+```
+
+default.config file must be a valid json file, such as:
+
+```json
+{
+	"no-indent": true,
+	"output-formula-format": "[[CELL-ADDR]] [[INT-FORMULA]]",
+	"non-interactive": true,
+	"output-level": 1
+}
+```
+
 # Command Line 
 
 ```
@@ -63,14 +80,18 @@ To see a sample JSON output, please check [this link](https://pastebin.com/bwmS7
     
 XLMMacroDeobfuscator(v0.1.4) - https://github.com/DissectMalware/XLMMacroDeobfuscator
 
-usage: deobfuscator.py [-h] [-f FILE_PATH] [-n] [-x] [-2] [--with-ms-excel]
-                       [-s] [-d DAY]
+usage: deobfuscator.py [-h] [-c FILE_PATH] [-f FILE_PATH] [-n] [-x] [-2]
+                       [--with-ms-excel] [-s] [-d DAY]
                        [--output-formula-format OUTPUT_FORMULA_FORMAT]
                        [--no-indent] [--export-json FILE_PATH]
                        [--start-point CELL_ADDR] [-p PASSWORD]
+                       [-o OUTPUT_LEVEL]
 
 optional arguments:
   -h, --help            show this help message and exit
+  -c FILE_PATH, --config_file FILE_PATH
+                        Specify a config file (each argument must be on one
+                        line)
   -f FILE_PATH, --file FILE_PATH
                         The path of a XLSM file
   -n, --noninteractive  Disable interactive shell
@@ -82,7 +103,7 @@ optional arguments:
                         the input
   -d DAY, --day DAY     Specify the day of month
   --output-formula-format OUTPUT_FORMULA_FORMAT
-                        Specify the format for output formulas ([[CELL_ADDR]],
+                        Specify the format for output formulas ([[CELL-ADDR]],
                         [[INT-FORMULA]], and [[STATUS]]
   --no-indent           Do not show indent before formulas
   --export-json FILE_PATH
@@ -91,6 +112,10 @@ optional arguments:
                         Start interpretation from a specific cell address
   -p PASSWORD, --password PASSWORD
                         Password to decrypt the protected document
+  -o OUTPUT_LEVEL, --output-level OUTPUT_LEVEL
+                        Set the level of details to be shown (0:all commands,
+                        1: commands no jump 2:important commands 3:strings in
+                        important commands).
 
 ```
 
@@ -109,6 +134,8 @@ result = process_file(file='path/to/an/excel/file',
 for record in result:
     print(record)
 ```
+
+* note: the xlmdeofuscator logo will not be shown when you use it as a library
 
 # Requirements
 

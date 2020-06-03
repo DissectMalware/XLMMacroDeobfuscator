@@ -1,5 +1,6 @@
 import argparse
 import hashlib
+import json
 import msoffcrypto
 import os
 import sys
@@ -53,7 +54,7 @@ class EvalResult:
         self.status = status
         self.value = value
         self.text = None
-
+        self.output_level = 0
         self.set_text(text)
 
     @staticmethod
@@ -120,7 +121,7 @@ class EvalResult:
 
 
 class XLMInterpreter:
-    def __init__(self, xlm_wrapper):
+    def __init__(self, xlm_wrapper, output_level=0):
         self.xlm_wrapper = xlm_wrapper
         self._formula_cache = {}
         self.cell_addr_regex_str = r"((?P<sheetname>[^\s]+?|'.+?')!)?\$?(?P<column>[a-zA-Z]+)\$?(?P<row>\d+)"
@@ -137,7 +138,7 @@ class XLMInterpreter:
         self._cell_defaults = {}
         self._expr_rule_names = ['expression', 'concat_expression', 'additive_expression', 'multiplicative_expression']
         self._operators = {'+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.truediv,
-                           '>': operator.gt, '<': operator.lt, '<>': operator.ne, '=':operator.eq}
+                           '>': operator.gt, '<': operator.lt, '<>': operator.ne, '=': operator.eq}
         self._indent_level = 0
         self._indent_current_line = False
         self.day_of_month = None
@@ -149,9 +150,10 @@ class XLMInterpreter:
         self.ignore_processing = False
         self.next_count = 0
         self.char_error_count = 0
+        self.output_level = output_level
 
         self._handlers = {
-            # functions
+            # methods
             'END.IF': self.end_if_handler,
             'FORMULA.FILL': self.formula_handler,
             'GET.CELL': self.get_cell_handler,
@@ -162,7 +164,7 @@ class XLMInterpreter:
             'SET.NAME': self.set_name_handler,
             'ACTIVE.CELL': self.active_cell_handler,
 
-            # methods
+            # functions
             'AND': self.and_handler,
             'CALL': self.call_handler,
             'CHAR': self.char_handler,
@@ -192,6 +194,10 @@ class XLMInterpreter:
             'Kernel32.WriteProcessMemory': self.WriteProcessMemory_handler,
             'Kernel32.RtlCopyMemory': self.RtlCopyMemory_handler,
         }
+
+    jump_functions = ('GOTO', 'RUN')
+    important_functions = ('CALL', 'FOPEN', 'FWRITE', 'FREAD', 'REGISTER', 'IF', 'WHILE', 'HALT', 'CLOSE', "NEXT")
+    important_methods = ('SET.VALUE', 'FILE.DELETE', 'WORKBOOK.HIDE')
 
     def __copy__(self):
         result = XLMInterpreter(self.xlm_wrapper)
@@ -443,7 +449,8 @@ class XLMInterpreter:
                 for col in range(Cell.convert_to_column_index(dst_start_col),
                                  Cell.convert_to_column_index(dst_end_col) + 1):
                     if (
-                    dst_start_sheet, Cell.convert_to_column_name(col) + str(row)) in self.cell_with_unsuccessfull_set:
+                            dst_start_sheet,
+                            Cell.convert_to_column_name(col) + str(row)) in self.cell_with_unsuccessfull_set:
                         self.cell_with_unsuccessfull_set.remove((dst_start_sheet,
                                                                  Cell.convert_to_column_name(col) + str(row)))
 
@@ -502,11 +509,17 @@ class XLMInterpreter:
 
             eval_result = self.evaluate_argument_list(current_cell, method_name, arguments)
 
+        if method_name in XLMInterpreter.important_methods:
+            eval_result.output_level = 2
+        else:
+            eval_result.output_level = 1
+
         return eval_result
 
     def evaluate_function(self, current_cell, parse_tree_root, interactive):
         function_name = parse_tree_root.children[0]
 
+        # handle alias name for a function (REGISTER)
         if function_name in self._registered_functions:
             parse_tree_root.children[0] = parse_tree_root.children[0].update(None,
                                                                              self._registered_functions[function_name][
@@ -540,6 +553,13 @@ class XLMInterpreter:
 
         else:
             eval_result = self.evaluate_argument_list(current_cell, function_name, arguments)
+
+        if function_name in XLMInterpreter.jump_functions:
+            eval_result.output_level = 0
+        elif function_name in XLMInterpreter.important_functions:
+            eval_result.output_level = 2
+        else:
+            eval_result.output_level = 1
 
         return eval_result
 
@@ -1115,10 +1135,10 @@ class XLMInterpreter:
                     base = map(max, occupied_addresses) + 4096
             size = int(size_eval_res.get_text(unwrap=True))
             self._memory.append({
-                    'base': base,
-                    'size': size,
-                    'data': [0] * size
-                })
+                'base': base,
+                'size': size,
+                'data': [0] * size
+            })
             return_val = base
             status = EvalStatus.FullEvaluation
         else:
@@ -1130,7 +1150,7 @@ class XLMInterpreter:
 
     def WriteProcessMemory_handler(self, arguments, current_cell, interactive, parse_tree_root):
         status = EvalStatus.PartialEvaluation
-        if len(arguments)>4:
+        if len(arguments) > 4:
             status = EvalStatus.FullEvaluation
             args_eval_result = []
             for arg in arguments:
@@ -1170,16 +1190,16 @@ class XLMInterpreter:
             src_eval_res = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
             size_res = self.evaluate_parse_tree(current_cell, arguments[2], interactive)
             if destination_eval_res.status == EvalStatus.FullEvaluation and \
-                src_eval_res.status == EvalStatus.FullEvaluation:
+                    src_eval_res.status == EvalStatus.FullEvaluation:
                 status = EvalStatus.FullEvaluation
                 mem_data = src_eval_res.value
                 mem_data = bytearray([ord(x) for x in mem_data])
                 if not self.write_memory(int(destination_eval_res.value), mem_data, len(mem_data)):
                     status = EvalStatus.Error
                 text = 'Kernel32.RtlCopyMemory({},"{}",{})'.format(
-                        destination_eval_res.get_text(),
-                        mem_data.hex(),
-                        size_res.get_text())
+                    destination_eval_res.get_text(),
+                    mem_data.hex(),
+                    size_res.get_text())
 
         if status == status.PartialEvaluation:
             text = self.convert_ptree_to_str(parse_tree_root)
@@ -1201,6 +1221,7 @@ class XLMInterpreter:
                     result = False
                 break
         return result
+
     def evaluate_parse_tree(self, current_cell, parse_tree_root, interactive=True):
         next_cell = None
         status = EvalStatus.NotImplemented
@@ -1311,6 +1332,7 @@ class XLMInterpreter:
                         status = child_eval_result.status
 
             result = EvalResult(child_eval_result.next_cell, status, child_eval_result.value, child_eval_result.text)
+            result.output_level = child_eval_result.output_level
 
         return result
 
@@ -1416,6 +1438,16 @@ class XLMInterpreter:
                     break
             return result
 
+    regex_string = r'\"([^\"]|\"\")*\"'
+    detect_string = re.compile(regex_string, flags=re.MULTILINE)
+
+    def extract_strings(self, string):
+        result = []
+        matches = XLMInterpreter.detect_string.finditer(string)
+        for matchNum, match in enumerate(matches, start=1):
+            result.append(match.string[match.start(0):match.end(0)])
+        return result
+
     def deobfuscate_macro(self, interactive, start_point="", silent_mode=False):
         result = []
 
@@ -1486,16 +1518,25 @@ class XLMInterpreter:
                                                                                         str(int(current_cell.row) + 1))
                                 if stack_record:
                                     evaluation_result.text = (
-                                                desc + ' ' + evaluation_result.get_text(unwrap=False)).strip()
+                                            desc + ' ' + evaluation_result.get_text(unwrap=False)).strip()
 
                                 if self._indent_current_line:
                                     previous_indent = self._indent_level
                                     self._indent_current_line = False
 
                                 if evaluation_result.status != EvalStatus.IGNORED:
-                                    yield (
-                                    current_cell, evaluation_result.status, evaluation_result.get_text(unwrap=False),
-                                    previous_indent)
+                                    if self.output_level >= 3 and evaluation_result.output_level == 2:
+                                        strings = self.extract_strings(evaluation_result.get_text(unwrap=True))
+                                        if strings:
+                                            yield (
+                                                current_cell, evaluation_result.status,
+                                                '\n'.join(strings),
+                                                previous_indent)
+                                    elif evaluation_result.output_level >= self.output_level:
+                                        yield (
+                                            current_cell, evaluation_result.status,
+                                            evaluation_result.get_text(unwrap=False),
+                                            previous_indent)
 
                                 if evaluation_result.next_cell is not None:
                                     current_cell = evaluation_result.next_cell
@@ -1601,7 +1642,7 @@ def get_formula_output(interpretation_result, format_str, with_index=True):
     result = ''
     if format_str is not None and type(format_str) is str:
         result = format_str
-        result = result.replace('[[CELL_ADDR]]', '{:10}'.format(cell_addr))
+        result = result.replace('[[CELL-ADDR]]', '{:10}'.format(cell_addr))
         result = result.replace('[[STATUS]]', '{:20}'.format(status.name))
         if with_index:
             formula = indent + formula
@@ -1618,7 +1659,7 @@ def convert_to_json_str(file, defined_names, records, memory=None, files=None):
     res = {'file_path': file, 'md5_hash': md5, 'sha256_hash': sha256, 'analysis_timestamp': int(time.time()),
            'format_version': 1, 'analyzed_by': 'XLMMacroDeobfuscator',
            'link': 'https://github.com/DissectMalware/XLMMacroDeobfuscator', 'defined_names': defined_names,
-           'records': [], 'memory_records':[]}
+           'records': [], 'memory_records': []}
 
     for index, i in enumerate(records):
         if len(i) == 4:
@@ -1642,12 +1683,10 @@ def convert_to_json_str(file, defined_names, records, memory=None, files=None):
                 'data_base64': bytearray(mem_rec['data']).hex()
             })
 
-
     return res
 
 
 def try_decrypt(file, password=''):
-
     is_encrypted = False
     tmp_file_path = None
 
@@ -1708,7 +1747,7 @@ def process_file(**kwargs):
         'start_with_shell': False,
         'return_deobfuscated': True,
         'day': 0,
-        'output_formula_format': 'CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]',
+        'output_formula_format': 'CELL:[[CELL-ADDR]], [[STATUS]], [[INT-FORMULA]]',
         'start_point': ''
     }
     """
@@ -1729,7 +1768,8 @@ def process_file(**kwargs):
     if is_encrypted:
         uprint('Encrypted {} file'.format(file_type), silent_mode=SILENT)
         if decrypted_file_path is None:
-            raise Exception('Failed to decrypt the file\nUse --password switch to provide the correct password'.format(file_path))
+            raise Exception(
+                'Failed to decrypt the file\nUse --password switch to provide the correct password'.format(file_path))
         file_path = decrypted_file_path
     else:
         uprint('Unencrypted {} file\n'.format(file_type), silent_mode=SILENT)
@@ -1804,7 +1844,7 @@ def process_file(**kwargs):
 
         else:
             uprint('[Starting Deobfuscation]', silent_mode=SILENT)
-            interpreter = XLMInterpreter(excel_doc)
+            interpreter = XLMInterpreter(excel_doc, output_level=kwargs.get("output_level", 0))
             if kwargs.get("day", 0) > 0:
                 interpreter.day_of_month = kwargs.get("day")
 
@@ -1825,7 +1865,7 @@ def process_file(**kwargs):
                     current_cell = interpreter.get_formula_cell(macros[sheet_name], col, row)
                     interpreter.interactive_shell(current_cell, "")
 
-            output_format = kwargs.get("output_formula_format", 'CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]')
+            output_format = kwargs.get("output_formula_format", 'CELL:[[CELL-ADDR]], [[STATUS]], [[INT-FORMULA]]')
             start_point = kwargs.get("start_point", '')
 
             for step in interpreter.deobfuscate_macro(interactive, start_point):
@@ -1842,14 +1882,15 @@ def process_file(**kwargs):
             if not kwargs.get("export_json") and not kwargs.get("return_deobfuscated"):
                 for mem_record in interpreter._memory:
                     uprint('Memory: base {}, size {}\n{}\n'.format(mem_record['base'],
-                                                                 mem_record['size'],
-                                                                 bytearray(mem_record['data']).hex()))
+                                                                   mem_record['size'],
+                                                                   bytearray(mem_record['data']).hex()))
 
             uprint('[END of Deobfuscation]', silent_mode=SILENT)
 
             if kwargs.get("export_json"):
                 uprint('[Dumping Json]', silent_mode=SILENT)
-                res = convert_to_json_str(file_path, excel_doc.get_defined_names(), interpreted_lines, interpreter._memory)
+                res = convert_to_json_str(file_path, excel_doc.get_defined_names(), interpreted_lines,
+                                          interpreter._memory)
                 try:
                     output_file_path = kwargs.get("export_json")
                     with open(output_file_path, 'w', encoding='utf_8') as output_file:
@@ -1874,9 +1915,29 @@ def process_file(**kwargs):
 
 def main():
     print(get_logo())
-    print('XLMMacroDeobfuscator(v {}) - {}\n'.format(__version__,
-                                                     "https://github.com/DissectMalware/XLMMacroDeobfuscator"))
-    arg_parser = argparse.ArgumentParser()
+    print('XLMMacroDeobfuscator(v{}) - {}\n'.format(__version__,
+                                                    "https://github.com/DissectMalware/XLMMacroDeobfuscator"))
+
+    config_parser = argparse.ArgumentParser(add_help=False)
+
+    config_parser.add_argument("-c", "--config_file",
+                             help="Specify a config file (each argument must be on one line)", metavar="FILE_PATH")
+    args, remaining_argv = config_parser.parse_known_args()
+
+    defaults = {}
+
+    if args.config_file:
+        try:
+            with open(args.config_file,'r',encoding='utf_8') as config_file:
+                defaults = json.load(config_file)
+                defaults = {x.replace('-','_'): y for x, y in defaults.items()}
+        except json.decoder.JSONDecodeError as json_exp:
+            uprint(
+                'Config file cannot be parsed (must be a valid json file, '
+                'validate your file with an online JSON validator)',
+                silent_mode=SILENT)
+
+    arg_parser = argparse.ArgumentParser(parents=[config_parser])
 
     arg_parser.add_argument("-f", "--file", type=str, action='store',
                             help="The path of a XLSM file", metavar=('FILE_PATH'))
@@ -1893,9 +1954,10 @@ def main():
     arg_parser.add_argument("-d", "--day", type=int, default=-1, action='store',
                             help="Specify the day of month", )
     arg_parser.add_argument("--output-formula-format", type=str,
-                            default="CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]",
+                            default="CELL:[[CELL-ADDR]], [[STATUS]], [[INT-FORMULA]]",
                             action='store',
-                            help="Specify the format for output formulas ([[CELL_ADDR]], [[INT-FORMULA]], and [[STATUS]]", )
+                            help="Specify the format for output formulas "
+                                 "([[CELL-ADDR]], [[INT-FORMULA]], and [[STATUS]]", )
     arg_parser.add_argument("--no-indent", default=False, action='store_true',
                             help="Do not show indent before formulas")
     arg_parser.add_argument("--export-json", type=str, action='store',
@@ -1904,10 +1966,17 @@ def main():
                             help="Start interpretation from a specific cell address", metavar=('CELL_ADDR'))
     arg_parser.add_argument("-p", "--password", type=str, action='store', default='',
                             help="Password to decrypt the protected document")
+    arg_parser.add_argument("-o", "--output-level", type=int, action='store', default=0,
+                            help="Set the level of details to be shown "
+                                 "(0:all commands, 1: commands no jump "
+                                 "2:important commands 3:strings in important commands).")
 
-    args = arg_parser.parse_args()
+    arg_parser.set_defaults(**defaults)
+
+    args = arg_parser.parse_args(remaining_argv)
 
     if not args.file:
+        print('Error: --file is missing\n')
         arg_parser.print_help()
     elif not os.path.exists(args.file):
         print('Error: input file does not exist')
