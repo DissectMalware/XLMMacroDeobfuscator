@@ -1117,9 +1117,10 @@ class XLMInterpreter:
             function_alias = arg_list[3]
             # overrides previously registered function
             self._registered_functions[function_alias] = {'name': function_name, 'signature': function_signature}
+            text = self.evaluate_argument_list(current_cell, 'REGISTER', arguments).get_text(unwrap=True)
         else:
             status = EvalStatus.Error
-        text = self.convert_ptree_to_str(parse_tree_root)
+            text = self.convert_ptree_to_str(parse_tree_root)
         return_val = 0
 
         return EvalResult(None, status, return_val, text)
