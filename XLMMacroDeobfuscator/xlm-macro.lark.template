@@ -1,16 +1,15 @@
 start:  "=" expression
-function_call:  NAME L_PRA arglist R_PRA
-method_call:    NAME DOT NAME L_PRA arglist R_PRA
+function_call:  NAME L_PRA arglist R_PRA | cell L_PRA arglist R_PRA
 arglist:    (argument LIST_SEPARATOR)* argument
 argument:   expression |
 cell:   a1_notation_cell | r1c1_notation_cell
-a1_notation_cell:   [NAME "!" | "'" /[^']+/i "'!"| "!"] /\$?([a-qs-z][a-z]?)\$?\d+|\$?(r[a-bd-z]?)\$?\d+(?!C)/i | NAME    // NAME here is a hack to make it work with LALR parser, A9 is a valid NAME and matches with the CELL regex
+a1_notation_cell:   [NAME "!" | "'" /[^']+/i "'!"| "!"] /\$?([a-qs-z][a-z]?)\$?\d+|\$?(r[a-bd-z]?)\$?\d+(?!C)/i
 r1c1_notation_cell: [NAME "!" | "'" /[^']+/i "'!" | "!"] ROW [REF | INT ] COL [REF | INT ]
 ?expression:   concat_expression CMPOP concat_expression | concat_expression
 ?concat_expression: additive_expression (CONCATOP additive_expression)*
 ?additive_expression:   multiplicative_expression (ADDITIVEOP multiplicative_expression)*
 ?multiplicative_expression: final (MULTIOP final)*
-?final: L_PRA expression R_PRA | function_call | method_call | cell | range | atom
+?final: L_PRA expression R_PRA | function_call | cell | range | atom
 ?range: cell COLON cell | cell COLON cell COLON cell
 ?atom: NUMBER | STRING | BOOLEAN
 ADDITIVEOP: "+" | "-"
@@ -34,5 +33,5 @@ REF: L_BRAC SIGNED_INT  R_BRAC
 %import common.DECIMAL -> DECIMAL
 SIGNED_DECIMAL: ["+"|"-"] DECIMAL
 NUMBER: SIGNED_DECIMAL | SIGNED_INT
-NAME: /[_a-qs-z][_a-z0-9]*|r(?!(\[|\d*c\d*))[_a-z0-9]*/i
+NAME: /[j-qsu-z](?!\d{1,6}\b)[_\\.?a-z0-9]+\b|t(?!\d{1,6}\b|rue\b)[_\\.?a-z0-9]+\b|[_\\][_\\.?a-z0-9]*\b|r(?!(\[|(\d{0,5}c\d{0,3}\b)|(\d{1,6}\b)))[_\\.?a-z0-9]*\b(?!\[)|c(?!(\[|\d{0,3}r\d{0,5}\b|[a-z]*\d{1,6}\b))[_\\.?a-z0-9]*\b(?!\[)|[a-bd-eg-h](?![a-z]\d{1,5}\b|\d{1,5}\b)[_.\\?a-z0-9]*\b|f(?![a-z]\d{1,5}\b|\d{1,5}\b|alse\b)[_.\\?a-z0-9]*\b|i(?![a-v]\d+\b|\d+\b)[_.\\?a-z0-9]*\b|[_\\a-bd-qs-z]\b/i
 %ignore " "   // Disregard spaces in text

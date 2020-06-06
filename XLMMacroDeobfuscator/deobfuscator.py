@@ -489,33 +489,6 @@ class XLMInterpreter:
 
         return EvalResult(None, status, return_val, text)
 
-    def evaluate_method(self, current_cell, parse_tree_root, interactive):
-        method_name = parse_tree_root.children[0] + '.' + \
-                      parse_tree_root.children[2]
-
-        if self.ignore_processing:
-            return EvalResult(None, EvalStatus.IGNORED, 0, '')
-
-        arguments = []
-        for i in parse_tree_root.children[4].children:
-            if type(i) is not Token:
-                if len(i.children) > 0:
-                    arguments.append(i.children[0])
-        size = len(arguments)
-
-        if method_name in self._handlers:
-            eval_result = self._handlers[method_name](arguments, current_cell, interactive, parse_tree_root)
-        else:
-
-            eval_result = self.evaluate_argument_list(current_cell, method_name, arguments)
-
-        if method_name in XLMInterpreter.important_methods:
-            eval_result.output_level = 2
-        else:
-            eval_result.output_level = 1
-
-        return eval_result
-
     def evaluate_function(self, current_cell, parse_tree_root, interactive):
         function_name = parse_tree_root.children[0]
 
@@ -616,30 +589,32 @@ class XLMInterpreter:
         return EvalResult(None, status, return_val, text)
 
     def get_cell_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        arg1_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
-        dst_sheet, dst_col, dst_row = self.get_cell_addr(current_cell, arguments[1])
-        type_id = arg1_eval_result.value
-        if self.is_float(type_id):
-            type_id = int(float(type_id))
-        if dst_sheet is None:
-            dst_sheet = current_cell.sheet.name
-        status = EvalStatus.PartialEvaluation
-        if arg1_eval_result.status == EvalStatus.FullEvaluation:
-            data, not_exist, not_implemented = self.xlm_wrapper.get_cell_info(dst_sheet, dst_col, dst_row, type_id)
-            if not_exist and 1 == 2:
-                return_val = self.get_default_cell_info(type_id)
-                text = str(return_val)
-                status = EvalStatus.FullEvaluation
-            elif not_implemented:
-                text = self.convert_ptree_to_str(parse_tree_root)
-                return_val = ''
-            else:
-                text = str(data) if data is not None else None
-                return_val = data
-                status = EvalStatus.FullEvaluation
-        # text = self.convert_ptree_to_str(parse_tree_root)
-        # return_val = ''
-        # status = EvalStatus.PartialEvaluation
+        if len(arguments) == 2:
+            arg1_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+            dst_sheet, dst_col, dst_row = self.get_cell_addr(current_cell, arguments[1])
+            type_id = arg1_eval_result.value
+            if self.is_float(type_id):
+                type_id = int(float(type_id))
+            if dst_sheet is None:
+                dst_sheet = current_cell.sheet.name
+            status = EvalStatus.PartialEvaluation
+            if arg1_eval_result.status == EvalStatus.FullEvaluation:
+                data, not_exist, not_implemented = self.xlm_wrapper.get_cell_info(dst_sheet, dst_col, dst_row, type_id)
+                if not_exist and 1 == 2:
+                    return_val = self.get_default_cell_info(type_id)
+                    text = str(return_val)
+                    status = EvalStatus.FullEvaluation
+                elif not_implemented:
+                    text = self.convert_ptree_to_str(parse_tree_root)
+                    return_val = ''
+                else:
+                    text = str(data) if data is not None else None
+                    return_val = data
+                    status = EvalStatus.FullEvaluation
+        else:
+            text = self.convert_ptree_to_str(parse_tree_root)
+            return_val = ''
+            status = EvalStatus.PartialEvaluation
         return EvalResult(None, status, return_val, text)
 
     def set_name_handler(self, arguments, current_cell, interactive, parse_tree_root):
@@ -1242,9 +1217,6 @@ class XLMInterpreter:
 
         elif parse_tree_root.data == 'function_call':
             result = self.evaluate_function(current_cell, parse_tree_root, interactive)
-
-        elif parse_tree_root.data == 'method_call':
-            result = self.evaluate_method(current_cell, parse_tree_root, interactive)
 
         elif parse_tree_root.data == 'cell':
             result = self.evaluate_cell(current_cell, interactive, parse_tree_root)
