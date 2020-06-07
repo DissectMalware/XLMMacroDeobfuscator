@@ -1130,6 +1130,9 @@ class XLMInterpreter:
             arg1_eval_res.next_cell = self.get_formula_cell(return_cell.sheet,
                                               return_cell.column,
                                               str(int(return_cell.row) + 1))
+        if arg1_eval_res.text =='':
+            arg1_eval_res.text = 'RETURN()'
+
         return arg1_eval_res
 
     def VirtualAlloc_handler(self, arguments, current_cell, interactive, parse_tree_root):
