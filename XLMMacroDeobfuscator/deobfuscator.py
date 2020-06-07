@@ -1019,7 +1019,9 @@ class XLMInterpreter:
             if sheet:
                 self.active_cell = self.get_cell(sheet, col, row)
                 status = EvalStatus.FullEvaluation
-
+        elif isinstance(arguments[0], Token):
+            text = self.convert_ptree_to_str(parse_tree_root)
+            return_val = 0
         elif arguments[0].data == 'range':
             # e.g., SELECT(D1:D10:D1)
             sheet, col, row = self.selected_range[2]
