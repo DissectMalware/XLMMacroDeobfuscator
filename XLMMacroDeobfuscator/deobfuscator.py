@@ -131,6 +131,7 @@ class XLMInterpreter:
         self.auto_open_labels = None
         self._branch_stack = []
         self._while_stack = []
+        self._function_call_stack = []
         self._memory = []
         self._registered_functions = {}
         self._workspace_defaults = {}
@@ -151,6 +152,7 @@ class XLMInterpreter:
         self.next_count = 0
         self.char_error_count = 0
         self.output_level = output_level
+        self._remove_current_formula_from_cache = False
 
         self._handlers = {
             # methods
@@ -183,6 +185,7 @@ class XLMInterpreter:
             'NOW': self.now_handler,
             'OR': self.or_handler,
             'REGISTER': self.register_handler,
+            'RETURN': self.return_handler,
             'ROUND': self.round_handler,
             'RUN': self.run_handler,
             'SEARCH': self.search_handler,
@@ -499,6 +502,21 @@ class XLMInterpreter:
                                                                                  'name'])
             function_name = parse_tree_root.children[0]
 
+        if function_name.lower() in self.defined_names:
+            try:
+                ref_parsed = self.xlm_parser.parse('='+ self.defined_names[function_name.lower()])
+                if isinstance(ref_parsed.children[0],Tree) and ref_parsed.children[0].data =='cell':
+                    function_name = ref_parsed.children[0]
+                else:
+                    raise Exception
+            except:
+                function_name = self.defined_names[function_name.lower()]
+
+        # cell_function_call
+        if isinstance(function_name, Tree) and function_name.data == 'cell':
+            self._function_call_stack.append(current_cell)
+            return self.goto_handler([function_name], current_cell, interactive, parse_tree_root)
+
         if self.ignore_processing and function_name != 'NEXT':
             if function_name == 'WHILE':
                 self.next_count += 1
@@ -514,15 +532,6 @@ class XLMInterpreter:
 
         if function_name in self._handlers:
             eval_result = self._handlers[function_name](arguments, current_cell, interactive, parse_tree_root)
-
-        elif function_name.lower() in self.defined_names:
-            # TODO: this block should be unreachable, if reachable it indicated grammar error
-            cell_text = self.defined_names[function_name.lower()]
-            next_sheet, next_col, next_row = self.parse_cell_address(cell_text)
-            next_cell = self.get_formula_cell(next_sheet, next_col, next_row)
-            return_val = text = function_name
-            status = EvalStatus.FullEvaluation
-            eval_result = EvalResult(next_cell, status, return_val, text)
 
         else:
             eval_result = self.evaluate_argument_list(current_cell, function_name, arguments)
@@ -618,18 +627,26 @@ class XLMInterpreter:
         return EvalResult(None, status, return_val, text)
 
     def set_name_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        label = self.convert_ptree_to_str(arguments[0])
-        arg2_eval_result = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
-        if arg2_eval_result.status is EvalStatus.FullEvaluation:
-            arg2_text = arg2_eval_result.get_text(unwrap=True)
+        label = EvalResult.unwrap_str_literal(self.convert_ptree_to_str(arguments[0])).lower()
+        if isinstance(arguments[1], Tree) and arguments[1].data == 'cell':
+            arg2_text = self.convert_ptree_to_str(arguments[1])
             names = self.xlm_wrapper.get_defined_names()
-            names[label] = arg2_text
+            names[label] = arguments[1]
             text = 'SET.NAME({},{})'.format(label, arg2_text)
             return_val = 0
             status = EvalStatus.FullEvaluation
         else:
-            return_val = text = self.convert_ptree_to_str(parse_tree_root)
-            status = arg2_eval_result.status
+            arg2_eval_result = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
+            if arg2_eval_result.status is EvalStatus.FullEvaluation:
+                arg2_text = arg2_eval_result.get_text(unwrap=True)
+                names = self.xlm_wrapper.get_defined_names()
+                names[label] = arg2_text
+                text = 'SET.NAME({},{})'.format(label, arg2_text)
+                return_val = 0
+                status = EvalStatus.FullEvaluation
+            else:
+                return_val = text = self.convert_ptree_to_str(parse_tree_root)
+                status = arg2_eval_result.status
 
         return EvalResult(None, status, return_val, text)
 
@@ -781,6 +798,11 @@ class XLMInterpreter:
                 cond_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
                 if self.is_bool(cond_eval_result.value):
                     cond_eval_result.value = bool(strtobool(cond_eval_result.value))
+                elif self.is_int(cond_eval_result.value):
+                    if int(cond_eval_result.value) == 0:
+                        cond_eval_result.value = True
+                    else:
+                        cond_eval_result.value = False
 
                 if cond_eval_result.status == EvalStatus.FullEvaluation:
                     if cond_eval_result.value:
@@ -1100,6 +1122,16 @@ class XLMInterpreter:
 
         return EvalResult(None, status, return_val, text)
 
+    def return_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        if self._function_call_stack:
+            return_cell = self._function_call_stack.pop()
+            return_cell.value = arg1_eval_res.value
+            arg1_eval_res.next_cell = self.get_formula_cell(return_cell.sheet,
+                                              return_cell.column,
+                                              str(int(return_cell.row) + 1))
+        return arg1_eval_res
+
     def VirtualAlloc_handler(self, arguments, current_cell, interactive, parse_tree_root):
         base_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         size_eval_res = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
@@ -1205,6 +1237,12 @@ class XLMInterpreter:
         return_val = None
 
         if type(parse_tree_root) is Token:
+            if parse_tree_root.value in self.defined_names:
+                # this formula has a defined name that can be changed
+                # current formula must be removed from cache
+                self._remove_current_formula_from_cache = True
+                parse_tree_root.value = self.defined_names[parse_tree_root.value]
+
             text = parse_tree_root.value
             status = EvalStatus.FullEvaluation
             return_val = text
@@ -1463,6 +1501,11 @@ class XLMInterpreter:
                                     previous_indent = self._indent_level
 
                                 evaluation_result = self.evaluate_parse_tree(current_cell, parse_tree, interactive)
+
+                                if self._remove_current_formula_from_cache:
+                                    self._remove_current_formula_from_cache = False
+                                    if formula in self._formula_cache:
+                                        del(self._formula_cache[formula])
 
                                 if len(self._while_stack) == 0 and evaluation_result.text != 'NEXT':
                                     observed_cells.append(current_cell.get_local_address())

@@ -9,7 +9,7 @@ r1c1_notation_cell: [NAME "!" | "'" /[^']+/i "'!" | "!"] ROW [REF | INT ] COL [R
 ?concat_expression: additive_expression (CONCATOP additive_expression)*
 ?additive_expression:   multiplicative_expression (ADDITIVEOP multiplicative_expression)*
 ?multiplicative_expression: final (MULTIOP final)*
-?final: L_PRA expression R_PRA | function_call | cell | range | atom
+?final: L_PRA expression R_PRA | function_call | cell | range | atom | NAME
 ?range: cell COLON cell | cell COLON cell COLON cell
 ?atom: NUMBER | STRING | BOOLEAN
 ADDITIVEOP: "+" | "-"
