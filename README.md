@@ -153,5 +153,3 @@ Feel free to contribute to the project forking the project and submitting a pull
 
 You can reach [me (@DissectMlaware) on Twitter](https://twitter.com/DissectMalware) via a direct message.
 
-
-\* This code is still heavily under development. Expect to see radical changes in the code.
