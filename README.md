@@ -78,7 +78,7 @@ default.config file must be a valid json file, such as:
   (______/ (_______/(_______)|/ \___/ |/       (_______)\_______)(_______/|/     \|   )_(   (_______)|/   \__/
 
     
-XLMMacroDeobfuscator(v0.1.4) - https://github.com/DissectMalware/XLMMacroDeobfuscator
+XLMMacroDeobfuscator(v0.1.5) - https://github.com/DissectMalware/XLMMacroDeobfuscator
 
 usage: deobfuscator.py [-h] [-c FILE_PATH] [-f FILE_PATH] [-n] [-x] [-2]
                        [--with-ms-excel] [-s] [-d DAY]
@@ -90,8 +90,7 @@ usage: deobfuscator.py [-h] [-c FILE_PATH] [-f FILE_PATH] [-n] [-x] [-2]
 optional arguments:
   -h, --help            show this help message and exit
   -c FILE_PATH, --config_file FILE_PATH
-                        Specify a config file (each argument must be on one
-                        line)
+                        Specify a config file (must be a valid JSON file)
   -f FILE_PATH, --file FILE_PATH
                         The path of a XLSM file
   -n, --noninteractive  Disable interactive shell
