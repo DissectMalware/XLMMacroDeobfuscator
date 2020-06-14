@@ -22,7 +22,7 @@ class XLSWrapper2(ExcelWrapper):
 
         control_chars = ''.join(map(chr, range(0, 32)))
         control_chars += ''.join(map(chr, range(127, 160)))
-        control_chars += '\ufefe\uffff\ufeff\ufffe\uffef\ufff0\ufff1\ufff6\ufefd\udddd\ufffd'
+        # control_chars += '\ufefe\uffff\ufeff\ufffe\uffef\ufff0\ufff1\ufff6\ufefd\udddd\ufffd'
         self._control_char_re = re.compile('[%s]' % re.escape(control_chars))
 
     def get_xl_international_char(self, flag_name):

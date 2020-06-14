@@ -1,3 +1,4 @@
+from __future__ import print_function
 import argparse
 import hashlib
 import json
@@ -16,7 +17,7 @@ from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
 from XLMMacroDeobfuscator.xlsm_wrapper import XLSMWrapper
 from XLMMacroDeobfuscator.__init__ import __version__
 import copy
-import linecache
+
 
 try:
     from XLMMacroDeobfuscator.xls_wrapper import XLSWrapper
@@ -240,7 +241,8 @@ class XLMInterpreter:
     def get_parser(self):
         xlm_parser = None
         grammar_file_path = os.path.join(os.path.dirname(__file__), 'xlm-macro.lark.template')
-        with open(grammar_file_path, 'r', encoding='utf_8') as grammar_file:
+        # with open(grammar_file_path, 'r') as grammar_file:
+        with open(grammar_file_path, 'r') as grammar_file:
             macro_grammar = grammar_file.read()
             macro_grammar = macro_grammar.replace('{{XLLEFTBRACKET}}',
                                                   self.xlm_wrapper.get_xl_international_char(
@@ -389,7 +391,7 @@ class XLMInterpreter:
         if len(self._window_defaults) == 0:
             script_dir = os.path.dirname(__file__)
             config_dir = os.path.join(script_dir, 'configs')
-            with open(os.path.join(config_dir, 'get_window.conf'), 'r', encoding='utf_8') as workspace_conf_file:
+            with open(os.path.join(config_dir, 'get_window.conf'), 'r') as workspace_conf_file:
                 for index, line in enumerate(workspace_conf_file):
                     line = line.strip()
                     if len(line) > 0:
@@ -407,7 +409,7 @@ class XLMInterpreter:
         if len(self._workspace_defaults) == 0:
             script_dir = os.path.dirname(__file__)
             config_dir = os.path.join(script_dir, 'configs')
-            with open(os.path.join(config_dir, 'get_workspace.conf'), 'r', encoding='utf_8') as workspace_conf_file:
+            with open(os.path.join(config_dir, 'get_workspace.conf'), 'r') as workspace_conf_file:
                 for index, line in enumerate(workspace_conf_file):
                     line = line.strip()
                     if len(line) > 0:
@@ -422,7 +424,7 @@ class XLMInterpreter:
         if len(self._cell_defaults) == 0:
             script_dir = os.path.dirname(__file__)
             config_dir = os.path.join(script_dir, 'configs')
-            with open(os.path.join(config_dir, 'get_cell.conf'), 'r', encoding='utf_8') as workspace_conf_file:
+            with open(os.path.join(config_dir, 'get_cell.conf'), 'r') as workspace_conf_file:
                 for index, line in enumerate(workspace_conf_file):
                     line = line.strip()
                     if len(line) > 0:
@@ -1003,7 +1005,7 @@ class XLMInterpreter:
         return self.evaluate_formula(current_cell, 'SET.VALUE', arguments, interactive, destination_arg=2)
 
     def error_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        return EvalResult(None, EvalStatus.FullEvaluation, 0, self.convert_ptree_to_str(parse_tree_root))
+        return EvalResult(None, EvalStatus.Error, 0, self.convert_ptree_to_str(parse_tree_root))
 
     def select_handler(self, arguments, current_cell, interactive, parse_tree_root):
         status = EvalStatus.PartialEvaluation
@@ -1493,7 +1495,7 @@ class XLMInterpreter:
                             self._indent_level = indent_level
                             stack_record = True
                             while current_cell is not None:
-                                if type(formula) is str:
+                                if isinstance(formula, str) or isinstance(formula, unicode):
                                     if formula not in self._formula_cache:
                                         parse_tree = self.xlm_parser.parse(formula)
                                         self._formula_cache[formula] = parse_tree
@@ -1567,23 +1569,13 @@ class XLMInterpreter:
                                 formula = current_cell.formula
                                 stack_record = False
                 except Exception as exp:
-                    exc_type, exc_obj, traceback = sys.exc_info()
-                    frame = traceback.tb_frame
-                    lineno = traceback.tb_lineno
-                    filename = frame.f_code.co_filename
-                    linecache.checkcache(filename)
-                    line = linecache.getline(filename, lineno, frame.f_globals)
-                    uprint('Error [{}:{} {}]: {}'.format(os.path.basename(filename),
-                                                         lineno,
-                                                         line.strip(),
-                                                         exc_obj),
-                           silent_mode=silent_mode)
-
+                    raise
+                    uprint('Error: ' + str(exp), silent_mode=silent_mode)
 
 
 def test_parser():
     grammar_file_path = os.path.join(os.path.dirname(__file__), 'xlm-macro-en.lark')
-    macro_grammar = open(grammar_file_path, 'r', encoding='utf_8').read()
+    macro_grammar = open(grammar_file_path, 'r').read()
     xlm_parser = Lark(macro_grammar, parser='lalr')
 
     print("\n=HALT()")
@@ -1628,7 +1620,8 @@ def get_file_type(path):
             file_type = 'xlsm/b'
     if file_type == 'xlsm/b':
         raw_bytes = open(path, 'rb').read()
-        if bytes('workbook.bin', 'ascii') in raw_bytes:
+        # if bytes('workbook.bin', 'ascii') in raw_bytes:
+        if 'workbook.bin' in raw_bytes:
             file_type = 'xlsb'
         else:
             file_type = 'xlsm'
@@ -1655,7 +1648,12 @@ def show_cells(excel_doc):
                 yield info, 'EXTRACTED', str(info.formula), '', info.value,
 
 
-def uprint(*objects, sep=' ', end='\n', file=sys.stdout, silent_mode=False):
+def uprint(*objects, **kwargs):
+    sep = kwargs.get('sep', ' ')
+    end = kwargs.get('end', '\n')
+    file = kwargs.get('file', sys.stdout)
+    silent_mode = kwargs.get('silent_mode', False)
+
     if silent_mode:
         return
 
@@ -1850,7 +1848,7 @@ def process_file(**kwargs):
 
                 try:
                     output_file_path = kwargs.get("export_json")
-                    with open(output_file_path, 'w', encoding='utf_8') as output_file:
+                    with open(output_file_path, 'w') as output_file:
                         output_file.write(json.dumps(res, indent=4))
                         uprint('Result is dumped into {}'.format(output_file_path), silent_mode=SILENT)
                 except Exception as exp:
@@ -1926,7 +1924,7 @@ def process_file(**kwargs):
                                           interpreter._memory)
                 try:
                     output_file_path = kwargs.get("export_json")
-                    with open(output_file_path, 'w', encoding='utf_8') as output_file:
+                    with open(output_file_path, 'w') as output_file:
                         output_file.write(json.dumps(res, indent=4))
                         uprint('Result is dumped into {}'.format(output_file_path), silent_mode=SILENT)
                 except Exception as exp:
@@ -2016,10 +2014,10 @@ def main():
     else:
         try:
             # Convert args to kwarg dict
-            try:
+            if 1: #try:
                 process_file(**vars(args))
-            except Exception as exp:
-                print(str(exp))
+            # except Exception as exp:
+            #     print(str(exp))
 
         except KeyboardInterrupt:
             pass

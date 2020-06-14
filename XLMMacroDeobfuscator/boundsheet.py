@@ -18,7 +18,7 @@ class Cell:
         pass
 
     def __deepcopy__(self, memodict={}):
-        copy = type(self)()
+        copy = Cell()
         memodict[id(self)] = copy
         copy.sheet = self.sheet
         copy.column = self.column
