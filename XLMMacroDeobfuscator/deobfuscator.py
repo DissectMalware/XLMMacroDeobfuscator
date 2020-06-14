@@ -768,11 +768,11 @@ class XLMInterpreter:
                             non_printable_ascii += 1
                     total_count += len(step[2])
 
-                    if index > 10 and ((non_printable_ascii + xlm.char_error_count) / total_count) > min:
+                    if index > 10 and ((non_printable_ascii + xlm.char_error_count) / float(total_count)) > min:
                         break
 
-                if total_count != 0 and ((non_printable_ascii + xlm.char_error_count) / total_count) < min:
-                    min = ((non_printable_ascii + xlm.char_error_count) / total_count)
+                if total_count != 0 and ((non_printable_ascii + xlm.char_error_count) / float(total_count)) < min:
+                    min = ((non_printable_ascii + xlm.char_error_count) / float(total_count))
                     best_day = day
                     if min == 0:
                         break
