@@ -1307,7 +1307,7 @@ class XLMInterpreter:
                                 elif op_res.is_integer():
                                     value_left = str(int(op_res))
                                 else:
-                                    op_res = round(op_res, 10)
+                                    op_res = round(op_res, 9)
                                     value_left = str(op_res)
                             else:
                                 value_left = 'Operator ' + op_str
