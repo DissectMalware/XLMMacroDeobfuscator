@@ -17,6 +17,7 @@ from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
 from XLMMacroDeobfuscator.xlsm_wrapper import XLSMWrapper
 from XLMMacroDeobfuscator.__init__ import __version__
 import copy
+import linecache
 
 
 try:
@@ -1569,8 +1570,17 @@ class XLMInterpreter:
                                 formula = current_cell.formula
                                 stack_record = False
                 except Exception as exp:
-                    raise
-                    uprint('Error: ' + str(exp), silent_mode=silent_mode)
+                    exc_type, exc_obj, traceback = sys.exc_info()
+                    frame = traceback.tb_frame
+                    lineno = traceback.tb_lineno
+                    filename = frame.f_code.co_filename
+                    linecache.checkcache(filename)
+                    line = linecache.getline(filename, lineno, frame.f_globals)
+                    uprint('Error [{}:{} {}]: {}'.format(os.path.basename(filename),
+                                                         lineno,
+                                                         line.strip(),
+                                                         exc_obj),
+                           silent_mode=silent_mode)
 
 
 def test_parser():
@@ -2012,15 +2022,21 @@ def main():
     elif not os.path.exists(args.file):
         print('Error: input file does not exist')
     else:
+        # Convert args to kwarg dict
         try:
-            # Convert args to kwarg dict
-            if 1: #try:
-                process_file(**vars(args))
-            # except Exception as exp:
-            #     print(str(exp))
+            process_file(**vars(args))
+        except Exception as exp:
+            exc_type, exc_obj, traceback = sys.exc_info()
+            frame = traceback.tb_frame
+            lineno = traceback.tb_lineno
+            filename = frame.f_code.co_filename
+            linecache.checkcache(filename)
+            line = linecache.getline(filename, lineno, frame.f_globals)
+            uprint('Error [{}:{} {}]: {}'.format(os.path.basename(filename),
+                                                 lineno,
+                                                 line.strip(),
+                                                 exc_obj))
 
-        except KeyboardInterrupt:
-            pass
 
 
 SILENT = False
