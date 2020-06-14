@@ -16,6 +16,7 @@ from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
 from XLMMacroDeobfuscator.xlsm_wrapper import XLSMWrapper
 from XLMMacroDeobfuscator.__init__ import __version__
 import copy
+import linecache
 
 try:
     from XLMMacroDeobfuscator.xls_wrapper import XLSWrapper
@@ -1002,7 +1003,7 @@ class XLMInterpreter:
         return self.evaluate_formula(current_cell, 'SET.VALUE', arguments, interactive, destination_arg=2)
 
     def error_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        return EvalResult(None, EvalStatus.Error, 0, self.convert_ptree_to_str(parse_tree_root))
+        return EvalResult(None, EvalStatus.FullEvaluation, 0, self.convert_ptree_to_str(parse_tree_root))
 
     def select_handler(self, arguments, current_cell, interactive, parse_tree_root):
         status = EvalStatus.PartialEvaluation
@@ -1566,7 +1567,18 @@ class XLMInterpreter:
                                 formula = current_cell.formula
                                 stack_record = False
                 except Exception as exp:
-                    uprint('Error: ' + str(exp), silent_mode=silent_mode)
+                    exc_type, exc_obj, traceback = sys.exc_info()
+                    frame = traceback.tb_frame
+                    lineno = traceback.tb_lineno
+                    filename = frame.f_code.co_filename
+                    linecache.checkcache(filename)
+                    line = linecache.getline(filename, lineno, frame.f_globals)
+                    uprint('Error [{}:{} {}]: {}'.format(os.path.basename(filename),
+                                                         lineno,
+                                                         line.strip(),
+                                                         exc_obj),
+                           silent_mode=silent_mode)
+
 
 
 def test_parser():
