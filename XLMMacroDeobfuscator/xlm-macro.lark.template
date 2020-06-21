@@ -3,13 +3,14 @@ function_call:  NAME L_PRA arglist R_PRA | cell L_PRA arglist R_PRA
 arglist:    (argument LIST_SEPARATOR)* argument
 argument:   expression |
 cell:   a1_notation_cell | r1c1_notation_cell
-a1_notation_cell:   [NAME "!" | "'" /[^']+/i "'!"| "!"] /\$?([a-qs-z][a-z]?)\$?\d+|\$?(r[a-bd-z]?)\$?\d+(?!C)/i
+a1_notation_cell:   [NAME "!" | "'" /[^']+/i "'!"| "!"] /\$?([a-qs-z][a-z]?)\$?\d+\b|\$?(r[a-bd-z]?)\$?\d+\b(?!C)/i
 r1c1_notation_cell: [NAME "!" | "'" /[^']+/i "'!" | "!"] ROW [REF | INT ] COL [REF | INT ]
+defined_name: (NAME EXCLAMATION| "'" /[^']+/i "'" EXCLAMATION| EXCLAMATION) NAME
 ?expression:   concat_expression CMPOP concat_expression | concat_expression
 ?concat_expression: additive_expression (CONCATOP additive_expression)*
 ?additive_expression:   multiplicative_expression (ADDITIVEOP multiplicative_expression)*
 ?multiplicative_expression: final (MULTIOP final)*
-?final: L_PRA expression R_PRA | function_call | cell | range | atom | NAME
+?final: L_PRA expression R_PRA | function_call | cell | range | atom | NAME  | defined_name
 ?range: cell COLON cell | cell COLON cell COLON cell
 ?atom: NUMBER | STRING | BOOLEAN | ERROR
 ADDITIVEOP: "+" | "-"
@@ -26,6 +27,7 @@ L_PRA: "("
 R_PRA: ")"
 L_BRAC: "{{XLLEFTBRACKET}}"
 R_BRAC: "{{XLRIGHTBRACKET}}"
+EXCLAMATION: "!"
 DOT: "."
 LIST_SEPARATOR: "{{XLLISTSEPARATOR}}"
 REF: L_BRAC SIGNED_INT  R_BRAC

@@ -32,9 +32,9 @@ class XLSWrapper2(ExcelWrapper):
 
         return result
 
-    def remove_nonprintable_chars(self, input_str):
+    def replace_nonprintable_chars(self, input_str, replace_char=''):
         input_str = input_str.encode("utf-16").decode('utf-16', 'ignore')
-        return self._control_char_re.sub('', input_str)
+        return self._control_char_re.sub(replace_char, input_str)
 
     def get_defined_names(self):
         if self._defined_names is None:
@@ -42,18 +42,31 @@ class XLSWrapper2(ExcelWrapper):
 
             name_objects = self.xls_workbook.name_map
 
-            for index, (name_obj, cell) in enumerate(name_objects.items()):
-                name = self.remove_nonprintable_chars(name_obj).lower()
+            for index, (name_obj, cells) in enumerate(name_objects.items()):
+                name = name_obj.lower()
+                if len(cells) > 1:
+                    index = 1
+                else:
+                    index = 0
+
+                filtered_name = self.replace_nonprintable_chars(name, replace_char='_').lower()
+                if name != filtered_name:
+                    if filtered_name in self._defined_names:
+                        filtered_name = filtered_name + str(index)
+                    if cells[0].result is not None:
+                        self._defined_names[filtered_name] = cells[0].result.text
+
                 if name in self._defined_names:
-                    name = name + index
-                if cell[0].result is not None:
-                    self._defined_names[name] = cell[0].result.text
+                    name = name + str(index)
+                if cells[0].result is not None:
+                    self._defined_names[name] = cells[0].result.text
+
 
         return self._defined_names
 
     def get_defined_name(self, name, full_match=True):
         result = []
-        name = name.lower()
+        name = name.lower().replace('[', '')
 
         if full_match:
             if name in self.get_defined_names():
