@@ -53,22 +53,13 @@ class XLSWrapper2(ExcelWrapper):
                 if name != filtered_name:
                     if filtered_name in self._defined_names:
                         filtered_name = filtered_name + str(index)
-
-                    for cell in cells:
-                        if cell.result is not None:
-                            if filtered_name not in self._defined_names:
-                                self._defined_names[filtered_name] ={'index':index,
-                                                                     'cells':[]}
-                            self._defined_names[filtered_name]['cells'].append(cell.result.text)
+                    if cells[0].result is not None:
+                        self._defined_names[filtered_name] = cells[0].result.text
 
                 if name in self._defined_names:
                     name = name + str(index)
-                for cell in cells:
-                    if cell.result is not None:
-                        if name not in self._defined_names:
-                            self._defined_names[name] = {'index':index,
-                                                        'cells':[]}
-                        self._defined_names[name]['cells'].append(cell.result.text)
+                if cells[0].result is not None:
+                    self._defined_names[name] = cells[0].result.text
 
 
         return self._defined_names
@@ -83,7 +74,7 @@ class XLSWrapper2(ExcelWrapper):
         else:
             for defined_name, cell_address in self.get_defined_names().items():
                 if defined_name.startswith(name):
-                    result.append((defined_name, cell_address['cells'][cell_address['index']]))
+                    result.append((defined_name, cell_address))
 
         return result
 

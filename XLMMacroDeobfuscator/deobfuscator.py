@@ -302,10 +302,6 @@ class XLMInterpreter:
             if cell_parse_tree.data == 'defined_name':
                 label = '{}'.format(cell_parse_tree.children[2])
                 formula_str = self.xlm_wrapper.get_defined_name(label)
-                if isinstance(formula_str, dict):
-                    tmp = formula_str['cells'][formula_str['index']]
-                    formula_str['index'] = (formula_str['index']+1)% len(formula_str['cells'])
-                    formula_str = tmp
                 parsed_tree = self.xlm_parser.parse('='+formula_str)
                 if isinstance(parsed_tree.children[0], Tree) and parsed_tree.children[0].data =='range':
                     start_cell, end_cell = self.get_range_parts(parsed_tree.children[0])
@@ -458,10 +454,6 @@ class XLMInterpreter:
 
         if destination.data == 'defined_name' or destination.data=='name':
             formula_str = self.xlm_wrapper.get_defined_name(destination.children[2])
-            if isinstance(formula_str, dict):
-                tmp = formula_str['cells'][formula_str['index']]
-                formula_str['index'] = (formula_str['index']+1)% len(formula_str['cells'])
-                formula_str = tmp
             destination = self.xlm_parser.parse('='+formula_str).children[0]
 
         if destination.data == 'range':
