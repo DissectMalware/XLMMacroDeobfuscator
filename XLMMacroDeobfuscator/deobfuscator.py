@@ -275,6 +275,12 @@ class XLMInterpreter:
 
         return result_cell
 
+    def get_range_parts(self, parse_tree):
+        if isinstance(parse_tree, Tree) and parse_tree.data =='range':
+            return parse_tree.children[0], parse_tree.children[1]
+        else:
+            return None, None
+
     def get_cell_addr(self, current_cell, cell_parse_tree):
 
         res_sheet = res_col = res_row = None
@@ -292,10 +298,22 @@ class XLMInterpreter:
                     label = label.strip('"')
                     root_parse_tree = self.xlm_parser.parse('=' + label)
                     res_sheet, res_col, res_row = self.get_cell_addr(current_cell, root_parse_tree.children[0])
-
-
         else:
-            cell = cell_parse_tree.children[0]
+            if cell_parse_tree.data == 'defined_name':
+                label = '{}'.format(cell_parse_tree.children[2])
+                formula_str = self.xlm_wrapper.get_defined_name(label)
+                if isinstance(formula_str, dict):
+                    tmp = formula_str['cells'][formula_str['index']]
+                    formula_str['index'] = (formula_str['index']+1)% len(formula_str['cells'])
+                    formula_str = tmp
+                parsed_tree = self.xlm_parser.parse('='+formula_str)
+                if isinstance(parsed_tree.children[0], Tree) and parsed_tree.children[0].data =='range':
+                    start_cell, end_cell = self.get_range_parts(parsed_tree.children[0])
+                    cell = start_cell.children[0]
+                else:
+                    cell = parsed_tree.children[0].children[0]
+            else:
+                cell = cell_parse_tree.children[0]
 
             if cell.data == 'a1_notation_cell':
                 if len(cell.children) == 2:
@@ -437,6 +455,14 @@ class XLMInterpreter:
         source, destination = (arguments[0], arguments[1]) if destination_arg == 1 else (arguments[1], arguments[0])
 
         src_eval_result = self.evaluate_parse_tree(current_cell, source, interactive)
+
+        if destination.data == 'defined_name' or destination.data=='name':
+            formula_str = self.xlm_wrapper.get_defined_name(destination.children[2])
+            if isinstance(formula_str, dict):
+                tmp = formula_str['cells'][formula_str['index']]
+                formula_str['index'] = (formula_str['index']+1)% len(formula_str['cells'])
+                formula_str = tmp
+            destination = self.xlm_parser.parse('='+formula_str).children[0]
 
         if destination.data == 'range':
             dst_start_sheet, dst_start_col, dst_start_row = self.get_cell_addr(current_cell, destination.children[0])
@@ -1371,14 +1397,14 @@ class XLMInterpreter:
 
             if cell_addr in sheet.cells:
                 cell = sheet.cells[cell_addr]
-                if cell.value is not None:
+                if cell.value is not None and cell.value != cell.formula:
                     text = EvalResult.wrap_str_literal(cell.value)
                     return_val = text
                     status = EvalStatus.FullEvaluation
 
                 elif cell.formula is not None:
                     parse_tree = self.xlm_parser.parse(cell.formula)
-                    eval_result = self.evaluate_parse_tree(current_cell, parse_tree, False)
+                    eval_result = self.evaluate_parse_tree(cell, parse_tree, False)
                     return_val = eval_result.value
                     text = eval_result.get_text()
                     status = eval_result.status
@@ -1494,6 +1520,9 @@ class XLMInterpreter:
                             stack_record = True
                             while current_cell is not None:
                                 if type(formula) is str:
+                                    replace_op = getattr(self.xlm_wrapper, "replace_nonprintable_chars", None)
+                                    if callable(replace_op):
+                                        formula = replace_op(formula, '_')
                                     if formula not in self._formula_cache:
                                         parse_tree = self.xlm_parser.parse(formula)
                                         self._formula_cache[formula] = parse_tree
@@ -1566,7 +1595,7 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except Exception as exp:
+                except IndentationError as exp:
                     exc_type, exc_obj, traceback = sys.exc_info()
                     frame = traceback.tb_frame
                     lineno = traceback.tb_lineno
@@ -2018,8 +2047,17 @@ def main():
             # Convert args to kwarg dict
             try:
                 process_file(**vars(args))
-            except Exception as exp:
-                print(str(exp))
+            except IndentationError as exp:
+                exc_type, exc_obj, traceback = sys.exc_info()
+                frame = traceback.tb_frame
+                lineno = traceback.tb_lineno
+                filename = frame.f_code.co_filename
+                linecache.checkcache(filename)
+                line = linecache.getline(filename, lineno, frame.f_globals)
+                print('Error [{}:{} {}]: {}'.format(os.path.basename(filename),
+                                                     lineno,
+                                                     line.strip(),
+                                                     exc_obj))
 
         except KeyboardInterrupt:
             pass
