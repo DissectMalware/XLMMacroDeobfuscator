@@ -1171,7 +1171,7 @@ class XLMInterpreter:
             access = '1'
         self._files[arg1_eval_res.get_text(unwrap=True)] = {'file_access': access,
                                                             'file_content': ''}
-        text = 'FOPEN({},{})'.format(arg1_eval_res.get_text(unwrap=True),
+        text = 'FOPEN({},{})'.format(arg1_eval_res.get_text(unwrap=False),
                                      access)
         return EvalResult(None, arg1_eval_res.status, arg1_eval_res.value, text)
 
@@ -1184,7 +1184,7 @@ class XLMInterpreter:
         if file_name in self._files:
             status = EvalStatus.FullEvaluation
             self._files[file_name]['file_content'] += file_content +end_line
-        text = 'FWRITE({},{})'.format(file_name, EvalResult.wrap_str_literal( file_content))
+        text = 'FWRITE({},{})'.format(EvalResult.wrap_str_literal(file_name), EvalResult.wrap_str_literal( file_content))
         return EvalResult(None, status, '0', text)
 
     def fwriteln_handler(self, arguments, current_cell, interactive, parse_tree_root):
