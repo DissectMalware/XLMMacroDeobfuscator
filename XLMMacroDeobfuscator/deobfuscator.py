@@ -1,4 +1,5 @@
 import argparse
+import base64
 import hashlib
 import json
 import msoffcrypto
@@ -134,6 +135,7 @@ class XLMInterpreter:
         self._while_stack = []
         self._function_call_stack = []
         self._memory = []
+        self._files = {}
         self._registered_functions = {}
         self._workspace_defaults = {}
         self._window_defaults = {}
@@ -177,6 +179,9 @@ class XLMInterpreter:
             'DIRECTORY': self.directory_handler,
             'ERROR': self.error_handler,
             'FORMULA': self.formula_handler,
+            'FOPEN': self.fopen_handler,
+            'FWRITE': self.fwrite_handler,
+            'FWRITELN': self.fwriteln_handler,
             'GOTO': self.goto_handler,
             'HALT': self.halt_handler,
             'IF': self.if_handler,
@@ -192,6 +197,7 @@ class XLMInterpreter:
             'SEARCH': self.search_handler,
             'SELECT': self.select_handler,
             'WHILE': self.while_handler,
+
 
             # Windows API
             'Kernel32.VirtualAlloc': self.VirtualAlloc_handler,
@@ -1156,6 +1162,34 @@ class XLMInterpreter:
 
         return arg1_eval_res
 
+    def fopen_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        if len(arguments)> 1:
+            arg2_eval_res = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
+            access = arg2_eval_res.value
+        else:
+            access = '1'
+        self._files[arg1_eval_res.get_text(unwrap=True)] = {'file_access': access,
+                                                            'file_content': ''}
+        text = 'FOPEN({},{})'.format(arg1_eval_res.get_text(unwrap=True),
+                                     access)
+        return EvalResult(None, arg1_eval_res.status, arg1_eval_res.value, text)
+
+    def fwrite_handler(self, arguments, current_cell, interactive, parse_tree_root, end_line=''):
+        arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        arg2_eval_res = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
+        file_name = arg1_eval_res.get_text(unwrap=True)
+        file_content = arg2_eval_res.get_text(unwrap=True)
+        status = EvalStatus.PartialEvaluation
+        if file_name in self._files:
+            status = EvalStatus.FullEvaluation
+            self._files[file_name]['file_content'] += file_content +end_line
+        text = 'FWRITE({},{})'.format(file_name, EvalResult.wrap_str_literal( file_content))
+        return EvalResult(None, status, '0', text)
+
+    def fwriteln_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        return self.fwrite_handler(arguments, current_cell, interactive, parse_tree_root, end_line='\r\n')
+
     def VirtualAlloc_handler(self, arguments, current_cell, interactive, parse_tree_root):
         base_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         size_eval_res = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
@@ -1713,7 +1747,7 @@ def convert_to_json_str(file, defined_names, records, memory=None, files=None):
     res = {'file_path': file, 'md5_hash': md5, 'sha256_hash': sha256, 'analysis_timestamp': int(time.time()),
            'format_version': 1, 'analyzed_by': 'XLMMacroDeobfuscator',
            'link': 'https://github.com/DissectMalware/XLMMacroDeobfuscator', 'defined_names': defined_names,
-           'records': [], 'memory_records': []}
+           'records': [], 'memory_records': [], 'files':[]}
 
     for index, i in enumerate(records):
         if len(i) == 4:
@@ -1736,6 +1770,17 @@ def convert_to_json_str(file, defined_names, records, memory=None, files=None):
                 'size': mem_rec['size'],
                 'data_base64': bytearray(mem_rec['data']).hex()
             })
+
+    if files:
+        for file in files:
+            if len(files[file]['file_content'])>0:
+                bytes_str = files[file]['file_content'].encode('utf_8')
+                base64_str = base64.b64encode(bytes_str).decode()
+                res['files'].append({
+                    'path': file,
+                    'access': files[file]['file_access'],
+                    'content_base64': base64_str
+                })
 
     return res
 
@@ -1938,13 +1983,19 @@ def process_file(**kwargs):
                     uprint('Memory: base {}, size {}\n{}\n'.format(mem_record['base'],
                                                                    mem_record['size'],
                                                                    bytearray(mem_record['data']).hex()))
+                uprint('\nFiles:\n')
+                for file in interpreter._files:
+                    if len(interpreter._files[file]['file_content'])>0:
+                        uprint('Files: path {}, access {}\n{}\n'.format(file,
+                                                                   interpreter._files[file]['file_access'],
+                                                                   interpreter._files[file]['file_content']))
 
             uprint('[END of Deobfuscation]', silent_mode=SILENT)
 
             if kwargs.get("export_json"):
                 uprint('[Dumping Json]', silent_mode=SILENT)
                 res = convert_to_json_str(file_path, excel_doc.get_defined_names(), interpreted_lines,
-                                          interpreter._memory)
+                                          interpreter._memory, interpreter._files)
                 try:
                     output_file_path = kwargs.get("export_json")
                     with open(output_file_path, 'w', encoding='utf_8') as output_file:
