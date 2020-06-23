@@ -13,6 +13,8 @@ from lark import Lark
 from lark.exceptions import ParseError
 from lark.lexer import Token
 from lark.tree import Tree
+from win32comext.axscript.server.error import Exception
+
 from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
 from XLMMacroDeobfuscator.xlsm_wrapper import XLSMWrapper
 from XLMMacroDeobfuscator.__init__ import __version__
@@ -527,6 +529,11 @@ class XLMInterpreter:
                                                                                  'name'])
             function_name = parse_tree_root.children[0]
 
+        # cell_function_call
+        if isinstance(function_name, Tree) and function_name.data == 'cell':
+            self._function_call_stack.append(current_cell)
+            return self.goto_handler([function_name], current_cell, interactive, parse_tree_root)
+
         if function_name.lower() in self.defined_names:
             try:
                 ref_parsed = self.xlm_parser.parse('='+ self.defined_names[function_name.lower()])
@@ -536,11 +543,6 @@ class XLMInterpreter:
                     raise Exception
             except:
                 function_name = self.defined_names[function_name.lower()]
-
-        # cell_function_call
-        if isinstance(function_name, Tree) and function_name.data == 'cell':
-            self._function_call_stack.append(current_cell)
-            return self.goto_handler([function_name], current_cell, interactive, parse_tree_root)
 
         if self.ignore_processing and function_name != 'NEXT':
             if function_name == 'WHILE':
@@ -1621,7 +1623,7 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except IndentationError as exp:
+                except Exception as exp:
                     exc_type, exc_obj, traceback = sys.exc_info()
                     frame = traceback.tb_frame
                     lineno = traceback.tb_lineno
@@ -2090,7 +2092,7 @@ def main():
             # Convert args to kwarg dict
             try:
                 process_file(**vars(args))
-            except IndentationError as exp:
+            except Exception as exp:
                 exc_type, exc_obj, traceback = sys.exc_info()
                 frame = traceback.tb_frame
                 lineno = traceback.tb_lineno
