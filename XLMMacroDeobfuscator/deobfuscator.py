@@ -544,6 +544,11 @@ class XLMInterpreter:
             except:
                 function_name = self.defined_names[function_name.lower()]
 
+        # cell_function_call
+        if isinstance(function_name, Tree) and function_name.data == 'cell':
+            self._function_call_stack.append(current_cell)
+            return self.goto_handler([function_name], current_cell, interactive, parse_tree_root)
+
         if self.ignore_processing and function_name != 'NEXT':
             if function_name == 'WHILE':
                 self.next_count += 1
