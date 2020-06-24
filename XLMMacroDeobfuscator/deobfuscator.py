@@ -190,6 +190,7 @@ class XLMInterpreter:
             'NEXT': self.next_handler,
             'NOW': self.now_handler,
             'OR': self.or_handler,
+            'OFFSET': self.offset_handler,
             'REGISTER': self.register_handler,
             'RETURN': self.return_handler,
             'ROUND': self.round_handler,
@@ -520,12 +521,22 @@ class XLMInterpreter:
     def evaluate_function(self, current_cell, parse_tree_root, interactive):
         function_name = parse_tree_root.children[0]
 
+        # OFFSET()()
+        if isinstance(function_name, Tree) and function_name.data == 'function_call':
+            func_eval_result = self.evaluate_parse_tree(current_cell, function_name, False)
+            if func_eval_result.status != EvalStatus.FullEvaluation:
+                return EvalResult(func_eval_result.next_cell, func_eval_result.status, 0, self.convert_ptree_to_str(parse_tree_root))
+            else:
+                func_eval_result.text = self.convert_ptree_to_str(parse_tree_root)
+                return func_eval_result
+
+
         # handle alias name for a function (REGISTER)
         if function_name in self._registered_functions:
             parse_tree_root.children[0] = parse_tree_root.children[0].update(None,
                                                                              self._registered_functions[function_name][
                                                                                  'name'])
-            function_name = parse_tree_root.children[0]
+            return self.goto_handler([function_name], current_cell, interactive, parse_tree_root)
 
         # cell_function_call
         if isinstance(function_name, Tree) and function_name.data == 'cell':
@@ -1192,6 +1203,29 @@ class XLMInterpreter:
 
     def fwriteln_handler(self, arguments, current_cell, interactive, parse_tree_root):
         return self.fwrite_handler(arguments, current_cell, interactive, parse_tree_root, end_line='\r\n')
+
+    def offset_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        value = 0
+        next = None
+        status = EvalStatus.PartialEvaluation
+
+        cell = self.get_cell_addr(current_cell, arguments[0])
+        row_index = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
+        col_index = self.evaluate_parse_tree(current_cell, arguments[2], interactive)
+
+        if isinstance(cell, tuple) and \
+                row_index.status == EvalStatus.FullEvaluation and \
+                col_index.status == EvalStatus.FullEvaluation:
+            row = str(int(cell[2]) + int(float(str(row_index.value))))
+            col = Cell.convert_to_column_name(Cell.convert_to_column_index(cell[1]) + int(float(str(col_index.value))))
+            ref_cell = (cell[0], col, row)
+            value = ref_cell
+            status = EvalStatus.FullEvaluation
+            next = self.get_formula_cell(self.xlm_wrapper.get_macrosheets()[cell[0]], col, row)
+
+        text = self.convert_ptree_to_str(parse_tree_root)
+
+        return EvalResult(next, status, value, text)
 
     def VirtualAlloc_handler(self, arguments, current_cell, interactive, parse_tree_root):
         base_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
