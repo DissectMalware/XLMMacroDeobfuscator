@@ -874,19 +874,17 @@ class XLMInterpreter:
         return EvalResult(None, status, 0, text)
 
     def mid_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        sheet_name, col, row = self.get_cell_addr(current_cell, arguments[0])
-        cell = self.get_cell(sheet_name, col, row)
-        status = EvalStatus.PartialEvaluation
+        str_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         base_eval_result = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
         len_eval_result = self.evaluate_parse_tree(current_cell, arguments[2], interactive)
 
-        if cell is not None:
+        if str_eval_result.status == EvalStatus.FullEvaluation:
             if base_eval_result.status == EvalStatus.FullEvaluation and \
                     len_eval_result.status == EvalStatus.FullEvaluation:
                 if self.is_float(base_eval_result.value) and self.is_float(len_eval_result.value):
                     base = int(float(base_eval_result.value)) - 1
                     length = int(float(len_eval_result.value))
-                    return_val = cell.value[base: base + length]
+                    return_val = EvalResult.unwrap_str_literal(str_eval_result.value)[base: base + length]
                     text = str(return_val)
                     status = EvalStatus.FullEvaluation
         if status == EvalStatus.PartialEvaluation:
