@@ -532,11 +532,12 @@ class XLMInterpreter:
 
 
         # handle alias name for a function (REGISTER)
+        # c45ed3a0ce5df27ac29e0fab99dc4d462f61a0d0c025e9161ced3b2c913d57d8
         if function_name in self._registered_functions:
             parse_tree_root.children[0] = parse_tree_root.children[0].update(None,
                                                                              self._registered_functions[function_name][
                                                                                  'name'])
-            return self.goto_handler([function_name], current_cell, interactive, parse_tree_root)
+            return self.evaluate_function(current_cell, parse_tree_root, interactive)
 
         # cell_function_call
         if isinstance(function_name, Tree) and function_name.data == 'cell':
@@ -907,6 +908,7 @@ class XLMInterpreter:
 
     def goto_handler(self, arguments, current_cell, interactive, parse_tree_root):
         next_sheet, next_col, next_row = self.get_cell_addr(current_cell, arguments[0])
+        next_cell = None
         if next_sheet is not None and next_sheet in self.xlm_wrapper.get_macrosheets():
             next_cell = self.get_formula_cell(self.xlm_wrapper.get_macrosheets()[next_sheet],
                                               next_col,
