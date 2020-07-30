@@ -1,3 +1,4 @@
+import traceback
 import argparse
 import base64
 import hashlib
@@ -38,6 +39,8 @@ import operator
 import copy
 from distutils.util import strtobool
 
+#debug = True
+debug = False
 
 class EvalStatus(Enum):
     FullEvaluation = 1
@@ -50,7 +53,11 @@ class EvalStatus(Enum):
     IGNORED = 8
 
 
+intermediate_iocs = set()
+URL_REGEX = r'.*([hH][tT][tT][pP][sS]?://(([a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-\.]+(:[0-9]+)?)+(/([/\?&\~=a-zA-Z0-9_\-\.](?!http))+)?)).*'
+    
 class EvalResult:
+
     def __init__(self, next_cell, status, value, text):
         self.next_cell = next_cell
         self.status = status
@@ -59,6 +66,15 @@ class EvalResult:
         self.output_level = 0
         self.set_text(text)
 
+    def __repr__(self):
+        r = "EvalResult:\n"
+        r += "\tNext Cell:\t\t" + str(self.next_cell) + "\n"
+        r += "\tValue:\t\t\t" + str(self.value) + "\n"
+        r += "\tStatus:\t\t\t" + str(self.status) + "\n"
+        r += "\tText:\t\t\t" + str(self.text) + "\n"
+        r += "\tOutput Level:\t\t" + str(self.output_level) + "\n"
+        return r
+        
     @staticmethod
     def is_int(text):
         try:
@@ -114,13 +130,17 @@ class EvalResult:
 
         return result
 
-    def set_text(self, data, wrap=False):
+    def set_text(self, data, wrap=False):        
         if data is not None:
             if wrap:
                 self.text = self.wrap_str_literal(data)
             else:
                 self.text = str(data)
 
+        # Save intermediate URL IOCs if we find them.
+        for url in re.findall(URL_REGEX, self.text):
+            url = url[0]
+            intermediate_iocs.add(url)
 
 class XLMInterpreter:
     def __init__(self, xlm_wrapper, output_level=0):
@@ -176,6 +196,7 @@ class XLMInterpreter:
             'CLOSE': self.halt_handler,
             'CONCATENATE': self.concatenate_handler,
             'DAY': self.day_handler,
+            'DEFINE.NAME': self.define_name_handler,
             'DIRECTORY': self.directory_handler,
             'ERROR': self.error_handler,
             'FORMULA': self.formula_handler,
@@ -269,7 +290,7 @@ class XLMInterpreter:
         current_row = row
         current_addr = col + str(current_row)
         while current_addr not in macrosheet.cells or \
-                macrosheet.cells[current_addr].formula is None:
+              macrosheet.cells[current_addr].formula is None:
             if (current_row - row) < 10000:
                 current_row += 1
             else:
@@ -288,6 +309,24 @@ class XLMInterpreter:
         else:
             return None, None
 
+    def get_cell_from_workbook(self, cell_addr):
+        """
+        Get a cell from the current workbook given a cell addr of the form
+        'SHEET_NAME!COLROW', where SHEET_NAME is the sheet name, COL is the column name
+        (alphabetic characters) and ROW is the row (integer).
+        """
+
+        # Pull out the sheet name, column, and row.
+        addr_pat = r"'(\w+)'!([A-Z]+)(\d+)"
+        addr_info = re.findall(addr_pat, cell_addr)
+        if (len(addr_info) == 0):
+            # Invalid addr string.
+            return None
+        sheet_name, col, row = addr_info[0]
+
+        # Get the referenced cell.
+        return self.get_cell(sheet_name, col, row)        
+        
     def get_cell_addr(self, current_cell, cell_parse_tree):
 
         res_sheet = res_col = res_row = None
@@ -531,8 +570,14 @@ class XLMInterpreter:
     def evaluate_function(self, current_cell, parse_tree_root, interactive):
         function_name = parse_tree_root.children[0]
 
+        if debug:
+            print("FUNCTION NAME!!")
+            print(function_name)
+        
         # OFFSET()()
         if isinstance(function_name, Tree) and function_name.data == 'function_call':
+            if debug:
+                print("HERE: 1")
             func_eval_result = self.evaluate_parse_tree(current_cell, function_name, False)
             if func_eval_result.status != EvalStatus.FullEvaluation:
                 return EvalResult(func_eval_result.next_cell, func_eval_result.status, 0, XLMInterpreter.convert_ptree_to_str(parse_tree_root))
@@ -544,6 +589,8 @@ class XLMInterpreter:
         # handle alias name for a function (REGISTER)
         # c45ed3a0ce5df27ac29e0fab99dc4d462f61a0d0c025e9161ced3b2c913d57d8
         if function_name in self._registered_functions:
+            if debug:
+                print("HERE: 2")
             parse_tree_root.children[0] = parse_tree_root.children[0].update(None,
                                                                              self._registered_functions[function_name][
                                                                                  'name'])
@@ -551,10 +598,14 @@ class XLMInterpreter:
 
         # cell_function_call
         if isinstance(function_name, Tree) and function_name.data == 'cell':
+            if debug:
+                print("HERE: 3")
             self._function_call_stack.append(current_cell)
             return self.goto_handler([function_name], current_cell, interactive, parse_tree_root)
 
         if function_name.lower() in self.defined_names:
+            if debug:
+                print("HERE: 4")
             try:
                 ref_parsed = self.xlm_parser.parse('='+ self.defined_names[function_name.lower()])
                 if isinstance(ref_parsed.children[0],Tree) and ref_parsed.children[0].data =='cell':
@@ -566,16 +617,22 @@ class XLMInterpreter:
 
         # cell_function_call
         if isinstance(function_name, Tree) and function_name.data == 'cell':
+            if debug:
+                print("HERE: 5")
             self._function_call_stack.append(current_cell)
             return self.goto_handler([function_name], current_cell, interactive, parse_tree_root)
 
         if self.ignore_processing and function_name != 'NEXT':
+            if debug:
+                print("HERE: 6")
             if function_name == 'WHILE':
                 self.next_count += 1
             return EvalResult(None, EvalStatus.IGNORED, 0, '')
 
         arguments = []
         for i in parse_tree_root.children[2].children:
+            if debug:
+                print("HERE: 7")
             if type(i) is not Token:
                 if len(i.children) > 0:
                     arguments.append(i.children[0])
@@ -583,9 +640,13 @@ class XLMInterpreter:
                     arguments.append(i.children)
 
         if function_name in self._handlers:
+            if debug:
+                print("HERE: 8")
             eval_result = self._handlers[function_name](arguments, current_cell, interactive, parse_tree_root)
 
         else:
+            if debug:
+                print("HERE: 9")
             eval_result = self.evaluate_argument_list(current_cell, function_name, arguments)
 
         if function_name in XLMInterpreter.jump_functions:
@@ -846,6 +907,9 @@ class XLMInterpreter:
         if visited is False:
             self._indent_level += 1
             size = len(arguments)
+            if debug:
+                print("IF HANDLER!!")
+                print(arguments)
             if size == 3:
                 cond_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
                 if self.is_bool(cond_eval_result.value):
@@ -916,7 +980,38 @@ class XLMInterpreter:
 
         return EvalResult(None, status, return_val, text)
 
+    def define_name_handler(self, arguments, current_cell, interactive, parse_tree_root):
+
+        # DEFINE.NAME(name_text, refers_to, macro_type, shortcut_text, hidden, category, local)
+
+        # Evaluate the arguments to DEFINE.NAME()
+        if debug:
+            print("DEFINE.NAME HANDLER!!")
+        arg_eval_results = self.evaluate_argument_list(current_cell, "DEFINE.NAME", arguments)
+        if debug:
+            print("ARGS!!")
+            print(arg_eval_results)
+
+        # Set the defined name to the resolved value.
+        # DEFINE.NAME("HxoCNvuiUvSesa","http://195.123.242.72/IQ2Ytf5113.php",3,"J",TRUE,"Tc",FALSE)
+        name_pat = r'DEFINE\.NAME\("([^"]*)","([^"]*)"'
+        name_info = re.findall(name_pat, arg_eval_results.text)
+        if debug:
+            print(name_info)
+        if (len(name_info) > 0):
+            name, val = name_info[0]
+            if debug:
+                print("SET '" + name + "' = '" + val + "'")
+            self.xlm_wrapper.get_defined_names()[name] = val
+        
+        # NOT CORRECT.
+        return arg_eval_results
+        
     def goto_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        if debug:
+            print("GOTO HANDLER!!")
+            print(current_cell)
+            print(parse_tree_root)
         next_sheet, next_col, next_row = self.get_cell_addr(current_cell, arguments[0])
         next_cell = None
         if next_sheet is not None and next_sheet in self.xlm_wrapper.get_macrosheets():
@@ -926,21 +1021,44 @@ class XLMInterpreter:
             status = EvalStatus.FullEvaluation
         else:
             status = EvalStatus.Error
+
+        # Emulate the cell we are jumping to.
+        if (next_cell is not None):
+
+            # Parse the contents of the cell we jumped to.
+            if debug:
+                print("NEXT CELL!!")
+                print(next_cell.debug())
+            if (next_cell.formula is not None):
+                parse_tree = self.xlm_parser.parse(next_cell.formula)
+                func_eval_result = self.evaluate_parse_tree(next_cell, parse_tree, False)
+                if debug:
+                    print("GOTO EVAL OF " + str(next_cell))
+                    print(func_eval_result)
         text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
         return_val = 0
         return EvalResult(next_cell, status, return_val, text)
 
     def halt_handler(self, arguments, current_cell, interactive, parse_tree_root):
         return_val = text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
-        status = EvalStatus.End
+        #status = EvalStatus.End
+        status = EvalStatus.FullEvaluation
         self._indent_level -= 1
         return EvalResult(None, status, return_val, text)
 
     def call_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        if debug:
+            print("CALL HANDLER!!")
+            print(current_cell.debug())
         argument_texts = []
         status = EvalStatus.FullEvaluation
         for argument in arguments:
+            if debug:
+                print("START ARG EVAL!!" + str(argument))
             arg_eval_result = self.evaluate_parse_tree(current_cell, argument, interactive)
+            if debug:
+                print("DONE ARG EVAL!!" + str(argument))
+                print(arg_eval_result)
             if arg_eval_result.status != EvalStatus.FullEvaluation:
                 status = arg_eval_result.status
             argument_texts.append(arg_eval_result.get_text())
@@ -1185,8 +1303,8 @@ class XLMInterpreter:
             return_cell = self._function_call_stack.pop()
             return_cell.value = arg1_eval_res.value
             arg1_eval_res.next_cell = self.get_formula_cell(return_cell.sheet,
-                                              return_cell.column,
-                                              str(int(return_cell.row) + 1))
+                                                            return_cell.column,
+                                                            str(int(return_cell.row) + 1))
         if arg1_eval_res.text =='':
             arg1_eval_res.text = 'RETURN()'
 
@@ -1347,8 +1465,14 @@ class XLMInterpreter:
         text = None
         return_val = None
 
+        if debug:
+            print("EVALUATE_PARSE_TREE!!")
+            print(current_cell)
+            print(parse_tree_root)
         if type(parse_tree_root) is Token:
-            if parse_tree_root.value.lower() in self.defined_names:
+            if debug:
+                print("THERE: 1")
+            if parse_tree_root.value in self.defined_names:
                 # this formula has a defined name that can be changed
                 # current formula must be removed from cache
                 self._remove_current_formula_from_cache = True
@@ -1360,20 +1484,30 @@ class XLMInterpreter:
             result = EvalResult(next_cell, status, return_val, text)
 
         elif type(parse_tree_root) is list:
+            if debug:
+                print("THERE: 2")
             return_val = text = ''
             status = EvalStatus.FullEvaluation
             result = EvalResult(next_cell, status, return_val, text)
 
         elif parse_tree_root.data == 'function_call':
+            if debug:
+                print("THERE: 3")
             result = self.evaluate_function(current_cell, parse_tree_root, interactive)
 
         elif parse_tree_root.data == 'cell':
+            if debug:
+                print("THERE: 4")
             result = self.evaluate_cell(current_cell, interactive, parse_tree_root)
 
         elif parse_tree_root.data == 'range':
+            if debug:
+                print("THERE: 5")
             result = self.evaluate_range(current_cell, interactive, parse_tree_root)
 
         elif parse_tree_root.data in self._expr_rule_names:
+            if debug:
+                print("THERE: 6")
             text_left = None
             concat_status = EvalStatus.FullEvaluation
             for index, child in enumerate(parse_tree_root.children):
@@ -1437,15 +1571,21 @@ class XLMInterpreter:
                         value_left = left_arg_eval_res.value
 
             if concat_status == EvalStatus.PartialEvaluation and left_arg_eval_res.status == EvalStatus.FullEvaluation:
+                if debug:
+                    print("THERE: 7")
                 left_arg_eval_res.status = concat_status
 
             result = EvalResult(next_cell, left_arg_eval_res.status, return_val, EvalResult.wrap_str_literal(text_left))
 
         elif parse_tree_root.data == 'final':
+            if debug:
+                print("THERE: 8")
             arg = parse_tree_root.children[1]
             result = self.evaluate_parse_tree(current_cell, arg, interactive)
 
         else:
+            if debug:
+                print("THERE: 9")
             status = EvalStatus.FullEvaluation
             for child_node in parse_tree_root.children:
                 if child_node is not None:
@@ -1639,10 +1779,10 @@ class XLMInterpreter:
                                 if evaluation_result.value is not None:
                                     current_cell.value = str(evaluation_result.value)
                                 if evaluation_result.next_cell is None and \
-                                        (evaluation_result.status == EvalStatus.FullEvaluation or
-                                         evaluation_result.status == EvalStatus.PartialEvaluation or
-                                         evaluation_result.status == EvalStatus.NotImplemented or
-                                         evaluation_result.status == EvalStatus.IGNORED):
+                                   (evaluation_result.status == EvalStatus.FullEvaluation or
+                                    evaluation_result.status == EvalStatus.PartialEvaluation or
+                                    evaluation_result.status == EvalStatus.NotImplemented or
+                                    evaluation_result.status == EvalStatus.IGNORED):
                                     evaluation_result.next_cell = self.get_formula_cell(current_cell.sheet,
                                                                                         current_cell.column,
                                                                                         str(int(current_cell.row) + 1))
@@ -1668,9 +1808,19 @@ class XLMInterpreter:
                                             evaluation_result.get_text(unwrap=False),
                                             previous_indent)
 
+                                if debug:
+                                    print("END OF LOOP!!")
+                                    print("CURRENT CELL:")
+                                    print(current_cell.debug())
                                 if evaluation_result.next_cell is not None:
                                     current_cell = evaluation_result.next_cell
+                                    if debug:
+                                        print("NEXT CELL:")
+                                        print(current_cell.debug())
                                 else:
+                                    if debug:
+                                        print("NEXT CELL:")
+                                        print("NO NEXT CELL")
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
@@ -1681,6 +1831,8 @@ class XLMInterpreter:
                     filename = frame.f_code.co_filename
                     linecache.checkcache(filename)
                     line = linecache.getline(filename, lineno, frame.f_globals)
+                    if debug:
+                        raise exp
                     uprint('Error [{}:{} {}]: {}'.format(os.path.basename(filename),
                                                          lineno,
                                                          line.strip(),
@@ -1806,7 +1958,8 @@ def convert_to_json_str(file, defined_names, records, memory=None, files=None):
            'format_version': 1, 'analyzed_by': 'XLMMacroDeobfuscator',
            'link': 'https://github.com/DissectMalware/XLMMacroDeobfuscator', 'defined_names': defined_names,
            'records': [], 'memory_records': [], 'files':[]}
-
+    res["iocs"] = list(intermediate_iocs)
+    
     for index, i in enumerate(records):
         if len(i) == 4:
             res['records'].append({'index': index,
@@ -1867,6 +2020,8 @@ def try_decrypt(file, password=''):
                     os.remove(tmp_file_path)
                     tmp_file_path = None
     except Exception as exp:
+        if debug:
+            raise exp
         uprint(str(exp), silent_mode=SILENT)
 
     return tmp_file_path, is_encrypted
@@ -2049,6 +2204,10 @@ def process_file(**kwargs):
                                                                    interpreter._files[file]['file_content']))
 
             uprint('[END of Deobfuscation]', silent_mode=SILENT)
+            uprint('\n[Intermediate IOCs]\n', silent_mode=SILENT)
+            for ioc in intermediate_iocs:
+                uprint(ioc, silent_mode=SILENT)
+            uprint('\n', silent_mode=SILENT)
 
             if kwargs.get("export_json"):
                 uprint('[Dumping Json]', silent_mode=SILENT)
@@ -2149,6 +2308,8 @@ def main():
             try:
                 process_file(**vars(args))
             except Exception as exp:
+                if debug:
+                    raise exp
                 exc_type, exc_obj, traceback = sys.exc_info()
                 frame = traceback.tb_frame
                 lineno = traceback.tb_lineno

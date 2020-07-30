@@ -41,6 +41,20 @@ class Cell:
     def __str__(self):
         return "'{}'!{}".format(self.sheet.name,self.get_local_address())
 
+    def debug(self):
+        """
+        Return a string with full details about the cell.
+        """
+        r = ""
+        r += "Address:\t\t" + str(self) + "\n"
+        r += "Sheet:\t\t" + str(self.sheet) + "\n"
+        r += "Column:\t\t" + str(self.column) + "\n"
+        r += "Row:\t\t" + str(self.row) + "\n"
+        r += "Formula:\t\t" + str(self.formula) + "\n"
+        r += "Value:\t\t" + str(self.value) + "\n"
+        r += "Attributes:\t\t" + str(self.attributes) + "\n"
+        return r
+    
     @staticmethod
     def convert_to_column_index(s):
         number = 0
