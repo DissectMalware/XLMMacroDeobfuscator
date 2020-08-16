@@ -125,6 +125,8 @@ class EvalResult:
 class XLMInterpreter:
     def __init__(self, xlm_wrapper, output_level=0):
         self.xlm_wrapper = xlm_wrapper
+        self.halt_interpreter = False
+        self.interpreter_output_handler = None
         self._formula_cache = {}
         self.cell_addr_regex_str = r"((?P<sheetname>[^\s]+?|'.+?')!)?\$?(?P<column>[a-zA-Z]+)\$?(?P<row>\d+)"
         self.cell_addr_regex = re.compile(self.cell_addr_regex_str)
@@ -804,15 +806,28 @@ class XLMInterpreter:
             total_count = 0
             xlm = copy.copy(xlm)
             xlm.day_of_month = day
-            try:
-                for index, step in enumerate(xlm.deobfuscate_macro(False, silent_mode=True)):
-                    for char in step[2]:
-                        if not (32 <= ord(char) <= 128):
-                            non_printable_ascii += 1
-                    total_count += len(step[2])
 
-                    if index > 10 and ((non_printable_ascii + xlm.char_error_count) / total_count) > min:
-                        break
+            def track_non_ascii_chars(step):
+                for char in step[2]:
+                    if not (32 <= ord(char) <= 128):
+                        track_non_ascii_chars.non_printable_ascii += 1
+                track_non_ascii_chars.total_count = track_non_ascii_chars.total_count + len(step[2])
+
+                if track_non_ascii_chars.index > 10 and ((track_non_ascii_chars.non_printable_ascii + xlm.char_error_count) / track_non_ascii_chars.total_count) > min:
+                    xlm.halt_interpreter = True
+                track_non_ascii_chars.index += 1
+
+            track_non_ascii_chars.non_printable_ascii = 0
+            track_non_ascii_chars.total_count = 0
+            track_non_ascii_chars.index = 0
+
+            try:
+                xlm.interpreter_output_handler = track_non_ascii_chars
+
+                xlm.deobfuscate_macro(False, silent_mode=True)
+
+                total_count = track_non_ascii_chars.total_count
+                non_printable_ascii = track_non_ascii_chars.non_printable_ascii
 
                 if total_count != 0 and ((non_printable_ascii + xlm.char_error_count) / total_count) < min:
                     min = ((non_printable_ascii + xlm.char_error_count) / total_count)
@@ -1588,6 +1603,9 @@ class XLMInterpreter:
                             self._indent_level = indent_level
                             stack_record = True
                             while current_cell is not None:
+                                if self.halt_interpreter:
+                                    break
+
                                 if type(formula) is str:
                                     replace_op = getattr(self.xlm_wrapper, "replace_nonprintable_chars", None)
                                     if callable(replace_op):
@@ -1648,15 +1666,15 @@ class XLMInterpreter:
                                     if self.output_level >= 3 and evaluation_result.output_level == 2:
                                         strings = self.extract_strings(evaluation_result.get_text(unwrap=True))
                                         if strings:
-                                            yield (
+                                            self.interpreter_output_handler((
                                                 current_cell, evaluation_result.status,
                                                 '\n'.join(strings),
-                                                previous_indent)
+                                                previous_indent))
                                     elif evaluation_result.output_level >= self.output_level:
-                                        yield (
-                                            current_cell, evaluation_result.status,
+                                        self.interpreter_output_handler (
+                                            (current_cell, evaluation_result.status,
                                             evaluation_result.get_text(unwrap=False),
-                                            previous_indent)
+                                            previous_indent))
 
                                 if evaluation_result.next_cell is not None:
                                     current_cell = evaluation_result.next_cell
@@ -2010,14 +2028,19 @@ def process_file(**kwargs):
             output_format = kwargs.get("output_formula_format", 'CELL:[[CELL-ADDR]], [[STATUS]], [[INT-FORMULA]]')
             start_point = kwargs.get("start_point", '')
 
-            for step in interpreter.deobfuscate_macro(interactive, start_point):
+            def print_result(interpretation_result):
                 if kwargs.get("return_deobfuscated"):
                     deobfuscated.append(
-                        get_formula_output(step, output_format, not kwargs.get("no_indent")))
+                        get_formula_output(interpretation_result, output_format, not kwargs.get("no_indent")))
                 elif kwargs.get("export_json"):
-                    interpreted_lines.append(step)
+                    interpreted_lines.append(interpretation_result)
                 else:
-                    uprint(get_formula_output(step, output_format, not kwargs.get("no_indent")))
+                    uprint(get_formula_output(interpretation_result, output_format, not kwargs.get("no_indent")))
+
+            interpreter.interpreter_output_handler = print_result
+
+            interpreter.deobfuscate_macro(interactive, start_point)
+
             if interpreter.day_of_month is not None:
                 uprint('[Day of Month] {}'.format(interpreter.day_of_month))
 
