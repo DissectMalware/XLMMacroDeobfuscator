@@ -1137,7 +1137,7 @@ class XLMInterpreter:
     def len_handler(self, arguments, current_cell, interactive, parse_tree_root):
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         if arg_eval_result.status == EvalStatus.FullEvaluation:
-            return_val = len(arg_eval_result.get_text(unwrap=True))
+            return_val = len(str(arg_eval_result.value))
             text = str(return_val)
             status = EvalStatus.FullEvaluation
         else:
