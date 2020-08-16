@@ -168,6 +168,7 @@ class XLMInterpreter:
             'SET.VALUE': self.set_value_handler,
             'SET.NAME': self.set_name_handler,
             'ACTIVE.CELL': self.active_cell_handler,
+            'APP.MAXIMIZE': self.app_maximize_handler,
 
             # functions
             'AND': self.and_handler,
@@ -638,6 +639,9 @@ class XLMInterpreter:
             return_val = text
 
         return EvalResult(None, status, return_val, text)
+
+    def app_maximize_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        return EvalResult(None, EvalStatus.FullEvaluation, True, 'TRUE')
 
     def get_cell_handler(self, arguments, current_cell, interactive, parse_tree_root):
         if len(arguments) == 2:
