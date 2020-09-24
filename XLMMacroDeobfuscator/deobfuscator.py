@@ -1285,7 +1285,7 @@ class XLMInterpreter:
                 return_val = 0
 
             if status != EvalStatus.FullEvaluation:
-                text = self.convert_ptree_to_str(current_cell, parse_tree_root)
+                text = self.convert_ptree_to_str(parse_tree_root)
                 return_val = 0
 
             return EvalResult(None, status, return_val, text)
