@@ -459,6 +459,9 @@ class XLMInterpreter:
 
         src_eval_result = self.evaluate_parse_tree(current_cell, source, interactive)
 
+        if isinstance(destination, Token):
+            destination = self.xlm_wrapper.get_defined_name(destination)
+
         if destination.data == 'defined_name' or destination.data=='name':
             formula_str = self.xlm_wrapper.get_defined_name(destination.children[2])
             destination = self.xlm_parser.parse('='+formula_str).children[0]
@@ -1334,11 +1337,11 @@ class XLMInterpreter:
         return_val = None
 
         if type(parse_tree_root) is Token:
-            if parse_tree_root.value in self.defined_names:
+            if parse_tree_root.value.lower() in self.defined_names:
                 # this formula has a defined name that can be changed
                 # current formula must be removed from cache
                 self._remove_current_formula_from_cache = True
-                parse_tree_root.value = self.defined_names[parse_tree_root.value]
+                parse_tree_root.value = self.defined_names[parse_tree_root.value.lower()]
 
             text = parse_tree_root.value
             status = EvalStatus.FullEvaluation
