@@ -396,13 +396,14 @@ class XLMInterpreter:
 
             cell.value = text
 
-    def convert_ptree_to_str(self, parse_tree_root):
+    @staticmethod
+    def convert_ptree_to_str(parse_tree_root):
         if type(parse_tree_root) == Token:
             return str(parse_tree_root)
         else:
             result = ''
             for child in parse_tree_root.children:
-                result += self.convert_ptree_to_str(child)
+                result += XLMInterpreter.convert_ptree_to_str(child)
             return result
 
     def get_window(self, number):
@@ -473,7 +474,7 @@ class XLMInterpreter:
             dst_start_sheet, dst_start_col, dst_start_row = self.get_cell_addr(current_cell, destination)
             dst_end_sheet, dst_end_col, dst_end_row = dst_start_sheet, dst_start_col, dst_start_row
 
-        destination_str = self.convert_ptree_to_str(destination)
+        destination_str = XLMInterpreter.convert_ptree_to_str(destination)
 
         text = src_eval_result.get_text(unwrap=True)
         if src_eval_result.status == EvalStatus.FullEvaluation:
@@ -528,9 +529,9 @@ class XLMInterpreter:
         if isinstance(function_name, Tree) and function_name.data == 'function_call':
             func_eval_result = self.evaluate_parse_tree(current_cell, function_name, False)
             if func_eval_result.status != EvalStatus.FullEvaluation:
-                return EvalResult(func_eval_result.next_cell, func_eval_result.status, 0, self.convert_ptree_to_str(parse_tree_root))
+                return EvalResult(func_eval_result.next_cell, func_eval_result.status, 0, XLMInterpreter.convert_ptree_to_str(parse_tree_root))
             else:
-                func_eval_result.text = self.convert_ptree_to_str(parse_tree_root)
+                func_eval_result.text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
                 return func_eval_result
 
 
@@ -637,7 +638,7 @@ class XLMInterpreter:
             return_val = val
             text = str(return_val)
         else:
-            text = self.convert_ptree_to_str(parse_tree_root)
+            text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
             return_val = text
 
         return EvalResult(None, status, return_val, text)
@@ -659,22 +660,22 @@ class XLMInterpreter:
                     text = str(return_val)
                     status = EvalStatus.FullEvaluation
                 elif not_implemented:
-                    text = self.convert_ptree_to_str(parse_tree_root)
+                    text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
                     return_val = ''
                 else:
                     text = str(data) if data is not None else None
                     return_val = data
                     status = EvalStatus.FullEvaluation
         else:
-            text = self.convert_ptree_to_str(parse_tree_root)
+            text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
             return_val = ''
             status = EvalStatus.PartialEvaluation
         return EvalResult(None, status, return_val, text)
 
     def set_name_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        label = EvalResult.unwrap_str_literal(self.convert_ptree_to_str(arguments[0])).lower()
+        label = EvalResult.unwrap_str_literal(XLMInterpreter.convert_ptree_to_str(arguments[0])).lower()
         if isinstance(arguments[1], Tree) and arguments[1].data == 'cell':
-            arg2_text = self.convert_ptree_to_str(arguments[1])
+            arg2_text = XLMInterpreter.convert_ptree_to_str(arguments[1])
             names = self.xlm_wrapper.get_defined_names()
             names[label] = arguments[1]
             text = 'SET.NAME({},{})'.format(label, arg2_text)
@@ -690,7 +691,7 @@ class XLMInterpreter:
                 return_val = 0
                 status = EvalStatus.FullEvaluation
             else:
-                return_val = text = self.convert_ptree_to_str(parse_tree_root)
+                return_val = text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
                 status = arg2_eval_result.status
 
         return EvalResult(None, status, return_val, text)
@@ -716,7 +717,7 @@ class XLMInterpreter:
                 next_cell = None
 
         if status == EvalStatus.Error:
-            return_val = text = self.convert_ptree_to_str(parse_tree_root)
+            return_val = text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
 
         return EvalResult(None, status, return_val, text)
 
@@ -728,14 +729,14 @@ class XLMInterpreter:
             if arg_eval_result.status == EvalStatus.FullEvaluation and self.is_float(arg_eval_result.get_text()):
                 window_param = self.get_window(int(float(arg_eval_result.get_text())))
                 current_cell.value = window_param
-                text = window_param  # self.convert_ptree_to_str(parse_tree_root)
+                text = window_param  # XLMInterpreter.convert_ptree_to_str(parse_tree_root)
                 return_val = window_param
                 status = EvalStatus.FullEvaluation
             else:
                 return_val = text = 'GET.WINDOW({})'.format(arg_eval_result.get_text())
                 status = arg_eval_result.status
         if status == EvalStatus.Error:
-            return_val = text = self.convert_ptree_to_str(parse_tree_root)
+            return_val = text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
 
         return EvalResult(None, status, return_val, text)
 
@@ -752,7 +753,7 @@ class XLMInterpreter:
                 return_val = 0
 
         if status == EvalStatus.Error:
-            return_val = text = self.convert_ptree_to_str(parse_tree_root)
+            return_val = text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
             next_cell = None
 
         return EvalResult(next_cell, status, return_val, text)
@@ -784,7 +785,7 @@ class XLMInterpreter:
                     text = 'DAY(Serial Date)'
                     status = EvalStatus.NotImplemented
             else:
-                text = self.convert_ptree_to_str(parse_tree_root)
+                text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
                 status = arg1_eval_result.status
         else:
             text = str(self.day_of_month)
@@ -864,7 +865,7 @@ class XLMInterpreter:
                             status = EvalStatus.Branching
                         else:
                             status = EvalStatus.FullEvaluation
-                    text = self.convert_ptree_to_str(parse_tree_root)
+                    text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
 
                 else:
                     memory_state = copy.deepcopy(current_cell.sheet.cells)
@@ -876,15 +877,15 @@ class XLMInterpreter:
                         self._branch_stack.append(
                             (current_cell, arguments[1], current_cell.sheet.cells, self._indent_level, '[TRUE]'))
 
-                    text = self.convert_ptree_to_str(parse_tree_root)
+                    text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
 
                     status = EvalStatus.FullBranching
             else:
                 status = EvalStatus.FullEvaluation
-                text = self.convert_ptree_to_str(parse_tree_root)
+                text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
         else:
             # loop detected
-            text = '[[LOOP]]: ' + self.convert_ptree_to_str(parse_tree_root)
+            text = '[[LOOP]]: ' + XLMInterpreter.convert_ptree_to_str(parse_tree_root)
             status = EvalStatus.End
         return EvalResult(None, status, 0, text)
 
@@ -903,9 +904,9 @@ class XLMInterpreter:
                     text = str(return_val)
                     status = EvalStatus.FullEvaluation
         if status == EvalStatus.PartialEvaluation:
-            text = 'MID({},{},{})'.format(self.convert_ptree_to_str(arguments[0]),
-                                          self.convert_ptree_to_str(arguments[1]),
-                                          self.convert_ptree_to_str(arguments[2]))
+            text = 'MID({},{},{})'.format(XLMInterpreter.convert_ptree_to_str(arguments[0]),
+                                          XLMInterpreter.convert_ptree_to_str(arguments[1]),
+                                          XLMInterpreter.convert_ptree_to_str(arguments[2]))
 
         return EvalResult(None, status, return_val, text)
 
@@ -919,12 +920,12 @@ class XLMInterpreter:
             status = EvalStatus.FullEvaluation
         else:
             status = EvalStatus.Error
-        text = self.convert_ptree_to_str(parse_tree_root)
+        text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
         return_val = 0
         return EvalResult(next_cell, status, return_val, text)
 
     def halt_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        return_val = text = self.convert_ptree_to_str(parse_tree_root)
+        return_val = text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
         status = EvalStatus.End
         self._indent_level -= 1
         return EvalResult(None, status, return_val, text)
@@ -1002,7 +1003,7 @@ class XLMInterpreter:
                 cell.value = text
                 status = EvalStatus.FullEvaluation
             else:
-                return_val = text = self.convert_ptree_to_str(parse_tree_root)
+                return_val = text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
                 self.char_error_count += 1
                 status = EvalStatus.Error
         else:
@@ -1024,14 +1025,14 @@ class XLMInterpreter:
                     text = 'RUN({}!{}{})'.format(next_sheet, next_col, next_row)
                 else:
                     text = 'RUN({}!{}{}, {})'.format(next_sheet, next_col, next_row,
-                                                     self.convert_ptree_to_str(arguments[1]))
+                                                     XLMInterpreter.convert_ptree_to_str(arguments[1]))
                 status = EvalStatus.FullEvaluation
             else:
-                text = self.convert_ptree_to_str(parse_tree_root)
+                text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
                 status = EvalStatus.Error
             return_val = 0
         else:
-            text = self.convert_ptree_to_str(parse_tree_root)
+            text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
             status = EvalStatus.Error
 
         return EvalResult(next_cell, status, return_val, text)
@@ -1046,7 +1047,7 @@ class XLMInterpreter:
         return self.evaluate_formula(current_cell, 'SET.VALUE', arguments, interactive, destination_arg=2)
 
     def error_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        return EvalResult(None, EvalStatus.FullEvaluation, 0, self.convert_ptree_to_str(parse_tree_root))
+        return EvalResult(None, EvalStatus.FullEvaluation, 0, XLMInterpreter.convert_ptree_to_str(parse_tree_root))
 
     def select_handler(self, arguments, current_cell, interactive, parse_tree_root):
         status = EvalStatus.PartialEvaluation
@@ -1064,7 +1065,7 @@ class XLMInterpreter:
                 self.active_cell = self.get_cell(sheet, col, row)
                 status = EvalStatus.FullEvaluation
         elif isinstance(arguments[0], Token):
-            text = self.convert_ptree_to_str(parse_tree_root)
+            text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
             return_val = 0
         elif arguments[0].data == 'range':
             # e.g., SELECT(D1:D10:D1)
@@ -1082,7 +1083,7 @@ class XLMInterpreter:
                 self.active_cell = self.get_cell(sheet, col, row)
                 status = EvalStatus.FullEvaluation
 
-        text = self.convert_ptree_to_str(parse_tree_root)
+        text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
         return_val = 0
 
         return EvalResult(None, status, return_val, text)
@@ -1098,11 +1099,11 @@ class XLMInterpreter:
         if condition_eval_result.status == EvalStatus.FullEvaluation:
             if str(condition_eval_result.value).lower() == 'true':
                 stack_record['status'] = True
-            text = '{} -> [{}]'.format(self.convert_ptree_to_str(parse_tree_root),
+            text = '{} -> [{}]'.format(XLMInterpreter.convert_ptree_to_str(parse_tree_root),
                                        str(condition_eval_result.value))
 
         if not text:
-            text = '{}'.format(self.convert_ptree_to_str(parse_tree_root))
+            text = '{}'.format(XLMInterpreter.convert_ptree_to_str(parse_tree_root))
 
         self._while_stack.append(stack_record)
 
@@ -1140,7 +1141,7 @@ class XLMInterpreter:
             text = str(return_val)
             status = EvalStatus.FullEvaluation
         else:
-            text = self.convert_ptree_to_str(parse_tree_root)
+            text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
             return_val = text
             status = EvalStatus.PartialEvaluation
         return EvalResult(None, status, return_val, text)
@@ -1163,7 +1164,7 @@ class XLMInterpreter:
             text = self.evaluate_argument_list(current_cell, 'REGISTER', arguments).get_text(unwrap=True)
         else:
             status = EvalStatus.Error
-            text = self.convert_ptree_to_str(parse_tree_root)
+            text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
         return_val = 0
 
         return EvalResult(None, status, return_val, text)
@@ -1228,7 +1229,7 @@ class XLMInterpreter:
             status = EvalStatus.FullEvaluation
             next = self.get_formula_cell(self.xlm_wrapper.get_macrosheets()[cell[0]], col, row)
 
-        text = self.convert_ptree_to_str(parse_tree_root)
+        text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
 
         return EvalResult(next, status, value, text)
 
@@ -1253,7 +1254,7 @@ class XLMInterpreter:
             status = EvalStatus.PartialEvaluation
             return_val = 0
 
-        text = self.convert_ptree_to_str(parse_tree_root)
+        text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
         return EvalResult(None, status, return_val, text)
 
     def WriteProcessMemory_handler(self, arguments, current_cell, interactive, parse_tree_root):
@@ -1285,7 +1286,7 @@ class XLMInterpreter:
                 return_val = 0
 
             if status != EvalStatus.FullEvaluation:
-                text = self.convert_ptree_to_str(parse_tree_root)
+                text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
                 return_val = 0
 
             return EvalResult(None, status, return_val, text)
@@ -1310,7 +1311,7 @@ class XLMInterpreter:
                     size_res.get_text())
 
         if status == status.PartialEvaluation:
-            text = self.convert_ptree_to_str(parse_tree_root)
+            text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
 
         return_val = 0
         return EvalResult(None, status, return_val, text)
@@ -1411,7 +1412,7 @@ class XLMInterpreter:
                                 op_res = self._operators[op_str](value_left, value_right)
                                 value_left = op_res
                             else:
-                                value_left = self.convert_ptree_to_str(parse_tree_root)
+                                value_left = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
                                 left_arg_eval_res.status = EvalStatus.PartialEvaluation
                         text_left = value_left
                     else:
@@ -1486,7 +1487,7 @@ class XLMInterpreter:
                     text = ''
                     status = EvalStatus.FullEvaluation
         else:
-            text = self.convert_ptree_to_str(parse_tree_root)
+            text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
 
         return EvalResult(None, status, return_val, text)
 
@@ -1500,7 +1501,7 @@ class XLMInterpreter:
                 selected = self.get_cell_addr(current_cell, parse_tree_root.children[4])
             self.selected_range = (start_address, end_address, selected)
             status = EvalStatus.FullEvaluation
-        text = self.convert_ptree_to_str(parse_tree_root)
+        text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
         retunr_val = 0
 
         return EvalResult(None, status, retunr_val, text)
@@ -1785,6 +1786,11 @@ def convert_to_json_str(file, defined_names, records, memory=None, files=None):
     file_content = open(file, 'rb').read()
     md5 = hashlib.md5(file_content).hexdigest()
     sha256 = hashlib.sha256(file_content).hexdigest()
+
+    if defined_names:
+        for key, val in defined_names.items():
+            if isinstance(val, Tree):
+                defined_names[key]= XLMInterpreter.convert_ptree_to_str(val)
 
     res = {'file_path': file, 'md5_hash': md5, 'sha256_hash': sha256, 'analysis_timestamp': int(time.time()),
            'format_version': 1, 'analyzed_by': 'XLMMacroDeobfuscator',
