@@ -1310,7 +1310,7 @@ class XLMInterpreter:
                     mem_data.hex(),
                     size_res.get_text())
 
-        if status == status.PartialEvaluation:
+        if status == EvalStatus.PartialEvaluation:
             text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
 
         return_val = 0
@@ -1916,7 +1916,7 @@ def process_file(**kwargs):
         uprint('Encrypted {} file'.format(file_type), silent_mode=SILENT)
         if decrypted_file_path is None:
             raise Exception(
-                'Failed to decrypt the file\nUse --password switch to provide the correct password'.format(file_path))
+                'Failed to decrypt {}\nUse --password switch to provide the correct password'.format(file_path))
         file_path = decrypted_file_path
     else:
         uprint('Unencrypted {} file\n'.format(file_type), silent_mode=SILENT)
