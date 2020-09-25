@@ -49,7 +49,8 @@ class XLSWrapper2(ExcelWrapper):
                 else:
                     index = 0
 
-                filtered_name = self.replace_nonprintable_chars(name, replace_char='_').lower()
+                # filtered_name = self.replace_nonprintable_chars(name, replace_char='_').lower()
+                filtered_name = name.lower()
                 if name != filtered_name:
                     if filtered_name in self._defined_names:
                         filtered_name = filtered_name + str(index)
@@ -75,6 +76,27 @@ class XLSWrapper2(ExcelWrapper):
             for defined_name, cell_address in self.get_defined_names().items():
                 if defined_name.startswith(name):
                     result.append((defined_name, cell_address))
+
+        # By @JohnLaTwC:
+        # if no matches, try matching 'name' by looking for its characters
+        # in the same order (ignoring junk chars from UTF16 etc in between. Eg:
+        # Auto_open:
+        #   match:    'a_u_t_o___o__p____e_n'
+        #   not match:'o_p_e_n_a_u_to__'
+        # Reference: https://malware.pizza/2020/05/12/evading-av-with-excel-macros-and-biff8-xls/
+        # Sample: e23f9f55e10f3f31a2e76a12b174b6741a2fa1f51cf23dbd69cf169d92c56ed5
+        if len(result) == 0:
+            for defined_name, cell_address in self.get_defined_names().items():
+                lastidx = 0
+                fMatch = True
+                for c in name:
+                    idx = defined_name.find(c, lastidx)
+                    if idx == -1:
+                        fMatch = False
+                    lastidx = idx
+                if fMatch:
+                    result.append((defined_name, cell_address))
+                ##print("fMatch for %s in %s is %d:" % (name,defined_name, fMatch))
 
         return result
 
