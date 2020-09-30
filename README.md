@@ -147,6 +147,15 @@ xlmdeobfuscator can be executed on any OS to extract and deobfuscate macros in x
 Note: if you want to use MS Excel (on Windows), you need to install pywin32 library and use --with-ms-excel switch.
 If --with-ms-excel is used, xlmdeobfuscator, first, attempts to load xls files with MS Excel, if it fails it uses [xlrd2 library](https://github.com/DissectMalware/xlrd2).
 
+# Project Using XLMMacroDeofuscator
+XLMMacroDeofuscator is adopted in the following projects:
+* [CAPE Sandbox](https://github.com/ctxis/CAPE)
+* [FAME](https://certsocietegenerale.github.io/fame/)
+* [REMNUX](https://remnux.org/)
+* [IntlOwl](https://github.com/certego/IntelOwl)
+
+Please contact me if you incorporated XLMMacroDeofuscator in your project.
+
 # How to Contribute
 If you found a bug or would like to suggest an improvement, please create a new issue on the [issues page](https://github.com/DissectMalware/XLMMacroDeobfuscator/issues).
 
