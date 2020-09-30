@@ -464,8 +464,11 @@ class XLMInterpreter:
             destination = self.xlm_wrapper.get_defined_name(destination)
 
         if destination.data == 'defined_name' or destination.data=='name':
-            formula_str = self.xlm_wrapper.get_defined_name(destination.children[2])
-            destination = self.xlm_parser.parse('='+formula_str).children[0]
+            defined_name_formula = self.xlm_wrapper.get_defined_name(destination.children[2])
+            if isinstance(defined_name_formula, Tree):
+                destination = defined_name_formula
+            else:
+                destination = self.xlm_parser.parse('='+defined_name_formula).children[0]
 
         if destination.data == 'range':
             dst_start_sheet, dst_start_col, dst_start_row = self.get_cell_addr(current_cell, destination.children[0])

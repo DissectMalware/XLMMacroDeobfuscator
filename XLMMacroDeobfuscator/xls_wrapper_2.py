@@ -85,7 +85,7 @@ class XLSWrapper2(ExcelWrapper):
         #   not match:'o_p_e_n_a_u_to__'
         # Reference: https://malware.pizza/2020/05/12/evading-av-with-excel-macros-and-biff8-xls/
         # Sample: e23f9f55e10f3f31a2e76a12b174b6741a2fa1f51cf23dbd69cf169d92c56ed5
-        if len(result) == 0:
+        if isinstance(result, list) and len(result) == 0:
             for defined_name, cell_address in self.get_defined_names().items():
                 lastidx = 0
                 fMatch = True
