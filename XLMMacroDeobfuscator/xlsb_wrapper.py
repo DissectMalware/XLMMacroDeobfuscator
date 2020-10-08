@@ -42,13 +42,19 @@ class XLSBWrapper(ExcelWrapper):
         return result
 
     def load_cells(self, boundsheet):
+        row_cnt = 0
         with self._xlsb_workbook.get_sheet_by_name(boundsheet.name) as sheet:
             for row in sheet:
+                if row_cnt > 1048576:
+                    break
+                row_cnt = row_cnt + 1
+                column_cnt = 0
                 for cell in row:
+                    if column_cnt > 16384:
+                        break
                     tmp_cell = Cell()
                     tmp_cell.row = cell.row_num + 1
                     tmp_cell.column = Cell.convert_to_column_name(cell.col + 1)
-
                     tmp_cell.value = cell.value
                     tmp_cell.sheet = boundsheet
                     formula_str = Formula.parse(cell.formula)
@@ -61,6 +67,7 @@ class XLSBWrapper(ExcelWrapper):
                             print('ERROR ' + str(cell))
                     if tmp_cell.value is not None or tmp_cell.formula is not None:
                         boundsheet.cells[tmp_cell.get_local_address()] = tmp_cell
+                    column_cnt = column_cnt + 1
 
     def get_macrosheets(self):
         if self._macrosheets is None:
