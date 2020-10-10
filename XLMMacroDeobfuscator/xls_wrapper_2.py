@@ -81,11 +81,11 @@ class XLSWrapper2(ExcelWrapper):
 
     
     def xlref(self, row, column, zero_indexed=True):
-        from openpyxl.utils import get_column_letter
+
         if zero_indexed:
             row += 1
             column += 1
-        return '$'+ get_column_letter(column) + '$'+ str(row)
+        return '$'+ Cell.convert_to_column_name(column) + '$'+ str(row)
 
 
     def get_defined_name(self, name, full_match=True):
