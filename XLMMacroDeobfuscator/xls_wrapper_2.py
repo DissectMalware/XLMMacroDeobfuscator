@@ -60,10 +60,33 @@ class XLSWrapper2(ExcelWrapper):
                 if name in self._defined_names:
                     name = name + str(index)
                 if cells[0].result is not None:
-                    self._defined_names[name] = cells[0].result.text
-
+                    cell_location = cells[0].result.text
+                    if '$' in cell_location:
+                        self._defined_names[name] = cells[0].result.text
+                    else:
+                        # By @JohnLaTwC:
+                        # handled mangled cell name as in:
+                        # 8a868633be770dc26525884288c34ba0621170af62f0e18c19b25a17db36726a
+                        # defined name auto_open found at Operand(kind=oREF, value=[Ref3D(coords=(1, 2, 321, 322, 14, 15))], text='sgd7t!\x00\x00\x00\x00\x00\x00\x00\x00') 
+                        curr_cell = cells[0].result
+                        if ('auto_open' in name):
+                            coords = curr_cell.value[0].coords
+                            r = int(coords[3])
+                            c = int(coords[5])
+                            sheet_name = curr_cell.text.split('!')[0].replace("'", '') 
+                            cell_location_xlref = sheet_name + '!' + self.xlref(row = r,column = c, zero_indexed = False)
+                            self._defined_names[name] = cell_location_xlref
 
         return self._defined_names
+
+    
+    def xlref(self, row, column, zero_indexed=True):
+
+        if zero_indexed:
+            row += 1
+            column += 1
+        return '$'+ Cell.convert_to_column_name(column) + '$'+ str(row)
+
 
     def get_defined_name(self, name, full_match=True):
         result = []

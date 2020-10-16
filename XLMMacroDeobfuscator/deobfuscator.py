@@ -1123,6 +1123,7 @@ class XLMInterpreter:
 
     def next_handler(self, arguments, current_cell, interactive, parse_tree_root):
         status = EvalStatus.FullEvaluation
+        next_cell = None
         if self.next_count == 0:
             self.ignore_processing = False
             next_cell = None
