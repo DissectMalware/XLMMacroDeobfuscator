@@ -33,11 +33,11 @@ class XLSBWrapper(ExcelWrapper):
     def get_defined_name(self, name, full_match=True):
         result = []
         if full_match:
-            if name in self.get_defined_names():
-                result.append(self.get_defined_names()[name])
+            if name.lower() in self.get_defined_names():
+                result.append(self.get_defined_names()[name.lower()])
         else:
             for defined_name, cell_address in self.get_defined_names().items():
-                if defined_name.startswith(name):
+                if defined_name.startswith(name.lower()):
                     result.append(cell_address)
         return result
 
