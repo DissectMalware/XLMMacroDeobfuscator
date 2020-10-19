@@ -461,7 +461,10 @@ class XLMInterpreter:
         src_eval_result = self.evaluate_parse_tree(current_cell, source, interactive)
 
         if isinstance(destination, Token):
+            # TODO: get_defined_name must return a list; currently it returns list or one item
             destination = self.xlm_wrapper.get_defined_name(destination)
+            if isinstance(destination, list):
+                destination = [] if not destination else destination[0]
 
         if destination.data == 'defined_name' or destination.data=='name':
             defined_name_formula = self.xlm_wrapper.get_defined_name(destination.children[2])
