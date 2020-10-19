@@ -1039,6 +1039,7 @@ class XLMInterpreter:
                 if debug:
                     print("GOTO EVAL OF " + str(next_cell))
                     print(func_eval_result)
+
         text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
         return_val = 0
         return EvalResult(next_cell, status, return_val, text)
