@@ -52,7 +52,6 @@ class EvalStatus(Enum):
     FullBranching = 7
     IGNORED = 8
 
-
 intermediate_iocs = set()
 URL_REGEX = r'.*([hH][tT][tT][pP][sS]?://(([a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-\.]+(:[0-9]+)?)+(/([/\?&\~=a-zA-Z0-9_\-\.](?!http))+)?)).*'
     
@@ -494,10 +493,14 @@ class XLMInterpreter:
 
     def evaluate_formula(self, current_cell, name, arguments, interactive, destination_arg=1):
 
+        current_cell.emulated = True
         source, destination = (arguments[0], arguments[1]) if destination_arg == 1 else (arguments[1], arguments[0])
 
         src_eval_result = self.evaluate_parse_tree(current_cell, source, interactive)
 
+        if (not hasattr(destination, "data")):
+            return EvalResult(current_cell, EvalStatus.Error, 0, "")
+        
         if destination.data == 'defined_name' or destination.data=='name':
             formula_str = self.xlm_wrapper.get_defined_name(destination.children[2])
             destination = self.xlm_parser.parse('='+formula_str).children[0]
@@ -545,6 +548,7 @@ class XLMInterpreter:
         return EvalResult(None, src_eval_result.status, return_val, text)
 
     def evaluate_argument_list(self, current_cell, name, arguments):
+        current_cell.emulated = True
         args_str = ''
         for argument in arguments:
             if type(argument) is Token or type(argument) is Tree:
@@ -558,6 +562,7 @@ class XLMInterpreter:
         return EvalResult(None, status, return_val, text)
 
     def evaluate_function(self, current_cell, parse_tree_root, interactive):
+        current_cell.emulated = True
         function_name = parse_tree_root.children[0]
 
         if debug:
@@ -1449,6 +1454,7 @@ class XLMInterpreter:
         return result
 
     def evaluate_parse_tree(self, current_cell, parse_tree_root, interactive=True):
+        current_cell.emulated = True
         next_cell = None
         status = EvalStatus.NotImplemented
         text = None
@@ -1588,6 +1594,7 @@ class XLMInterpreter:
         return result
 
     def evaluate_cell(self, current_cell, interactive, parse_tree_root):
+        current_cell.emulated = True
         sheet_name, col, row = self.get_cell_addr(current_cell, parse_tree_root)
         return_val = ''
         text = ''
@@ -1631,6 +1638,7 @@ class XLMInterpreter:
         return EvalResult(None, status, return_val, text)
 
     def evaluate_range(self, current_cell, interactive, parse_tree_root):
+        current_cell.emulated = True
         status = EvalStatus.PartialEvaluation
         if len(parse_tree_root.children) >= 3:
             start_address = self.get_cell_addr(current_cell, parse_tree_root.children[0])
@@ -1699,7 +1707,41 @@ class XLMInterpreter:
             result.append(match.string[match.start(0):match.end(0)])
         return result
 
-    def deobfuscate_macro(self, interactive, start_point="", silent_mode=False):
+    def do_brute_force_emulation(self, silent_mode=False):
+
+        # Emulate each previously unemulated cell. Just do this on the same sheet as
+        # the original cells used to start emulation.
+        for start_point in self.auto_open_labels:
+            start_point = start_point[1]
+            sheet_name, _, _ = Cell.parse_cell_addr(start_point)
+            sheets = self.xlm_wrapper.get_macrosheets()
+            #print("START BRUTE!!")
+            #print(sheet_name)
+            #print(start_point)
+            if sheet_name in sheets:
+                sheet = sheets[sheet_name]
+                #print("\nBRUTE CELLS!!")
+                for cell_addr in sheet.cells.keys():
+
+                    # Do we need to emulate this cell?
+                    curr_cell = sheet.cells[cell_addr]
+                    if ((curr_cell.formula is None) or (curr_cell.emulated)):
+                        # No, skip it.
+                        continue
+
+                    # Yes, we need to emulate this cell.
+
+                    # Parse and emulate the cell formula.
+                    #print(sheet.cells[cell_addr].debug())
+                    parse_tree = None
+                    try:
+                        parse_tree = self.xlm_parser.parse(curr_cell.formula)
+                    except ParseError:
+                        continue
+                    evaluation_result = self.evaluate_parse_tree(curr_cell, parse_tree, interactive=False)
+                    print(evaluation_result)
+        
+    def deobfuscate_macro(self, interactive, start_point="", silent_mode=False, brute_force=False):
         result = []
 
         self.auto_open_labels = self.xlm_wrapper.get_defined_name('auto_open', full_match=False)
@@ -1813,6 +1855,12 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
+
+                    # We are done with the proper emulation loop. Now perform a
+                    # "brute force" emulation of any unemulated cells if needed.
+                    if brute_force:
+                        self.do_brute_force_emulation(silent_mode=silent_mode)
+                        
                 except Exception as exp:
                     exc_type, exc_obj, traceback = sys.exc_info()
                     frame = traceback.tb_frame
@@ -2113,6 +2161,7 @@ def process_file(**kwargs):
 
                 try:
                     output_file_path = kwargs.get("export_json")
+                    print(res)
                     with open(output_file_path, 'w', encoding='utf_8') as output_file:
                         output_file.write(json.dumps(res, indent=4))
                         uprint('Result is dumped into {}'.format(output_file_path), silent_mode=SILENT)
@@ -2164,7 +2213,7 @@ def process_file(**kwargs):
             output_format = kwargs.get("output_formula_format", 'CELL:[[CELL-ADDR]], [[STATUS]], [[INT-FORMULA]]')
             start_point = kwargs.get("start_point", '')
 
-            for step in interpreter.deobfuscate_macro(interactive, start_point):
+            for step in interpreter.deobfuscate_macro(interactive, start_point, brute_force=kwargs["brute"]):
                 if kwargs.get("return_deobfuscated"):
                     deobfuscated.append(
                         get_formula_output(step, output_format, not kwargs.get("no_indent")))
@@ -2249,6 +2298,8 @@ def main():
                             help="The path of a XLSM file", metavar=('FILE_PATH'))
     arg_parser.add_argument("-n", "--noninteractive", default=False, action='store_true',
                             help="Disable interactive shell")
+    arg_parser.add_argument("-b", "--brute", default=False, action='store_true',
+                            help="Brute force emulate any cells not covered by structured emulation")
     arg_parser.add_argument("-x", "--extract-only", default=False, action='store_true',
                             help="Only extract cells without any emulation")
     arg_parser.add_argument("-2", "--no-ms-excel", default=False, action='store_true',

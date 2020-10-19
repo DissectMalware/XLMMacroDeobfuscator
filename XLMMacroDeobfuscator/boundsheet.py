@@ -13,6 +13,7 @@ class Cell:
         self.value = None
         self.attributes = {}
         self.times_visited = 0
+        self.emulated = False
 
     def get_attribute(self, attribute_name):
         # return default value if attributes doesn't cointain the attribute_name
@@ -33,6 +34,7 @@ class Cell:
         copy.formula = self.formula
         copy.value = self.value
         copy.attributes = self.attributes
+        copy.emulated = self.emulated
         return copy
 
     def get_local_address(self):
@@ -46,13 +48,14 @@ class Cell:
         Return a string with full details about the cell.
         """
         r = ""
-        r += "Address:\t\t" + str(self) + "\n"
+        r += "Address:\t" + str(self) + "\n"
         r += "Sheet:\t\t" + str(self.sheet) + "\n"
         r += "Column:\t\t" + str(self.column) + "\n"
         r += "Row:\t\t" + str(self.row) + "\n"
-        r += "Formula:\t\t" + str(self.formula) + "\n"
+        r += "Formula:\t" + str(self.formula) + "\n"
         r += "Value:\t\t" + str(self.value) + "\n"
-        r += "Attributes:\t\t" + str(self.attributes) + "\n"
+        r += "Attributes:\t" + str(self.attributes) + "\n"
+        r += "Emulated:\t" + str(self.emulated) + "\n"
         return r
     
     @staticmethod
