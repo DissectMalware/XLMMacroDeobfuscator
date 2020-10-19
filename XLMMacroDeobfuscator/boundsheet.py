@@ -12,11 +12,19 @@ class Cell:
         self.formula = None
         self.value = None
         self.attributes = {}
+        self.times_visited = 0
+        self.emulated = False
 
     def get_attribute(self, attribute_name):
         # return default value if attributes doesn't cointain the attribute_name
         pass
 
+    def visit(self):
+        self.times_visited += 1
+
+    def visited_too_many_times(self):
+        return (self.times_visited > 1000)
+    
     def __deepcopy__(self, memodict={}):
         copy = type(self)()
         memodict[id(self)] = copy
@@ -26,6 +34,7 @@ class Cell:
         copy.formula = self.formula
         copy.value = self.value
         copy.attributes = self.attributes
+        copy.emulated = self.emulated
         return copy
 
     def get_local_address(self):
@@ -34,6 +43,21 @@ class Cell:
     def __str__(self):
         return "'{}'!{}".format(self.sheet.name,self.get_local_address())
 
+    def debug(self):
+        """
+        Return a string with full details about the cell.
+        """
+        r = ""
+        r += "Address:\t" + str(self) + "\n"
+        r += "Sheet:\t\t" + str(self.sheet) + "\n"
+        r += "Column:\t\t" + str(self.column) + "\n"
+        r += "Row:\t\t" + str(self.row) + "\n"
+        r += "Formula:\t" + str(self.formula) + "\n"
+        r += "Value:\t\t" + str(self.value) + "\n"
+        r += "Attributes:\t" + str(self.attributes) + "\n"
+        r += "Emulated:\t" + str(self.emulated) + "\n"
+        return r
+    
     @staticmethod
     def convert_to_column_index(s):
         number = 0
