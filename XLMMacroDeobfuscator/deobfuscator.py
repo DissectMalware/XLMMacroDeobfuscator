@@ -142,7 +142,7 @@ class XLMInterpreter:
         self._cell_defaults = {}
         self._expr_rule_names = ['expression', 'concat_expression', 'additive_expression', 'multiplicative_expression']
         self._operators = {'+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.truediv,
-                           '>': operator.gt, '<': operator.lt, '<>': operator.ne, '=': operator.eq}
+                '>': operator.gt, '<': operator.lt, '<>': operator.ne, '=': operator.eq, '>=': operator.ge, '<=': operator.le}
         self._indent_level = 0
         self._indent_current_line = False
         self.day_of_month = None
