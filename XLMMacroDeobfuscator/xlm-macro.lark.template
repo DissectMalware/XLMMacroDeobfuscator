@@ -15,7 +15,7 @@ defined_name: (NAME EXCLAMATION| "'" /[^']+/i "'" EXCLAMATION| EXCLAMATION) NAME
 ?atom: NUMBER | STRING | BOOLEAN | ERROR
 ADDITIVEOP: "+" | "-"
 MULTIOP:    "*" | "/"
-CMPOP:      "<" [">"] | ">" | "="
+CMPOP:      "<" [">"] | ">" | "=" | ">=" | "<="
 CONCATOP:   "&"
 COLON:      ":"
 STRING:   /\"([^\"]|\"\")*\"/i
