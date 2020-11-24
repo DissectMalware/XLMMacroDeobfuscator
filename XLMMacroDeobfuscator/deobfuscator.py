@@ -7,6 +7,7 @@ import os
 import sys
 import json
 import time
+import math
 from _ast import arguments
 from tempfile import mkstemp
 from lark import Lark
@@ -175,6 +176,7 @@ class XLMInterpreter:
             'CHAR': self.char_handler,
             'CLOSE': self.halt_handler,
             'CONCATENATE': self.concatenate_handler,
+            'COUNTA': self.counta_handler,
             'DAY': self.day_handler,
             'DIRECTORY': self.directory_handler,
             'ERROR': self.error_handler,
@@ -197,6 +199,7 @@ class XLMInterpreter:
             'RUN': self.run_handler,
             'SEARCH': self.search_handler,
             'SELECT': self.select_handler,
+            'TRUNC': self.trunc_handler,
             'WHILE': self.while_handler,
 
 
@@ -1151,6 +1154,23 @@ class XLMInterpreter:
             text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
             return_val = text
             status = EvalStatus.PartialEvaluation
+        return EvalResult(None, status, return_val, text)
+        
+    def trunc_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        if arg_eval_result.status == EvalStatus.FullEvaluation:
+            if arg_eval_result.value == "TRUE":
+                return_val = 1
+            elif arg_eval_result.value == "FALSE":
+                return_val = 0
+            else:
+                return_val = math.trunc(float(arg_eval_result.value))
+            text = str(return_val)
+            status = EvalStatus.FullEvaluation
+        else:
+            text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
+            return_val = text
+            status = EvalStatus.PartialEvaluation   
         return EvalResult(None, status, return_val, text)
 
     def register_handler(self, arguments, current_cell, interactive, parse_tree_root):
