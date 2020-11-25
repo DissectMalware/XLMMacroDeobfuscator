@@ -172,6 +172,7 @@ class XLMInterpreter:
 
             # functions
             'ABS': self.abs_handler,
+            'ADDRESS': self.address_handler,
             'AND': self.and_handler,
             'CALL': self.call_handler,
             'CHAR': self.char_handler,
@@ -1281,6 +1282,39 @@ class XLMInterpreter:
             return_val = text
             status = EvalStatus.PartialEvaluation   
         return EvalResult(None, status, return_val, text)
+        
+    def address_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        arg_eval_result1 = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        arg_eval_result2 = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
+        arg_eval_result3 = self.evaluate_parse_tree(current_cell, arguments[2], interactive)
+        arg_eval_result4 = self.evaluate_parse_tree(current_cell, arguments[3], interactive)
+        arg_eval_result5 = self.evaluate_parse_tree(current_cell, arguments[4], interactive)
+        abs_num = arg_eval_result3.value
+        return_val=''
+        if arg_eval_result1.status == EvalStatus.FullEvaluation and arg_eval_result2.status == EvalStatus.FullEvaluation and arg_eval_result3.status == EvalStatus.FullEvaluation and arg_eval_result4.status == EvalStatus.FullEvaluation and arg_eval_result5.status == EvalStatus.FullEvaluation:
+            return_val= return_val + arg_eval_result5.text + '!'
+            if arg_eval_result4.value == "FALSE":
+                if abs_num==2:
+                    return_val= return_val + 'R' + arg_eval_result1.text + 'C[' + arg_eval_result2.text + ']'
+                elif abs_num==3:
+                    return_val= return_val + 'R[' + arg_eval_result1.text + ']C' + arg_eval_result2.text
+                elif abs_num==4:
+                    return_val= return_val + 'R[' + arg_eval_result1.text + ']C['+ arg_eval_result2.text + ']'
+                else:
+                    return_val= return_val + 'R' + arg_eval_result1.text + 'C'+ arg_eval_result2.text 
+            else:
+                if abs_num==2:
+                    return_val= return_val + char(int(arg_eval_result1.value) + 64)+ '$'+ arg_eval_result2.text
+                elif abs_num==3:
+                    return_val= return_val + '$' + char(int(arg_eval_result1.value) + 64)+ arg_eval_result2.text
+                elif abs_num==4:
+                    return_val= return_val + char(int(arg_eval_result1.value) + 64) + arg_eval_result2.text
+                else:
+                    return_val= return_val + '$' + char(int(arg_eval_result1.value) + 64)+ '$'+ arg_eval_result2.text
+            status = EvalStatus.FullEvaluation
+        else:
+            status = EvalStatus.PartialEvaluation
+        return EvalResult(None, status, return_val, str(return_val))
     
     def register_handler(self, arguments, current_cell, interactive, parse_tree_root):
         if len(arguments) >= 4:
