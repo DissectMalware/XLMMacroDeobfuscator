@@ -189,6 +189,7 @@ class XLMInterpreter:
             'HALT': self.halt_handler,
             'IF': self.if_handler,
             'LEN': self.len_handler,
+            'MOD': self.mod_handler,
             'MID': self.mid_handler,
             'NEXT': self.next_handler,
             'NOT': self.not_handler,
@@ -937,6 +938,15 @@ class XLMInterpreter:
                                           XLMInterpreter.convert_ptree_to_str(arguments[1]),
                                           XLMInterpreter.convert_ptree_to_str(arguments[2]))
 
+        return EvalResult(None, status, return_val, text)
+
+    def mod_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        arg2_eval_res = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
+        if arg1_eval_res.status == EvalStatus.FullEvaluation and arg2_eval_res.status == EvalStatus.FullEvaluation:
+            return_val = float(arg1_eval_res.value) % float(arg2_eval_res.value)
+            text = str(return_val)
+            status = EvalStatus.FullEvaluation
         return EvalResult(None, status, return_val, text)
 
     def goto_handler(self, arguments, current_cell, interactive, parse_tree_root):
