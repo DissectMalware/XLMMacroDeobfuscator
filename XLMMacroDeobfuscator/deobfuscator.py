@@ -468,12 +468,14 @@ class XLMInterpreter:
 
     def evaluate_formula(self, current_cell, name, arguments, interactive, destination_arg=1):
 
+
         source, destination = (arguments[0], arguments[1]) if destination_arg == 1 else (arguments[1], arguments[0])
 
         src_eval_result = self.evaluate_parse_tree(current_cell, source, interactive)
 
         if isinstance(destination, Token):
             # TODO: get_defined_name must return a list; currently it returns list or one item
+            
             destination = self.xlm_wrapper.get_defined_name(destination)
             if isinstance(destination, list):
                 destination = [] if not destination else destination[0]
@@ -484,16 +486,21 @@ class XLMInterpreter:
                 destination = defined_name_formula
             else:
                 destination = self.xlm_parser.parse('='+defined_name_formula).children[0]
-
-        if destination.data == 'range':
-            dst_start_sheet, dst_start_col, dst_start_row = self.get_cell_addr(current_cell, destination.children[0])
-            dst_end_sheet, dst_end_col, dst_end_row = self.get_cell_addr(current_cell, destination.children[2])
-        else:
-            dst_start_sheet, dst_start_col, dst_start_row = self.get_cell_addr(current_cell, destination)
+        
+        if destination.data == 'concat_expression':
+            destination_str = self.evaluate_parse_tree(current_cell, destination, interactive).text
+            dst_start_sheet, dst_start_col, dst_start_row = Cell.parse_cell_addr(destination_str)
             dst_end_sheet, dst_end_col, dst_end_row = dst_start_sheet, dst_start_col, dst_start_row
-
-        destination_str = XLMInterpreter.convert_ptree_to_str(destination)
-
+        
+        else:
+            if destination.data == 'range':
+                dst_start_sheet, dst_start_col, dst_start_row = self.get_cell_addr(current_cell, destination.children[0])
+                dst_end_sheet, dst_end_col, dst_end_row = self.get_cell_addr(current_cell, destination.children[2])
+            else:
+                dst_start_sheet, dst_start_col, dst_start_row = self.get_cell_addr(current_cell, destination)
+                dst_end_sheet, dst_end_col, dst_end_row = dst_start_sheet, dst_start_col, dst_start_row
+            destination_str = XLMInterpreter.convert_ptree_to_str(destination)
+        
         text = src_eval_result.get_text(unwrap=True)
         if src_eval_result.status == EvalStatus.FullEvaluation:
             for row in range(int(dst_start_row), int(dst_end_row) + 1):
@@ -1292,7 +1299,7 @@ class XLMInterpreter:
         abs_num = arg_eval_result3.value
         return_val=''
         if arg_eval_result1.status == EvalStatus.FullEvaluation and arg_eval_result2.status == EvalStatus.FullEvaluation and arg_eval_result3.status == EvalStatus.FullEvaluation and arg_eval_result4.status == EvalStatus.FullEvaluation and arg_eval_result5.status == EvalStatus.FullEvaluation:
-            return_val= return_val + arg_eval_result5.text + '!'
+            return_val= return_val + arg_eval_result5.text.strip('\"') + '!'
             if arg_eval_result4.value == "FALSE":
                 if abs_num==2:
                     return_val= return_val + 'R' + arg_eval_result1.text + 'C[' + arg_eval_result2.text + ']'
