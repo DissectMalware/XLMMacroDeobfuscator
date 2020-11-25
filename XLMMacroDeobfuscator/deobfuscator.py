@@ -1241,18 +1241,20 @@ class XLMInterpreter:
     
     def counta_handler(self, arguments, current_cell, interactive, parse_tree_root):
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
-        start = int(self.selected_range[0][2])
-        end = int(self.selected_range[1][2])
+        sheet_name, startcolumn, startrow, endcolum, endrow = Cell.parse_range_addr(arg_eval_result.text)
         count = 0
-        it = start
-        while it <= end:
-            if self.get_cell(self.selected_range[0][0],self.selected_range[0][1],self.selected_range[0][2]).value != '':
-                count = count + 1
-            it = it + 1
+        it = int(startrow)
+        #while it <= int(endrow):
+        #    if self.get_cell(sheet_name,startcolumn,it).value != '':
+        #        count = count + 1
+        #    it = it + 1
+        
+        #temporary fix which should be removed
+        count = int(endrow)-int(startrow)
+        ##end fix
+        
         return_val = count
         status = EvalStatus.FullEvaluation
-        #        if arg_eval_result.get_text(unwrap=True) != '':
-        #            return_val = return_val + 1
         text = str(return_val)             
         return EvalResult(None, status, return_val, text)
     
