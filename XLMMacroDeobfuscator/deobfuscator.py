@@ -189,6 +189,7 @@ class XLMInterpreter:
             'GOTO': self.goto_handler,
             'HALT': self.halt_handler,
             'IF': self.if_handler,
+            'INT': self.int_handler,
             'LEN': self.len_handler,
             'MOD': self.mod_handler,
             'MID': self.mid_handler,
@@ -200,9 +201,11 @@ class XLMInterpreter:
             'REGISTER': self.register_handler,
             'RETURN': self.return_handler,
             'ROUND': self.round_handler,
+            'ROUNDUP': self.roundup_handler,
             'RUN': self.run_handler,
             'SEARCH': self.search_handler,
             'SELECT': self.select_handler,
+            'T': self.t_handler,
             'TRUNC': self.trunc_handler,
             'VALUE': self.value_handler,
             'WHILE': self.while_handler,
@@ -1037,6 +1040,14 @@ class XLMInterpreter:
             text = str(return_val)
             status = EvalStatus.FullEvaluation
         return EvalResult(None, status, return_val, text)
+        
+    def roundup_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        if arg1_eval_res.status == EvalStatus.FullEvaluation:
+            return_val = math.ceil(float(arg1_eval_res.value))
+            text = str(return_val)
+            status = EvalStatus.FullEvaluation
+        return EvalResult(None, status, return_val, text)
 
     def directory_handler(self, arguments, current_cell, interactive, parse_tree_root):
         text = r'C:\Users\user\Documents'
@@ -1062,6 +1073,27 @@ class XLMInterpreter:
             return_val = text
             status = EvalStatus.PartialEvaluation
         return EvalResult(arg_eval_result.next_cell, status, return_val, text)
+        
+    def t_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        return_val=''
+        if arg_eval_result.status == EvalStatus.FullEvaluation:
+            if arg_eval_result.value != 'TRUE' and arg_eval_result.value != 'FALSE' and arg_eval_result.text.isnumeric() == False :
+                return_val=str(arg_eval_result.value)
+            status = EvalStatus.FullEvaluation
+        else:
+            status = EvalStatus.PartialEvaluation
+        return EvalResult(arg_eval_result.next_cell, status, return_val, str(return_val))
+        
+    def int_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        return_val = 0
+        if arg_eval_result.status == EvalStatus.FullEvaluation:
+            return_val = int(arg_eval_result.value)
+            status = EvalStatus.FullEvaluation
+        else:
+            status = EvalStatus.PartialEvaluation
+        return EvalResult(arg_eval_result.next_cell, status, return_val, str(return_val))
 
     def run_handler(self, arguments, current_cell, interactive, parse_tree_root):
         size = len(arguments)
