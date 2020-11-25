@@ -176,6 +176,7 @@ class XLMInterpreter:
             'CALL': self.call_handler,
             'CHAR': self.char_handler,
             'CLOSE': self.halt_handler,
+            'CODE': self.code_handler,
             'CONCATENATE': self.concatenate_handler,
             'COUNTA': self.counta_handler,
             'DAY': self.day_handler,
@@ -643,6 +644,17 @@ class XLMInterpreter:
         if arg_eval_result.status == EvalStatus.FullEvaluation:
             if EvalResult.unwrap_str_literal(str(arg_eval_result.value)).lower() == "true":
                 value = False
+        else:
+            status = EvalStatus.PartialEvaluation
+        return EvalResult(None, status, value, str(value))
+        
+    def code_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        status = EvalStatus.FullEvaluation
+        value=0
+        arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        if arg_eval_result.status == EvalStatus.FullEvaluation:
+            if arg_eval_result.text != '':
+                value = ord(arg_eval_result.text[0])
         else:
             status = EvalStatus.PartialEvaluation
         return EvalResult(None, status, value, str(value))
