@@ -189,6 +189,7 @@ class XLMInterpreter:
             'FWRITELN': self.fwriteln_handler,
             'GOTO': self.goto_handler,
             'HALT': self.halt_handler,
+            'HLOOKUP': self.hlookup_handler,
             'IF': self.if_handler,
             'INT': self.int_handler,
             'LEN': self.len_handler,
@@ -656,6 +657,32 @@ class XLMInterpreter:
             else:
                 status = EvalStatus.PartialEvaluation
                 break
+
+        return EvalResult(None, status, value, str(value))
+        
+    def hlookup_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        status = EvalStatus.FullEvaluation
+        value=""
+        arg_eval_result1 = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        arg_eval_result2 = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
+        arg_eval_result3 = self.evaluate_parse_tree(current_cell, arguments[2], interactive)
+        arg_eval_result4 = self.evaluate_parse_tree(current_cell, arguments[3], interactive)
+        regex = arg_eval_result1.text.strip('"')
+        if regex == '*':
+            regex = ".*"
+        if arg_eval_result4.value =="FALSE":
+            sheet_name, startcolumn, startrow, endcolum, endrow = Cell.parse_range_addr(arg_eval_result2.text)
+            status = EvalStatus.FullEvaluation
+            it=int(startrow) + int(arg_eval_result3.value) - 1
+            #while it <= int(endrow):
+                #print(sheet_name)
+                #print(startcolumn)
+                #print(it)
+                #print(self.get_cell(sheet_name,startcolumn,it))
+                #if re.match(regex,self.get_cell(sheet_name,startcolumn,it)) == True:
+                #    print("yes")
+        else:
+            status = EvalStatus.PartialEvaluation
 
         return EvalResult(None, status, value, str(value))
         
