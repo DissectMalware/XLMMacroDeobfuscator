@@ -880,9 +880,19 @@ class XLMInterpreter:
         return EvalResult(None, status, return_val, text)
         
     def value_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        return_val = 1
+        return_val_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         status = EvalStatus.FullEvaluation
-        text= str(return_val)
+        value = EvalResult.unwrap_str_literal(return_val_result.value)
+        if EvalResult.is_int(value):
+            return_val = int(value)
+            text= str(return_val)
+        elif EvalResult.is_float(value):
+            return_val = float(value)
+            text= str(return_val)
+        else:
+            status = EvalStatus.Error
+            text = self.convert_ptree_to_str(parse_tree_root)
+            return_val = 0
         return EvalResult(None, status, return_val, text)
 
     def if_handler(self, arguments, current_cell, interactive, parse_tree_root):
@@ -1241,13 +1251,26 @@ class XLMInterpreter:
     
     def counta_handler(self, arguments, current_cell, interactive, parse_tree_root):
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
-        sheet_name, startcolumn, startrow, endcolum, endrow = Cell.parse_range_addr(arg_eval_result.text)
+        sheet_name, startcolumn, startrow, endcolumn, endrow = Cell.parse_range_addr(arg_eval_result.text)
         count = 0
         it = int(startrow)
-        #while it <= int(endrow):
-        #    if self.get_cell(sheet_name,startcolumn,it).value != '':
-        #        count = count + 1
-        #    it = it + 1
+
+        # COUNTA can be used to count non-empty cells in a worksheet or macrosheet
+        # currently only macrosheets are loaded, thus, only cells in these sheets
+        # can be accessed via get_cell()
+
+        start_col_index = Cell.convert_to_column_index(startcolumn)
+        end_col_index = Cell.convert_to_column_index(endcolumn)
+
+        start_row_index = int(startrow)
+        end_row_index = int(endrow)
+
+        # val_item_count = 0
+        # for row in range(start_row_index, end_row_index+1):
+        #     for col in range(start_col_index, end_col_index+1):
+        #         if self.get_cell(sheet_name, col, row) and \
+        #                 self.get_cell(sheet_name, col, row).value != '':
+        #                 val_item_count +=1
         
         #temporary fix which should be removed
         count = int(endrow)-int(startrow)
