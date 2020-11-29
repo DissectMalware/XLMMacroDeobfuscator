@@ -671,16 +671,28 @@ class XLMInterpreter:
         if regex == '*':
             regex = ".*"
         if arg_eval_result4.value =="FALSE":
-            sheet_name, startcolumn, startrow, endcolum, endrow = Cell.parse_range_addr(arg_eval_result2.text)
+            sheet_name, startcolumn, startrow, endcolumn, endrow = Cell.parse_range_addr(arg_eval_result2.text)
             status = EvalStatus.FullEvaluation
-            it=int(startrow) + int(arg_eval_result3.value) - 1
-            #while it <= int(endrow):
-                #print(sheet_name)
-                #print(startcolumn)
-                #print(it)
-                #print(self.get_cell(sheet_name,startcolumn,it))
-                #if re.match(regex,self.get_cell(sheet_name,startcolumn,it)) == True:
-                #    print("yes")
+
+            start_col_index = Cell.convert_to_column_index(startcolumn)
+            end_col_index = Cell.convert_to_column_index(endcolumn)
+
+            start_row_index = int(startrow) + int(arg_eval_result3.value) - 1
+            end_row_index = int(endrow)
+
+            for row in range(start_row_index, end_row_index + 1):
+                for col in range(start_col_index, end_col_index + 1):
+                    if(sheet_name != None):
+                        cell = self.get_worksheet_cell(sheet_name,
+                                                    Cell.convert_to_column_name(col),
+                                                    str(row))
+                    else:
+                        cell = self.get_cell(current_cell.sheet.name,
+                                                    Cell.convert_to_column_name(col),
+                                                    str(row))
+
+                    if cell and re.match(regex,cell.value):
+                        return EvalResult(None, status, cell.value, str(cell.value))
         else:
             status = EvalStatus.PartialEvaluation
 
