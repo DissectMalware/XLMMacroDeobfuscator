@@ -14,6 +14,7 @@ class XLSWrapper2(ExcelWrapper):
     def __init__(self, xls_doc_path):
         self.xls_workbook = xlrd2.open_workbook(xls_doc_path, formatting_info=True)
         self._macrosheets = None
+        self._worksheets = None
         self._defined_names = None
         self.xl_international_flags = {}
         self.xl_international_flags = {XlApplicationInternational.xlLeftBracket: '[',
@@ -149,6 +150,17 @@ class XLSWrapper2(ExcelWrapper):
                     self._macrosheets[sheet.name] = macrosheet
 
         return self._macrosheets
+
+    def get_worksheets(self):
+        if self._worksheets is None:
+            self._worksheets = {}
+            for sheet in self.xls_workbook.sheets():
+                if sheet.boundsheet_type == xlrd2.biffh.XL_WORKSHEET:
+                    worksheet = Boundsheet(sheet.name, 'Worksheet')
+                    self.load_cells(worksheet, sheet)
+                    self._worksheets[sheet.name] = worksheet
+
+        return self._worksheets
 
     def get_color(self, color_index):
         return self.xls_workbook.colour_map.get(color_index)

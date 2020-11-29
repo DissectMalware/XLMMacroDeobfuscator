@@ -14,6 +14,9 @@ class ExcelWrapper:
     def get_macrosheets(self):
         pass
 
+    def get_worksheets(self):
+        pass
+
     def get_cell_info(self, sheet_name, col, row, info_type_id):
         pass
 

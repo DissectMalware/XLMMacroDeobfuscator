@@ -387,6 +387,17 @@ class XLMInterpreter:
 
         return result
 
+    def get_worksheet_cell(self, sheet_name, col, row):
+        result = None
+        sheets = self.xlm_wrapper.get_worksheets()
+        if sheet_name in sheets:
+            sheet = sheets[sheet_name]
+            addr = col + str(row)
+            if addr in sheet.cells:
+                result = sheet.cells[addr]
+
+        return result
+
     def set_cell(self, sheet_name, col, row, text):
         sheets = self.xlm_wrapper.get_macrosheets()
         if sheet_name in sheets:
@@ -1255,28 +1266,22 @@ class XLMInterpreter:
         count = 0
         it = int(startrow)
 
-        # COUNTA can be used to count non-empty cells in a worksheet or macrosheet
-        # currently only macrosheets are loaded, thus, only cells in these sheets
-        # can be accessed via get_cell()
-
         start_col_index = Cell.convert_to_column_index(startcolumn)
         end_col_index = Cell.convert_to_column_index(endcolumn)
 
         start_row_index = int(startrow)
         end_row_index = int(endrow)
 
-        # val_item_count = 0
-        # for row in range(start_row_index, end_row_index+1):
-        #     for col in range(start_col_index, end_col_index+1):
-        #         if self.get_cell(sheet_name, col, row) and \
-        #                 self.get_cell(sheet_name, col, row).value != '':
-        #                 val_item_count +=1
+        val_item_count = 0
+        for row in range(start_row_index, end_row_index + 1):
+            for col in range(start_col_index, end_col_index + 1):
+                cell = self.get_worksheet_cell(sheet_name,
+                                                Cell.convert_to_column_name(col),
+                                                str(row))
+                if cell and cell.value != '':
+                        val_item_count +=1
         
-        #temporary fix which should be removed
-        count = int(endrow)-int(startrow)
-        ##end fix
-        
-        return_val = count
+        return_val = val_item_count
         status = EvalStatus.FullEvaluation
         text = str(return_val)             
         return EvalResult(None, status, return_val, text)
