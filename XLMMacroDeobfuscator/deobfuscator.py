@@ -487,7 +487,7 @@ class XLMInterpreter:
 
         if isinstance(destination, Token):
             # TODO: get_defined_name must return a list; currently it returns list or one item
-            
+
             destination = self.xlm_wrapper.get_defined_name(destination)
             if isinstance(destination, list):
                 destination = [] if not destination else destination[0]
@@ -498,12 +498,12 @@ class XLMInterpreter:
                 destination = defined_name_formula
             else:
                 destination = self.xlm_parser.parse('='+defined_name_formula).children[0]
-        
+
         if destination.data == 'concat_expression':
             destination_str = self.evaluate_parse_tree(current_cell, destination, interactive).text
             dst_start_sheet, dst_start_col, dst_start_row = Cell.parse_cell_addr(destination_str)
             dst_end_sheet, dst_end_col, dst_end_row = dst_start_sheet, dst_start_col, dst_start_row
-        
+
         else:
             if destination.data == 'range':
                 dst_start_sheet, dst_start_col, dst_start_row = self.get_cell_addr(current_cell, destination.children[0])
@@ -512,7 +512,7 @@ class XLMInterpreter:
                 dst_start_sheet, dst_start_col, dst_start_row = self.get_cell_addr(current_cell, destination)
                 dst_end_sheet, dst_end_col, dst_end_row = dst_start_sheet, dst_start_col, dst_start_row
             destination_str = XLMInterpreter.convert_ptree_to_str(destination)
-        
+
         text = src_eval_result.get_text(unwrap=True)
         if src_eval_result.status == EvalStatus.FullEvaluation:
             for row in range(int(dst_start_row), int(dst_end_row) + 1):
@@ -659,7 +659,7 @@ class XLMInterpreter:
                 break
 
         return EvalResult(None, status, value, str(value))
-        
+
     def hlookup_handler(self, arguments, current_cell, interactive, parse_tree_root):
         status = EvalStatus.FullEvaluation
         value=""
@@ -685,7 +685,7 @@ class XLMInterpreter:
             status = EvalStatus.PartialEvaluation
 
         return EvalResult(None, status, value, str(value))
-        
+
     def not_handler(self, arguments, current_cell, interactive, parse_tree_root):
         value = True
         status = EvalStatus.FullEvaluation
@@ -696,7 +696,7 @@ class XLMInterpreter:
         else:
             status = EvalStatus.PartialEvaluation
         return EvalResult(None, status, value, str(value))
-        
+
     def code_handler(self, arguments, current_cell, interactive, parse_tree_root):
         status = EvalStatus.FullEvaluation
         value=0
@@ -916,7 +916,7 @@ class XLMInterpreter:
         return_val = text = datetime.datetime.now()
         status = EvalStatus.FullEvaluation
         return EvalResult(None, status, return_val, text)
-        
+
     def value_handler(self, arguments, current_cell, interactive, parse_tree_root):
         return_val_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         status = EvalStatus.FullEvaluation
@@ -1096,7 +1096,7 @@ class XLMInterpreter:
             text = str(return_val)
             status = EvalStatus.FullEvaluation
         return EvalResult(None, status, return_val, text)
-        
+
     def roundup_handler(self, arguments, current_cell, interactive, parse_tree_root):
         arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         if arg1_eval_res.status == EvalStatus.FullEvaluation:
@@ -1129,7 +1129,7 @@ class XLMInterpreter:
             return_val = text
             status = EvalStatus.PartialEvaluation
         return EvalResult(arg_eval_result.next_cell, status, return_val, text)
-        
+
     def t_handler(self, arguments, current_cell, interactive, parse_tree_root):
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         return_val=''
@@ -1140,7 +1140,7 @@ class XLMInterpreter:
         else:
             status = EvalStatus.PartialEvaluation
         return EvalResult(arg_eval_result.next_cell, status, return_val, str(return_val))
-        
+
     def int_handler(self, arguments, current_cell, interactive, parse_tree_root):
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         return_val = 0
@@ -1286,7 +1286,7 @@ class XLMInterpreter:
             status = EvalStatus.PartialEvaluation
         return EvalResult(None, status, return_val, text)
 
-    
+
     def counta_handler(self, arguments, current_cell, interactive, parse_tree_root):
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         sheet_name, startcolumn, startrow, endcolumn, endrow = Cell.parse_range_addr(arg_eval_result.text)
@@ -1302,17 +1302,23 @@ class XLMInterpreter:
         val_item_count = 0
         for row in range(start_row_index, end_row_index + 1):
             for col in range(start_col_index, end_col_index + 1):
-                cell = self.get_worksheet_cell(sheet_name,
+                if(sheet_name != None):
+                    cell = self.get_worksheet_cell(sheet_name,
                                                 Cell.convert_to_column_name(col),
                                                 str(row))
+                else:
+                    cell = self.get_cell(current_cell.sheet.name,
+                                                Cell.convert_to_column_name(col),
+                                                str(row))
+
                 if cell and cell.value != '':
-                        val_item_count +=1
-        
+                    val_item_count +=1
+
         return_val = val_item_count
         status = EvalStatus.FullEvaluation
-        text = str(return_val)             
+        text = str(return_val)
         return EvalResult(None, status, return_val, text)
-    
+
     def trunc_handler(self, arguments, current_cell, interactive, parse_tree_root):
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         if arg_eval_result.status == EvalStatus.FullEvaluation:
@@ -1327,7 +1333,7 @@ class XLMInterpreter:
         else:
             text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
             return_val = text
-            status = EvalStatus.PartialEvaluation   
+            status = EvalStatus.PartialEvaluation
         return EvalResult(None, status, return_val, text)
 
     def abs_handler(self, arguments, current_cell, interactive, parse_tree_root):
@@ -1344,9 +1350,9 @@ class XLMInterpreter:
         else:
             text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
             return_val = text
-            status = EvalStatus.PartialEvaluation   
+            status = EvalStatus.PartialEvaluation
         return EvalResult(None, status, return_val, text)
-        
+
     def address_handler(self, arguments, current_cell, interactive, parse_tree_root):
         arg_eval_result1 = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         arg_eval_result2 = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
@@ -1365,7 +1371,7 @@ class XLMInterpreter:
                 elif abs_num==4:
                     return_val= return_val + 'R[' + arg_eval_result1.text + ']C['+ arg_eval_result2.text + ']'
                 else:
-                    return_val= return_val + 'R' + arg_eval_result1.text + 'C'+ arg_eval_result2.text 
+                    return_val= return_val + 'R' + arg_eval_result1.text + 'C'+ arg_eval_result2.text
             else:
                 if abs_num==2:
                     return_val= return_val + char(int(arg_eval_result1.value) + 64)+ '$'+ arg_eval_result2.text
@@ -1379,7 +1385,7 @@ class XLMInterpreter:
         else:
             status = EvalStatus.PartialEvaluation
         return EvalResult(None, status, return_val, str(return_val))
-    
+
     def register_handler(self, arguments, current_cell, interactive, parse_tree_root):
         if len(arguments) >= 4:
             arg_list = []
