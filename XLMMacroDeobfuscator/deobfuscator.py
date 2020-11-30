@@ -1183,7 +1183,7 @@ class XLMInterpreter:
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         return_val=''
         if arg_eval_result.status == EvalStatus.FullEvaluation:
-            if arg_eval_result.value != 'TRUE' and arg_eval_result.value != 'FALSE' and arg_eval_result.text.isnumeric() == False :
+            if arg_eval_result.value != 'TRUE' and arg_eval_result.value != 'FALSE':
                 return_val=str(arg_eval_result.value)
             status = EvalStatus.FullEvaluation
         else:
