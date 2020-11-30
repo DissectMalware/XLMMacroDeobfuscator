@@ -218,6 +218,7 @@ class XLMInterpreter:
             'SELECT': self.select_handler,
             'SUM': self.sum_handler,
             'T': self.t_handler,
+            'TEXT': self.text_handler,
             'TRUNC': self.trunc_handler,
             'VALUE': self.value_handler,
             'WHILE': self.while_handler,
@@ -776,6 +777,19 @@ class XLMInterpreter:
             it = it + 1
 
         return EvalResult(None, status, value, str(value))
+
+    def text_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        arg_eval_result1 = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        arg_eval_result2 = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
+        value=0
+
+        #Initial implementation for integer
+        if int(arg_eval_result2.value)=0:
+            status = EvalStatus.FullEvaluation
+            value=int(arg_eval_result1.value)
+
+        return EvalResult(None, status, value, str(value))
+
 
     def active_cell_handler(self, arguments, current_cell, interactive, parse_tree_root):
         status = EvalStatus.PartialEvaluation
