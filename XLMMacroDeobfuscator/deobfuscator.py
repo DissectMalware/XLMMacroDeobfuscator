@@ -516,7 +516,6 @@ class XLMInterpreter:
 
 
         source, destination = (arguments[0], arguments[1]) if destination_arg == 1 else (arguments[1], arguments[0])
-
         src_eval_result = self.evaluate_parse_tree(current_cell, source, interactive)
 
         if isinstance(destination, Token):
@@ -546,7 +545,6 @@ class XLMInterpreter:
                 dst_start_sheet, dst_start_col, dst_start_row = self.get_cell_addr(current_cell, destination)
                 dst_end_sheet, dst_end_col, dst_end_row = dst_start_sheet, dst_start_col, dst_start_row
             destination_str = XLMInterpreter.convert_ptree_to_str(destination)
-
         text = src_eval_result.get_text(unwrap=True)
         if src_eval_result.status == EvalStatus.FullEvaluation:
             for row in range(int(dst_start_row), int(dst_end_row) + 1):
