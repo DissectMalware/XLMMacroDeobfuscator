@@ -4,6 +4,9 @@ import re
 class Cell:
     _cell_addr_regex_str = r"((?P<sheetname>[^\s]+?|'.+?')!)?\$?(?P<column>[a-zA-Z]+)\$?(?P<row>\d+)"
     _cell_addr_regex = re.compile(_cell_addr_regex_str)
+    
+    _range_addr_regex_str = r"((?P<sheetname>[^\s]+?|'.+?')[!|$])?\$?(?P<column1>[a-zA-Z]+)\$?(?P<row1>\d+)\:?\$?(?P<column2>[a-zA-Z]+)\$?(?P<row2>\d+)"
+    _range_addr_regex = re.compile(_range_addr_regex_str)
 
     def __init__(self):
         self.sheet = None
@@ -63,6 +66,20 @@ class Cell:
             column = res.group('column')
             row = res.group('row')
             return sheet_name, column, row
+        else:
+            return None, None, None
+    
+    @staticmethod
+    def parse_range_addr(range_addr_str):
+        res = Cell._range_addr_regex.match(range_addr_str)
+        if res is not None:
+            sheet_name = res.group('sheetname')
+            sheet_name = sheet_name.strip('\'') if sheet_name is not None else sheet_name
+            startcolumn = res.group('column1')
+            startrow = res.group('row1')
+            endcolumn = res.group('column2')
+            endrow = res.group('row2')
+            return sheet_name, startcolumn, startrow, endcolumn, endrow
         else:
             return None, None, None
 
