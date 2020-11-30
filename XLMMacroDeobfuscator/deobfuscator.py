@@ -223,6 +223,40 @@ class XLMInterpreter:
     important_functions = ('CALL', 'FOPEN', 'FWRITE', 'FREAD', 'REGISTER', 'IF', 'WHILE', 'HALT', 'CLOSE', "NEXT")
     important_methods = ('SET.VALUE', 'FILE.DELETE', 'WORKBOOK.HIDE')
 
+    unicode_to_latin1_map = {
+                        8364: 128,
+                        129: 129,
+                        8218: 130,
+                        402: 131,
+                        8222: 132,
+                        8230: 133,
+                        8224: 134,
+                        8225: 135,
+                        710: 136,
+                        8240: 137,
+                        352: 138,
+                        8249: 139,
+                        338: 140,
+                        141: 141,
+                        381: 142,
+                        143: 143,
+                        144: 144,
+                        8216: 145,
+                        8217: 146,
+                        8220: 147,
+                        8221: 148,
+                        8226: 149,
+                        8211: 150,
+                        8212: 151,
+                        732: 152,
+                        8482: 153,
+                        353: 154,
+                        8250: 155,
+                        339: 156,
+                        157: 157,
+                        382: 158,
+                        376: 159
+                    }
     def __copy__(self):
         result = XLMInterpreter(self.xlm_wrapper)
         result.auto_open_labels = self.auto_open_labels
@@ -716,6 +750,9 @@ class XLMInterpreter:
         if arg_eval_result.status == EvalStatus.FullEvaluation:
             if arg_eval_result.text != '':
                 value = ord(arg_eval_result.text[0])
+                if value > 256 and value in XLMInterpreter.unicode_to_latin1_map:
+                    value = XLMInterpreter.unicode_to_latin1_map[value]
+
         else:
             status = EvalStatus.PartialEvaluation
         return EvalResult(None, status, value, str(value))
