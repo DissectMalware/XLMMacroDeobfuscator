@@ -8,6 +8,7 @@ import sys
 import json
 import time
 import math
+from datetime import datetime
 from _ast import arguments
 from tempfile import mkstemp
 from lark import Lark
@@ -72,6 +73,14 @@ class EvalResult:
     def is_float(text):
         try:
             float(text)
+            return True
+        except (ValueError, TypeError):
+            return False
+
+    @staticmethod
+    def is_datetime(text):
+        try:
+            datetime.datetime.strptime(text,"%Y-%m-%d %H:%M:%S.%f")
             return True
         except (ValueError, TypeError):
             return False
@@ -1042,6 +1051,8 @@ class XLMInterpreter:
         base_eval_result = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
         len_eval_result = self.evaluate_parse_tree(current_cell, arguments[2], interactive)
 
+        status = EvalStatus.PartialEvaluation
+        return_val=""
         if str_eval_result.status == EvalStatus.FullEvaluation:
             if base_eval_result.status == EvalStatus.FullEvaluation and \
                     len_eval_result.status == EvalStatus.FullEvaluation:
@@ -1191,8 +1202,14 @@ class XLMInterpreter:
     def int_handler(self, arguments, current_cell, interactive, parse_tree_root):
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         return_val = 0
+
         if arg_eval_result.status == EvalStatus.FullEvaluation:
-            return_val = int(arg_eval_result.value)
+            if arg_eval_result.value=="True":
+                return_val = 1
+            elif arg_eval_result.value=="False":
+                return_val = 0
+            else:
+                return_val = int(arg_eval_result.value)
             status = EvalStatus.FullEvaluation
         else:
             status = EvalStatus.PartialEvaluation
@@ -1692,6 +1709,17 @@ class XLMInterpreter:
                             else:
                                 value_left = 'Operator ' + op_str
                                 left_arg_eval_res.status = EvalStatus.NotImplemented
+                        elif isinstance(value_left,str) and isinstance(value_right,str):
+                            timestamp1 = datetime.datetime.strptime(value_left.strip('\"'),"%Y-%m-%d %H:%M:%S.%f")
+                            timestamp2 = datetime.datetime.strptime(value_right.strip('\"'),"%Y-%m-%d %H:%M:%S.%f")
+                            op_res=self._operators[op_str](float(timestamp1.timestamp()), float(timestamp2.timestamp()))
+                            if type(op_res) == bool:
+                                value_left = str(op_res)
+                            elif op_res.is_integer():
+                                value_left = str(op_res)
+                            else:
+                                op_res = round(op_res, 10)
+                                value_left = str(op_res)
                         else:
                             if op_str in self._operators:
                                 value_left = EvalResult.unwrap_str_literal(str(value_left))
