@@ -172,12 +172,14 @@ class XLMInterpreter:
             'END.IF': self.end_if_handler,
             'FORMULA.FILL': self.formula_handler,
             'GET.CELL': self.get_cell_handler,
+            'GET.DOCUMENT': self.get_document_handler,
             'GET.WINDOW': self.get_window_handler,
             'GET.WORKSPACE': self.get_workspace_handler,
             'ON.TIME': self.on_time_handler,
             'SET.VALUE': self.set_value_handler,
             'SET.NAME': self.set_name_handler,
             'ACTIVE.CELL': self.active_cell_handler,
+            'APP.MAXIMIZE': self.app_maximize_handler,
 
             # functions
             'ABS': self.abs_handler,
@@ -528,7 +530,6 @@ class XLMInterpreter:
 
         source, destination = (arguments[0], arguments[1]) if destination_arg == 1 else (arguments[1], arguments[0])
         src_eval_result = self.evaluate_parse_tree(current_cell, source, interactive)
-
         if isinstance(destination, Token):
             # TODO: get_defined_name must return a list; currently it returns list or one item
 
@@ -685,7 +686,6 @@ class XLMInterpreter:
                 status = EvalStatus.PartialEvaluation
                 value = False
                 break
-
         return EvalResult(None, status, value, str(value))
 
     def or_handler(self, arguments, current_cell, interactive, parse_tree_root):
@@ -782,9 +782,8 @@ class XLMInterpreter:
         arg_eval_result1 = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         arg_eval_result2 = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
         value=0
-
         #Initial implementation for integer
-        if int(arg_eval_result2.value)=0:
+        if int(arg_eval_result2.value.strip('\"'))==0:
             status = EvalStatus.FullEvaluation
             value=int(arg_eval_result1.value)
 
@@ -886,7 +885,6 @@ class XLMInterpreter:
 
         if status == EvalStatus.Error:
             return_val = text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
-
         return EvalResult(None, status, return_val, text)
 
     def get_window_handler(self, arguments, current_cell, interactive, parse_tree_root):
@@ -908,6 +906,11 @@ class XLMInterpreter:
 
         return EvalResult(None, status, return_val, text)
 
+    def get_document_handler(self, arguments, current_cell, interactive, parse_tree_root):
+
+
+        return EvalResult(None, status, return_val, text)
+
     def on_time_handler(self, arguments, current_cell, interactive, parse_tree_root):
         status = EvalStatus.Error
         if len(arguments) == 2:
@@ -925,6 +928,12 @@ class XLMInterpreter:
             next_cell = None
 
         return EvalResult(next_cell, status, return_val, text)
+
+    def app_maximize_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        status = EvalStatus.FullEvaluation
+        return_val=0
+        text=str(return_val)
+        return EvalResult(None, status, return_val, text)
 
     def concatenate_handler(self, arguments, current_cell, interactive, parse_tree_root):
         text = ''
@@ -1077,7 +1086,6 @@ class XLMInterpreter:
         str_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         base_eval_result = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
         len_eval_result = self.evaluate_parse_tree(current_cell, arguments[2], interactive)
-
         status = EvalStatus.PartialEvaluation
         return_val=""
         if str_eval_result.status == EvalStatus.FullEvaluation:
@@ -1093,7 +1101,6 @@ class XLMInterpreter:
             text = 'MID({},{},{})'.format(XLMInterpreter.convert_ptree_to_str(arguments[0]),
                                           XLMInterpreter.convert_ptree_to_str(arguments[1]),
                                           XLMInterpreter.convert_ptree_to_str(arguments[2]))
-
         return EvalResult(None, status, return_val, text)
 
     def mod_handler(self, arguments, current_cell, interactive, parse_tree_root):
@@ -1228,13 +1235,12 @@ class XLMInterpreter:
 
     def int_handler(self, arguments, current_cell, interactive, parse_tree_root):
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
-        return_val = 0
-
+        return_val = int(0)
         if arg_eval_result.status == EvalStatus.FullEvaluation:
             if arg_eval_result.value=="True":
-                return_val = 1
+                return_val = int(1)
             elif arg_eval_result.value=="False":
-                return_val = 0
+                return_val = int(0)
             else:
                 return_val = int(arg_eval_result.value)
             status = EvalStatus.FullEvaluation
@@ -1704,7 +1710,6 @@ class XLMInterpreter:
                     right_arg = parse_tree_root.children[index + 1]
                     right_arg_eval_res = self.evaluate_parse_tree(current_cell, right_arg, interactive)
                     text_right = right_arg_eval_res.get_text(unwrap=True)
-
                     if op_str == '&':
                         if left_arg_eval_res.status == EvalStatus.FullEvaluation and right_arg_eval_res.status != EvalStatus.FullEvaluation:
                             text_left = '{}&{}'.format(text_left, text_right)
