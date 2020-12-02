@@ -8,6 +8,7 @@ import sys
 import json
 import time
 import math
+import random
 from datetime import datetime
 from _ast import arguments
 from tempfile import mkstemp
@@ -81,6 +82,14 @@ class EvalResult:
     def is_datetime(text):
         try:
             datetime.datetime.strptime(text,"%Y-%m-%d %H:%M:%S.%f")
+            return True
+        except (ValueError, TypeError):
+            return False
+
+    @staticmethod
+    def is_time(text):
+        try:
+            datetime.datetime.strptime(text,"%H:%M:%S")
             return True
         except (ValueError, TypeError):
             return False
@@ -196,6 +205,7 @@ class XLMInterpreter:
             'ERROR': self.error_handler,
             'FORMULA': self.formula_handler,
             'FOPEN': self.fopen_handler,
+            'FSIZE': self.fsize_handler,
             'FWRITE': self.fwrite_handler,
             'FWRITELN': self.fwriteln_handler,
             'GOTO': self.goto_handler,
@@ -211,6 +221,7 @@ class XLMInterpreter:
             'NOW': self.now_handler,
             'OR': self.or_handler,
             'OFFSET': self.offset_handler,
+            'RANDBETWEEN': self.randbetween_handler,
             'REGISTER': self.register_handler,
             'RETURN': self.return_handler,
             'ROUND': self.round_handler,
@@ -493,6 +504,7 @@ class XLMInterpreter:
 
         if number in self._window_defaults:
             result = self._window_defaults[number]
+
         return result
 
     def get_workspace(self, number):
@@ -778,12 +790,23 @@ class XLMInterpreter:
 
         return EvalResult(None, status, value, str(value))
 
+    def randbetween_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        arg_eval_result1 = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        arg_eval_result2 = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
+        value=0
+        #Initial implementation for integer
+        if arg_eval_result1.status==EvalStatus.FullEvaluation and arg_eval_result2.status==EvalStatus.FullEvaluation:
+            status = EvalStatus.FullEvaluation
+            value=random.randint(int(arg_eval_result1.value),int(arg_eval_result2.value))
+
+        return EvalResult(None, status, value, str(value))
+
     def text_handler(self, arguments, current_cell, interactive, parse_tree_root):
         arg_eval_result1 = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         arg_eval_result2 = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
         value=0
         #Initial implementation for integer
-        if int(arg_eval_result2.value.strip('\"'))==0:
+        if int(arg_eval_result2.text.strip('\"'))==0:
             status = EvalStatus.FullEvaluation
             value=int(arg_eval_result1.value)
 
@@ -897,6 +920,12 @@ class XLMInterpreter:
                 current_cell.value = window_param
                 text = window_param  # XLMInterpreter.convert_ptree_to_str(parse_tree_root)
                 return_val = window_param
+
+                ##Overwrites to take actual values from the workbook instead of default config
+                if int(float(arg_eval_result.get_text()))==1 or int(float(arg_eval_result.get_text()))==30:
+                    return_val="[" + self.xlm_wrapper.get_workbook_name() + "]" + current_cell.sheet.name
+                    status = EvalStatus.FullEvaluation
+
                 status = EvalStatus.FullEvaluation
             else:
                 return_val = text = 'GET.WINDOW({})'.format(arg_eval_result.get_text())
@@ -907,8 +936,19 @@ class XLMInterpreter:
         return EvalResult(None, status, return_val, text)
 
     def get_document_handler(self, arguments, current_cell, interactive, parse_tree_root):
-
-
+        status = EvalStatus.Error
+        arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        return_val=""
+        ##Static implementation
+        if self.is_int(arg_eval_result.value):
+            status = EvalStatus.PartialEvaluation
+            if int(arg_eval_result.value)==76:
+                return_val="[" + self.xlm_wrapper.get_workbook_name() + "]" + current_cell.sheet.name
+                status = EvalStatus.FullEvaluation
+            elif int(arg_eval_result.value)==88:
+                return_val=self.xlm_wrapper.get_workbook_name()
+                status = EvalStatus.FullEvaluation
+        text=return_val
         return EvalResult(None, status, return_val, text)
 
     def on_time_handler(self, arguments, current_cell, interactive, parse_tree_root):
@@ -1532,6 +1572,18 @@ class XLMInterpreter:
                                      access)
         return EvalResult(None, arg1_eval_res.status, arg1_eval_res.value, text)
 
+    def fsize_handler(self, arguments, current_cell, interactive, parse_tree_root, end_line=''):
+        arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        file_name = arg1_eval_res.get_text(unwrap=True)
+        status = EvalStatus.PartialEvaluation
+        return_val=0
+        if file_name in self._files:
+            status = EvalStatus.FullEvaluation
+            if self._files[file_name]['file_content'] is not None:
+                return_val = len(self._files[file_name]['file_content'])
+        text = 'FSIZE({})'.format(EvalResult.wrap_str_literal(file_name))
+        return EvalResult(None, status, return_val, str(return_val))
+
     def fwrite_handler(self, arguments, current_cell, interactive, parse_tree_root, end_line=''):
         arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         arg2_eval_res = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
@@ -1710,6 +1762,9 @@ class XLMInterpreter:
                     right_arg = parse_tree_root.children[index + 1]
                     right_arg_eval_res = self.evaluate_parse_tree(current_cell, right_arg, interactive)
                     text_right = right_arg_eval_res.get_text(unwrap=True)
+                    left_arg_eval_res = self.evaluate_parse_tree(current_cell, left_arg, interactive)
+                    text_left = left_arg_eval_res.get_text(unwrap=True)
+
                     if op_str == '&':
                         if left_arg_eval_res.status == EvalStatus.FullEvaluation and right_arg_eval_res.status != EvalStatus.FullEvaluation:
                             text_left = '{}&{}'.format(text_left, text_right)
@@ -1727,7 +1782,10 @@ class XLMInterpreter:
                             text_left = text_left + text_right
                     elif left_arg_eval_res.status == EvalStatus.FullEvaluation and right_arg_eval_res.status == EvalStatus.FullEvaluation:
                         status = EvalStatus.FullEvaluation
-                        value_right = right_arg_eval_res.value
+
+                        value_right = text_right.strip('\"')
+                        value_left = text_left.strip('\"')
+
                         if self.is_float(value_left) and self.is_float(value_right):
                             if op_str in self._operators:
                                 op_res = self._operators[op_str](float(value_left), float(value_right))
@@ -1741,11 +1799,28 @@ class XLMInterpreter:
                             else:
                                 value_left = 'Operator ' + op_str
                                 left_arg_eval_res.status = EvalStatus.NotImplemented
-                        elif isinstance(value_left,str) and isinstance(value_right,str):
+                        elif EvalResult.is_datetime(value_left) and EvalResult.is_datetime(value_right):
                             timestamp1 = datetime.datetime.strptime(value_left.strip('\"'),"%Y-%m-%d %H:%M:%S.%f")
                             timestamp2 = datetime.datetime.strptime(value_right.strip('\"'),"%Y-%m-%d %H:%M:%S.%f")
                             op_res=self._operators[op_str](float(timestamp1.timestamp()), float(timestamp2.timestamp()))
                             if type(op_res) == bool:
+                                value_left = str(op_res)
+                            elif EvalResult.is_datetime(op_res):
+                                value_left = str(op_res)
+                            elif op_res.is_integer():
+                                value_left = str(op_res)
+                            else:
+                                op_res = round(op_res, 10)
+                                value_left = str(op_res)
+                        elif EvalResult.is_datetime(value_left) and EvalResult.is_time(value_right):
+                            timestamp1 = datetime.datetime.strptime(value_left.strip('\"'),"%Y-%m-%d %H:%M:%S.%f")
+                            timestamp2 = datetime.datetime.strptime(value_right.strip('\"'),"%H:%M:%S")
+                            t1=float(timestamp1.timestamp())
+                            t2=float(int(timestamp2.hour)*3600+int(timestamp2.minute)*60+int(timestamp2.second))
+                            op_res=datetime.datetime.fromtimestamp(self._operators[op_str](t1,t2))
+                            if type(op_res) == bool:
+                                value_left = str(op_res)
+                            elif type(op_res) == datetime.datetime:
                                 value_left = str(op_res)
                             elif op_res.is_integer():
                                 value_left = str(op_res)
@@ -1775,9 +1850,7 @@ class XLMInterpreter:
 
             if concat_status == EvalStatus.PartialEvaluation and left_arg_eval_res.status == EvalStatus.FullEvaluation:
                 left_arg_eval_res.status = concat_status
-
             result = EvalResult(next_cell, left_arg_eval_res.status, return_val, EvalResult.wrap_str_literal(text_left))
-
         elif parse_tree_root.data == 'final':
             arg = parse_tree_root.children[1]
             result = self.evaluate_parse_tree(current_cell, arg, interactive)
