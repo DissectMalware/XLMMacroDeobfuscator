@@ -213,6 +213,7 @@ class XLMInterpreter:
             'HLOOKUP': self.hlookup_handler,
             'IF': self.if_handler,
             'INT': self.int_handler,
+            'ISNUMBER': self.is_number_handler,
             'LEN': self.len_handler,
             'MOD': self.mod_handler,
             'MID': self.mid_handler,
@@ -1202,7 +1203,6 @@ class XLMInterpreter:
     def search_handler(self, arguments, current_cell, interactive, parse_tree_root):
         arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         arg2_eval_res = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
-
         if arg1_eval_res.status == EvalStatus.FullEvaluation and arg2_eval_res.status == EvalStatus.FullEvaluation:
             try:
                 arg1_val = arg1_eval_res.get_text(unwrap=True)
