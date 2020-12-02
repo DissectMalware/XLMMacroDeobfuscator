@@ -203,6 +203,7 @@ class XLMInterpreter:
             'DAY': self.day_handler,
             'DIRECTORY': self.directory_handler,
             'ERROR': self.error_handler,
+            'FILES': self.files_handler,
             'FORMULA': self.formula_handler,
             'FOPEN': self.fopen_handler,
             'FSIZE': self.fsize_handler,
@@ -213,6 +214,7 @@ class XLMInterpreter:
             'HLOOKUP': self.hlookup_handler,
             'IF': self.if_handler,
             'INT': self.int_handler,
+            'ISERROR': self.iserror_handler,
             'ISNUMBER': self.is_number_handler,
             'LEN': self.len_handler,
             'MOD': self.mod_handler,
@@ -1598,6 +1600,27 @@ class XLMInterpreter:
 
     def fwriteln_handler(self, arguments, current_cell, interactive, parse_tree_root):
         return self.fwrite_handler(arguments, current_cell, interactive, parse_tree_root, end_line='\r\n')
+
+    def files_handler(self, arguments, current_cell, interactive, parse_tree_root, end_line=''):
+        arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        dir_name = arg1_eval_res.get_text(unwrap=True)
+        status = EvalStatus.FullEvaluation
+        if dir_name in self._files:
+            return_val = dir_name
+        else:
+            return_val=None
+        text = 'FILES({})'.format(dir_name)
+        return EvalResult(None, status, return_val, text)
+
+    def iserror_handler(self, arguments, current_cell, interactive, parse_tree_root, end_line=''):
+        arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        status = EvalStatus.FullEvaluation
+        if arg1_eval_res.value==None:
+            return_val=True
+        else:
+            return_val=False
+        text = 'ISERROR({})'.format(EvalResult.wrap_str_literal(arg1_eval_res.get_text(unwrap=True)))
+        return EvalResult(None, status, return_val, text)
 
     def offset_handler(self, arguments, current_cell, interactive, parse_tree_root):
         value = 0
