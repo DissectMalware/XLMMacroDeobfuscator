@@ -13,7 +13,7 @@ class XLSWrapper2(ExcelWrapper):
 
     def __init__(self, xls_doc_path):
         self.xls_workbook = xlrd2.open_workbook(xls_doc_path, formatting_info=True)
-        self.xls_workbook_name = re.search(".*\/([^\/]+)\.",xls_doc_path).group(1)
+        self.xls_workbook_name = os.path.basename(xls_doc_path)
         self._macrosheets = None
         self._worksheets = None
         self._defined_names = None
