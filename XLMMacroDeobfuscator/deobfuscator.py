@@ -2508,7 +2508,7 @@ def process_file(**kwargs):
             timeout = 0
             if kwargs.get("timeout"):
                 timeout = kwargs.get("timeout")
-                
+
             for step in interpreter.deobfuscate_macro(interactive, start_point, timeout=timeout):
                 if kwargs.get("return_deobfuscated"):
                     deobfuscated.append(
@@ -2617,10 +2617,10 @@ def main():
                             help="Set the level of details to be shown "
                                  "(0:all commands, 1: commands no jump "
                                  "2:important commands 3:strings in important commands).")
-    arg_parser.add_argument("--timeout", type=int, action='store', default=0,
-                            help="stop emulation after X seconds"
-                                 "(0: not interruption "
-                                 "X>0: stop emulation after X seconds")
+    arg_parser.add_argument("--timeout", type=int, action='store', default=0, metavar=('N'),
+                            help="stop emulation after N seconds"
+                                 " (0: not interruption "
+                                 "N>0: stop emulation after N seconds)")
 
     arg_parser.set_defaults(**defaults)
 
