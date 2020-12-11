@@ -543,8 +543,8 @@ class XLMInterpreter:
         return result
 
     def evaluate_formula(self, current_cell, name, arguments, interactive, destination_arg=1):
-
         source, destination = (arguments[0], arguments[1]) if destination_arg == 1 else (arguments[1], arguments[0])
+
         src_eval_result = self.evaluate_parse_tree(current_cell, source, interactive)
         if isinstance(destination, Token):
             # TODO: get_defined_name must return a list; currently it returns list or one item
@@ -1819,8 +1819,7 @@ class XLMInterpreter:
                     right_arg = parse_tree_root.children[index + 1]
                     right_arg_eval_res = self.evaluate_parse_tree(current_cell, right_arg, interactive)
                     text_right = right_arg_eval_res.get_text(unwrap=True)
-                    left_arg_eval_res = self.evaluate_parse_tree(current_cell, left_arg, interactive)
-                    text_left = left_arg_eval_res.get_text(unwrap=True)
+
 
                     if op_str == '&':
                         if left_arg_eval_res.status == EvalStatus.FullEvaluation and right_arg_eval_res.status != EvalStatus.FullEvaluation:
