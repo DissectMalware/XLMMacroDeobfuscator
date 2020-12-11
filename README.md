@@ -80,7 +80,7 @@ default.config file must be a valid json file, such as:
   (______/ (_______/(_______)|/ \___/ |/       (_______)\_______)(_______/|/     \|   )_(   (_______)|/   \__/
 
     
-XLMMacroDeobfuscator(v0.1.5) - https://github.com/DissectMalware/XLMMacroDeobfuscator
+XLMMacroDeobfuscator(v0.1.6) - https://github.com/DissectMalware/XLMMacroDeobfuscator
 
 usage: deobfuscator.py [-h] [-c FILE_PATH] [-f FILE_PATH] [-n] [-x] [-2]
                        [--with-ms-excel] [-s] [-d DAY]
@@ -117,7 +117,8 @@ optional arguments:
                         Set the level of details to be shown (0:all commands,
                         1: commands no jump 2:important commands 3:strings in
                         important commands).
-
+  --timeout N           stop emulation after N seconds (0: not interruption
+                        N>0: stop emulation after N seconds)
 ```
 
 # Library
@@ -130,7 +131,8 @@ result = process_file(file='path/to/an/excel/file',
             noninteractive= True, 
             noindent= True, 
             output_formula_format='[[CELL_ADDR]], [[INT-FORMULA]]',
-            return_deobfuscated= True)
+            return_deobfuscated= True,
+            timeout= 30)
 
 for record in result:
     print(record)
