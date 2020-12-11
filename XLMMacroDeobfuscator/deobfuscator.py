@@ -176,6 +176,7 @@ class XLMInterpreter:
         self.char_error_count = 0
         self.output_level = output_level
         self._remove_current_formula_from_cache = False
+        self._start_timestamp = time.time()
 
         self._handlers = {
             # methods
@@ -2038,8 +2039,9 @@ class XLMInterpreter:
             result.append(match.string[match.start(0):match.end(0)])
         return result
 
-    def deobfuscate_macro(self, interactive, start_point="", silent_mode=False):
+    def deobfuscate_macro(self, interactive, start_point="", timeout=0, silent_mode=False):
         result = []
+        self._start_timestamp = time.time()
 
         self.auto_open_labels = self.xlm_wrapper.get_defined_name('auto_open', full_match=False)
         if len(self.auto_open_labels) == 0:
@@ -2053,7 +2055,10 @@ class XLMInterpreter:
         if self.auto_open_labels is not None and len(self.auto_open_labels) > 0:
             macros = self.xlm_wrapper.get_macrosheets()
 
+            continue_emulation = True
             for auto_open_label in self.auto_open_labels:
+                if not continue_emulation:
+                    break
                 try:
                     sheet_name, col, row = Cell.parse_cell_addr(auto_open_label[1])
                     if sheet_name in macros:
@@ -2061,11 +2066,15 @@ class XLMInterpreter:
                         self._branch_stack = [(current_cell, current_cell.formula, macros[sheet_name].cells, 0, '')]
                         observed_cells = []
                         while len(self._branch_stack) > 0:
+                            if not continue_emulation:
+                                break
                             current_cell, formula, saved_cells, indent_level, desc = self._branch_stack.pop()
                             macros[current_cell.sheet.name].cells = saved_cells
                             self._indent_level = indent_level
                             stack_record = True
                             while current_cell is not None:
+                                if not continue_emulation:
+                                    break
                                 if type(formula) is str:
                                     replace_op = getattr(self.xlm_wrapper, "replace_nonprintable_chars", None)
                                     if callable(replace_op):
@@ -2135,6 +2144,9 @@ class XLMInterpreter:
                                             current_cell, evaluation_result.status,
                                             evaluation_result.get_text(unwrap=False),
                                             previous_indent)
+
+                                if timeout > 0 and time.time() - self._start_timestamp > timeout:
+                                    continue_emulation = False
 
                                 if evaluation_result.next_cell is not None:
                                     current_cell = evaluation_result.next_cell
@@ -2372,7 +2384,8 @@ def process_file(**kwargs):
         'return_deobfuscated': True,
         'day': 0,
         'output_formula_format': 'CELL:[[CELL-ADDR]], [[STATUS]], [[INT-FORMULA]]',
-        'start_point': ''
+        'start_point': '',
+        'timeout': 30
     }
     """
     deobfuscated = list()
@@ -2492,7 +2505,11 @@ def process_file(**kwargs):
             output_format = kwargs.get("output_formula_format", 'CELL:[[CELL-ADDR]], [[STATUS]], [[INT-FORMULA]]')
             start_point = kwargs.get("start_point", '')
 
-            for step in interpreter.deobfuscate_macro(interactive, start_point):
+            timeout = 0
+            if kwargs.get("timeout"):
+                timeout = kwargs.get("timeout")
+                
+            for step in interpreter.deobfuscate_macro(interactive, start_point, timeout=timeout):
                 if kwargs.get("return_deobfuscated"):
                     deobfuscated.append(
                         get_formula_output(step, output_format, not kwargs.get("no_indent")))
@@ -2600,6 +2617,10 @@ def main():
                             help="Set the level of details to be shown "
                                  "(0:all commands, 1: commands no jump "
                                  "2:important commands 3:strings in important commands).")
+    arg_parser.add_argument("--timeout", type=int, action='store', default=0,
+                            help="stop emulation after X seconds"
+                                 "(0: not interruption "
+                                 "X>0: stop emulation after X seconds")
 
     arg_parser.set_defaults(**defaults)
 
