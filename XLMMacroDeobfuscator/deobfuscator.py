@@ -1838,9 +1838,7 @@ class XLMInterpreter:
                             text_left = text_left + text_right
                     elif left_arg_eval_res.status == EvalStatus.FullEvaluation and right_arg_eval_res.status == EvalStatus.FullEvaluation:
                         status = EvalStatus.FullEvaluation
-
-                        value_right = text_right.strip('\"')
-                        value_left = text_left.strip('\"')
+                        value_right = right_arg_eval_res.value
 
                         if self.is_float(value_left) and self.is_float(value_right):
                             if op_str in self._operators:
@@ -1855,9 +1853,9 @@ class XLMInterpreter:
                             else:
                                 value_left = 'Operator ' + op_str
                                 left_arg_eval_res.status = EvalStatus.NotImplemented
-                        elif EvalResult.is_datetime(value_left) and EvalResult.is_datetime(value_right):
-                            timestamp1 = datetime.datetime.strptime(value_left.strip('\"'), "%Y-%m-%d %H:%M:%S.%f")
-                            timestamp2 = datetime.datetime.strptime(value_right.strip('\"'), "%Y-%m-%d %H:%M:%S.%f")
+                        elif EvalResult.is_datetime(text_left.strip('\"')) and EvalResult.is_datetime(text_right.strip('\"')):
+                            timestamp1 = datetime.datetime.strptime(text_left.strip('\"'), "%Y-%m-%d %H:%M:%S.%f")
+                            timestamp2 = datetime.datetime.strptime(text_right.strip('\"'), "%Y-%m-%d %H:%M:%S.%f")
                             op_res = self._operators[op_str](float(timestamp1.timestamp()),
                                                              float(timestamp2.timestamp()))
                             if type(op_res) == bool:
@@ -1869,9 +1867,9 @@ class XLMInterpreter:
                             else:
                                 op_res = round(op_res, 10)
                                 value_left = str(op_res)
-                        elif EvalResult.is_datetime(value_left) and EvalResult.is_time(value_right):
-                            timestamp1 = datetime.datetime.strptime(value_left.strip('\"'), "%Y-%m-%d %H:%M:%S.%f")
-                            timestamp2 = datetime.datetime.strptime(value_right.strip('\"'), "%H:%M:%S")
+                        elif EvalResult.is_datetime(text_left.strip('\"')) and EvalResult.is_time(text_right.strip('\"')):
+                            timestamp1 = datetime.datetime.strptime(text_left.strip('\"'), "%Y-%m-%d %H:%M:%S.%f")
+                            timestamp2 = datetime.datetime.strptime(text_right.strip('\"'), "%H:%M:%S")
                             t1 = float(timestamp1.timestamp())
                             t2 = float(
                                 int(timestamp2.hour) * 3600 + int(timestamp2.minute) * 60 + int(timestamp2.second))
@@ -2280,7 +2278,7 @@ def convert_to_json_str(file, defined_names, records, memory=None, files=None):
             if isinstance(val, Tree):
                 defined_names[key] = XLMInterpreter.convert_ptree_to_str(val)
 
-    res = {'file_path': file, 'md5_hash': md5, 'sha256_hash': sha256, 'analysis_timestamp': int(time.time()),
+    res = {'file_path': file, 'md5_hash': md5, 'sha256_hash': sha256, 'analysstamp': int(time.time()),
            'format_version': 1, 'analyzed_by': 'XLMMacroDeobfuscator',
            'link': 'https://github.com/DissectMalware/XLMMacroDeobfuscator', 'defined_names': defined_names,
            'records': [], 'memory_records': [], 'files': []}
