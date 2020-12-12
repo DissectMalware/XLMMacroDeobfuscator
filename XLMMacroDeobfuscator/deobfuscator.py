@@ -2300,7 +2300,7 @@ def convert_to_json_str(file, defined_names, records, memory=None, files=None):
             if isinstance(val, Tree):
                 defined_names[key] = XLMInterpreter.convert_ptree_to_str(val)
 
-    res = {'file_path': file, 'md5_hash': md5, 'sha256_hash': sha256, 'analysstamp': int(time.time()),
+    res = {'file_path': file, 'md5_hash': md5, 'sha256_hash': sha256, 'analysis_timestamp': int(time.time()),
            'format_version': 1, 'analyzed_by': 'XLMMacroDeobfuscator',
            'link': 'https://github.com/DissectMalware/XLMMacroDeobfuscator', 'defined_names': defined_names,
            'records': [], 'memory_records': [], 'files': []}
