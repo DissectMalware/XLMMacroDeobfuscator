@@ -177,6 +177,10 @@ class XLMInterpreter:
         self.output_level = output_level
         self._remove_current_formula_from_cache = False
         self._start_timestamp = time.time()
+        self._iserror_count = 0
+        self._iserror_loc = None
+        self._iserror_val = False
+
 
         self._handlers = {
             # methods
@@ -246,6 +250,8 @@ class XLMInterpreter:
             'Kernel32.WriteProcessMemory': self.WriteProcessMemory_handler,
             'Kernel32.RtlCopyMemory': self.RtlCopyMemory_handler,
         }
+
+    MAX_ISERROR_LOOPCOUNT = 10
 
     jump_functions = ('GOTO', 'RUN')
     important_functions = ('CALL', 'FOPEN', 'FWRITE', 'FREAD', 'REGISTER', 'IF', 'WHILE', 'HALT', 'CLOSE', "NEXT")
@@ -1649,10 +1655,26 @@ class XLMInterpreter:
     def iserror_handler(self, arguments, current_cell, interactive, parse_tree_root, end_line=''):
         arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         status = EvalStatus.FullEvaluation
+
         if arg1_eval_res.value == None:
             return_val = True
         else:
             return_val = False
+
+        if self._iserror_loc is None:
+            self._iserror_val = return_val
+            self._iserror_loc = current_cell
+            self._iserror_count = 1
+        elif self._iserror_loc == current_cell:
+            if self._iserror_val != return_val:
+                self._iserror_val = return_val
+                self._iserror_count = 1
+            elif self._iserror_count < XLMInterpreter.MAX_ISERROR_LOOPCOUNT:
+                self._iserror_count += 1
+            else:
+                return_val = not return_val
+                self._iserror_loc = None
+
         text = 'ISERROR({})'.format(EvalResult.wrap_str_literal(arg1_eval_res.get_text(unwrap=True)))
         return EvalResult(None, status, return_val, text)
 
