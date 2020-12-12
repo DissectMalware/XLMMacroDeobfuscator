@@ -177,6 +177,10 @@ class XLMInterpreter:
         self.output_level = output_level
         self._remove_current_formula_from_cache = False
         self._start_timestamp = time.time()
+        self._iserror_count = 0
+        self._iserror_loc = None
+        self._iserror_val = False
+
 
         self._handlers = {
             # methods
@@ -246,6 +250,8 @@ class XLMInterpreter:
             'Kernel32.WriteProcessMemory': self.WriteProcessMemory_handler,
             'Kernel32.RtlCopyMemory': self.RtlCopyMemory_handler,
         }
+
+    MAX_ISERROR_LOOPCOUNT = 10
 
     jump_functions = ('GOTO', 'RUN')
     important_functions = ('CALL', 'FOPEN', 'FWRITE', 'FREAD', 'REGISTER', 'IF', 'WHILE', 'HALT', 'CLOSE', "NEXT")
@@ -543,8 +549,8 @@ class XLMInterpreter:
         return result
 
     def evaluate_formula(self, current_cell, name, arguments, interactive, destination_arg=1):
-
         source, destination = (arguments[0], arguments[1]) if destination_arg == 1 else (arguments[1], arguments[0])
+
         src_eval_result = self.evaluate_parse_tree(current_cell, source, interactive)
         if isinstance(destination, Token):
             # TODO: get_defined_name must return a list; currently it returns list or one item
@@ -1649,10 +1655,26 @@ class XLMInterpreter:
     def iserror_handler(self, arguments, current_cell, interactive, parse_tree_root, end_line=''):
         arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         status = EvalStatus.FullEvaluation
+
         if arg1_eval_res.value == None:
             return_val = True
         else:
             return_val = False
+
+        if self._iserror_loc is None:
+            self._iserror_val = return_val
+            self._iserror_loc = current_cell
+            self._iserror_count = 1
+        elif self._iserror_loc == current_cell:
+            if self._iserror_val != return_val:
+                self._iserror_val = return_val
+                self._iserror_count = 1
+            elif self._iserror_count < XLMInterpreter.MAX_ISERROR_LOOPCOUNT:
+                self._iserror_count += 1
+            else:
+                return_val = not return_val
+                self._iserror_loc = None
+
         text = 'ISERROR({})'.format(EvalResult.wrap_str_literal(arg1_eval_res.get_text(unwrap=True)))
         return EvalResult(None, status, return_val, text)
 
@@ -1819,8 +1841,7 @@ class XLMInterpreter:
                     right_arg = parse_tree_root.children[index + 1]
                     right_arg_eval_res = self.evaluate_parse_tree(current_cell, right_arg, interactive)
                     text_right = right_arg_eval_res.get_text(unwrap=True)
-                    left_arg_eval_res = self.evaluate_parse_tree(current_cell, left_arg, interactive)
-                    text_left = left_arg_eval_res.get_text(unwrap=True)
+
 
                     if op_str == '&':
                         if left_arg_eval_res.status == EvalStatus.FullEvaluation and right_arg_eval_res.status != EvalStatus.FullEvaluation:
@@ -1839,9 +1860,7 @@ class XLMInterpreter:
                             text_left = text_left + text_right
                     elif left_arg_eval_res.status == EvalStatus.FullEvaluation and right_arg_eval_res.status == EvalStatus.FullEvaluation:
                         status = EvalStatus.FullEvaluation
-
-                        value_right = text_right.strip('\"')
-                        value_left = text_left.strip('\"')
+                        value_right = right_arg_eval_res.value
 
                         if self.is_float(value_left) and self.is_float(value_right):
                             if op_str in self._operators:
@@ -1856,9 +1875,9 @@ class XLMInterpreter:
                             else:
                                 value_left = 'Operator ' + op_str
                                 left_arg_eval_res.status = EvalStatus.NotImplemented
-                        elif EvalResult.is_datetime(value_left) and EvalResult.is_datetime(value_right):
-                            timestamp1 = datetime.datetime.strptime(value_left.strip('\"'), "%Y-%m-%d %H:%M:%S.%f")
-                            timestamp2 = datetime.datetime.strptime(value_right.strip('\"'), "%Y-%m-%d %H:%M:%S.%f")
+                        elif EvalResult.is_datetime(text_left.strip('\"')) and EvalResult.is_datetime(text_right.strip('\"')):
+                            timestamp1 = datetime.datetime.strptime(text_left.strip('\"'), "%Y-%m-%d %H:%M:%S.%f")
+                            timestamp2 = datetime.datetime.strptime(text_right.strip('\"'), "%Y-%m-%d %H:%M:%S.%f")
                             op_res = self._operators[op_str](float(timestamp1.timestamp()),
                                                              float(timestamp2.timestamp()))
                             if type(op_res) == bool:
@@ -1870,9 +1889,9 @@ class XLMInterpreter:
                             else:
                                 op_res = round(op_res, 10)
                                 value_left = str(op_res)
-                        elif EvalResult.is_datetime(value_left) and EvalResult.is_time(value_right):
-                            timestamp1 = datetime.datetime.strptime(value_left.strip('\"'), "%Y-%m-%d %H:%M:%S.%f")
-                            timestamp2 = datetime.datetime.strptime(value_right.strip('\"'), "%H:%M:%S")
+                        elif EvalResult.is_datetime(text_left.strip('\"')) and EvalResult.is_time(text_right.strip('\"')):
+                            timestamp1 = datetime.datetime.strptime(text_left.strip('\"'), "%Y-%m-%d %H:%M:%S.%f")
+                            timestamp2 = datetime.datetime.strptime(text_right.strip('\"'), "%H:%M:%S")
                             t1 = float(timestamp1.timestamp())
                             t2 = float(
                                 int(timestamp2.hour) * 3600 + int(timestamp2.minute) * 60 + int(timestamp2.second))
