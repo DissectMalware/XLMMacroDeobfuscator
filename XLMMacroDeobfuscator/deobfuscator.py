@@ -1089,9 +1089,9 @@ class XLMInterpreter:
                     cond_eval_result.value = bool(strtobool(cond_eval_result.value))
                 elif self.is_int(cond_eval_result.value):
                     if int(cond_eval_result.value) == 0:
-                        cond_eval_result.value = True
-                    else:
                         cond_eval_result.value = False
+                    else:
+                        cond_eval_result.value = True
 
                 if cond_eval_result.status == EvalStatus.FullEvaluation:
                     if cond_eval_result.value:
@@ -1199,10 +1199,10 @@ class XLMInterpreter:
     def is_number_handler(self, arguments, current_cell, interactive, parse_tree_root):
         eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         if eval_result.status == EvalStatus.FullEvaluation:
-            if type(eval_result.value) is float or type(eval_result.value) is int:
-                return_val = True
+            if self.is_int(eval_result.text) or self.is_float(eval_result.text):
+                return_val = 1
             else:
-                return_val = False
+                return_val = 0
             text = str(return_val)
         else:
             return_val = text = 'ISNUMBER({})'.format(eval_result.get_text())
@@ -1214,8 +1214,8 @@ class XLMInterpreter:
         arg2_eval_res = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
         if arg1_eval_res.status == EvalStatus.FullEvaluation and arg2_eval_res.status == EvalStatus.FullEvaluation:
             try:
-                arg1_val = arg1_eval_res.get_text(unwrap=True)
-                arg2_val = arg2_eval_res.get_text(unwrap=True)
+                arg1_val = str(arg1_eval_res.value).strip('\"')
+                arg2_val = str(arg2_eval_res.value).strip('\"')
                 return_val = arg2_val.lower().index(arg1_val.lower())
                 text = str(return_val)
             except ValueError:
