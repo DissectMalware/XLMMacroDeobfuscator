@@ -13,7 +13,9 @@ class XLSWrapper2(ExcelWrapper):
 
     def __init__(self, xls_doc_path):
         self.xls_workbook = xlrd2.open_workbook(xls_doc_path, formatting_info=True)
+        self.xls_workbook_name = os.path.basename(xls_doc_path)
         self._macrosheets = None
+        self._worksheets = None
         self._defined_names = None
         self.xl_international_flags = {}
         self.xl_international_flags = {XlApplicationInternational.xlLeftBracket: '[',
@@ -67,19 +69,19 @@ class XLSWrapper2(ExcelWrapper):
                         # By @JohnLaTwC:
                         # handled mangled cell name as in:
                         # 8a868633be770dc26525884288c34ba0621170af62f0e18c19b25a17db36726a
-                        # defined name auto_open found at Operand(kind=oREF, value=[Ref3D(coords=(1, 2, 321, 322, 14, 15))], text='sgd7t!\x00\x00\x00\x00\x00\x00\x00\x00') 
+                        # defined name auto_open found at Operand(kind=oREF, value=[Ref3D(coords=(1, 2, 321, 322, 14, 15))], text='sgd7t!\x00\x00\x00\x00\x00\x00\x00\x00')
                         curr_cell = cells[0].result
                         if ('auto_open' in name):
                             coords = curr_cell.value[0].coords
                             r = int(coords[3])
                             c = int(coords[5])
-                            sheet_name = curr_cell.text.split('!')[0].replace("'", '') 
+                            sheet_name = curr_cell.text.split('!')[0].replace("'", '')
                             cell_location_xlref = sheet_name + '!' + self.xlref(row = r,column = c, zero_indexed = False)
                             self._defined_names[name] = cell_location_xlref
 
         return self._defined_names
 
-    
+
     def xlref(self, row, column, zero_indexed=True):
 
         if zero_indexed:
@@ -149,6 +151,20 @@ class XLSWrapper2(ExcelWrapper):
                     self._macrosheets[sheet.name] = macrosheet
 
         return self._macrosheets
+
+    def get_workbook_name(self):
+        return self.xls_workbook_name
+
+    def get_worksheets(self):
+        if self._worksheets is None:
+            self._worksheets = {}
+            for sheet in self.xls_workbook.sheets():
+                if sheet.boundsheet_type == xlrd2.biffh.XL_WORKSHEET:
+                    worksheet = Boundsheet(sheet.name, 'Worksheet')
+                    self.load_cells(worksheet, sheet)
+                    self._worksheets[sheet.name] = worksheet
+
+        return self._worksheets
 
     def get_color(self, color_index):
         return self.xls_workbook.colour_map.get(color_index)

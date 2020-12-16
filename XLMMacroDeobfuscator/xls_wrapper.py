@@ -18,6 +18,7 @@ class XLSWrapper(ExcelWrapper):
     def __init__(self, xls_doc_path):
         self._excel = Dispatch("Excel.Application")
         self.xls_workbook = self._excel.Workbooks.Open(xls_doc_path)
+        self.xls_workbook_name = re.search(".*\/([^\/]+)\.",xls_doc_path).group(1)
         self._macrosheets = None
         self._defined_names = None
         self.xl_international_flags = {}
@@ -111,7 +112,7 @@ class XLSWrapper(ExcelWrapper):
 
         for cell in cells:
             macrosheet.add_cell(cells[cell])
-            
+
     def get_macrosheets(self):
         if self._macrosheets is None:
             self._macrosheets = {}
@@ -121,6 +122,9 @@ class XLSWrapper(ExcelWrapper):
                 self._macrosheets[sheet.name] = macrosheet
 
         return self._macrosheets
+
+    def get_workbook_name(self):
+        return self.xls_workbook_name
 
     def get_cell_info(self, sheet_name, col, row, type_ID):
         sheet = self._excel.Excel4MacroSheets(sheet_name)
