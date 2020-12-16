@@ -621,7 +621,7 @@ class XLMInterpreter:
                 args_str += arg_eval_Result.get_text() + ','
 
         args_str = args_str.strip(',')
-        return_val = text = '{}({})'.format(name, args_str)
+        return_val = text = '={}({})'.format(name, args_str)
         status = EvalStatus.PartialEvaluation
 
         return EvalResult(None, status, return_val, text)
@@ -1089,9 +1089,9 @@ class XLMInterpreter:
                     cond_eval_result.value = bool(strtobool(cond_eval_result.value))
                 elif self.is_int(cond_eval_result.value):
                     if int(cond_eval_result.value) == 0:
-                        cond_eval_result.value = True
-                    else:
                         cond_eval_result.value = False
+                    else:
+                        cond_eval_result.value = True
 
                 if cond_eval_result.status == EvalStatus.FullEvaluation:
                     if cond_eval_result.value:
@@ -1199,10 +1199,10 @@ class XLMInterpreter:
     def is_number_handler(self, arguments, current_cell, interactive, parse_tree_root):
         eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         if eval_result.status == EvalStatus.FullEvaluation:
-            if type(eval_result.value) is float or type(eval_result.value) is int:
-                return_val = True
+            if self.is_int(eval_result.text) or self.is_float(eval_result.text):
+                return_val = 1
             else:
-                return_val = False
+                return_val = 0
             text = str(return_val)
         else:
             return_val = text = 'ISNUMBER({})'.format(eval_result.get_text())
@@ -1214,8 +1214,8 @@ class XLMInterpreter:
         arg2_eval_res = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
         if arg1_eval_res.status == EvalStatus.FullEvaluation and arg2_eval_res.status == EvalStatus.FullEvaluation:
             try:
-                arg1_val = arg1_eval_res.get_text(unwrap=True)
-                arg2_val = arg2_eval_res.get_text(unwrap=True)
+                arg1_val = EvalResult.unwrap_str_literal( str(arg1_eval_res.value))
+                arg2_val = EvalResult.unwrap_str_literal(arg2_eval_res.value)
                 return_val = arg2_val.lower().index(arg1_val.lower())
                 text = str(return_val)
             except ValueError:
@@ -1645,11 +1645,12 @@ class XLMInterpreter:
         arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         dir_name = arg1_eval_res.get_text(unwrap=True)
         status = EvalStatus.FullEvaluation
-        if dir_name in self._files:
-            return_val = dir_name
-        else:
-            return_val = None
-        text = 'FILES({})'.format(dir_name)
+        # if dir_name in self._files:
+        #     return_val = dir_name
+        # else:
+        #     return_val = None
+        return_val = dir_name
+        text = "FILES({})".format(EvalResult.wrap_str_literal(dir_name))
         return EvalResult(None, status, return_val, text)
 
     def iserror_handler(self, arguments, current_cell, interactive, parse_tree_root, end_line=''):
@@ -1964,7 +1965,9 @@ class XLMInterpreter:
 
             if cell_addr in sheet.cells:
                 cell = sheet.cells[cell_addr]
-                if cell.value is not None and cell.value != cell.formula:
+                if cell.value is not None and \
+                        (not isinstance(cell.value, str) or not cell.value.startswith("=")) and\
+                        cell.value != cell.formula:
                     text = EvalResult.wrap_str_literal(cell.value)
                     return_val = text
                     status = EvalStatus.FullEvaluation
