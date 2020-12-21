@@ -179,7 +179,10 @@ class XLSWrapper2(ExcelWrapper):
         not_exist = False
         not_implemented = False
 
-        if info_type_id == 17:
+        if info_type_id == 5:
+            data = sheet.cell(row, column).value
+
+        elif info_type_id == 17:
             not_exist = False
             if row in sheet.rowinfo_map:
                 data = sheet.rowinfo_map[row].height
