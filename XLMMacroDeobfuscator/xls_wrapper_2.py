@@ -27,6 +27,17 @@ class XLSWrapper2(ExcelWrapper):
         control_chars += '\ufefe\uffff\ufeff\ufffe\uffef\ufff0\ufff1\ufff6\ufefd\udddd\ufffd'
         self._control_char_re = re.compile('[%s]' % re.escape(control_chars))
 
+    # from xlrd2
+    oBOOL = 3
+    oERR = 4
+    oMSNG = 5  # tMissArg
+    oNUM = 2
+    oREF = -1
+    oREL = -2
+    oSTRG = 1
+    oUNK = 0
+    oARR = 6
+
     def get_xl_international_char(self, flag_name):
         result = None
         if flag_name in self.xl_international_flags:
@@ -63,21 +74,29 @@ class XLSWrapper2(ExcelWrapper):
                     name = name + str(index)
                 if cells[0].result is not None:
                     cell_location = cells[0].result.text
-                    if '$' in cell_location:
+                    if cells[0].result.kind == XLSWrapper2.oNUM:
+                        self._defined_names[name] = cells[0].result.value
+                    elif cells[0].result.kind == XLSWrapper2.oSTRG:
                         self._defined_names[name] = cells[0].result.text
-                    else:
-                        # By @JohnLaTwC:
-                        # handled mangled cell name as in:
-                        # 8a868633be770dc26525884288c34ba0621170af62f0e18c19b25a17db36726a
-                        # defined name auto_open found at Operand(kind=oREF, value=[Ref3D(coords=(1, 2, 321, 322, 14, 15))], text='sgd7t!\x00\x00\x00\x00\x00\x00\x00\x00')
-                        curr_cell = cells[0].result
-                        if ('auto_open' in name):
-                            coords = curr_cell.value[0].coords
-                            r = int(coords[3])
-                            c = int(coords[5])
-                            sheet_name = curr_cell.text.split('!')[0].replace("'", '')
-                            cell_location_xlref = sheet_name + '!' + self.xlref(row = r,column = c, zero_indexed = False)
-                            self._defined_names[name] = cell_location_xlref
+                    elif cells[0].result.kind == XLSWrapper2.oARR:
+                        self._defined_names[name] = cells[0].result.value
+                    elif cells[0].result.kind == XLSWrapper2.oREF:
+                        if '$' in cell_location:
+                            self._defined_names[name] = cells[0].result.text
+                        else:
+                            # By @JohnLaTwC:
+                            # handled mangled cell name as in:
+                            # 8a868633be770dc26525884288c34ba0621170af62f0e18c19b25a17db36726a
+                            # defined name auto_open found at Operand(kind=oREF, value=[Ref3D(coords=(1, 2, 321, 322, 14, 15))], text='sgd7t!\x00\x00\x00\x00\x00\x00\x00\x00')
+
+                            curr_cell = cells[0].result
+                            if ('auto_open' in name):
+                                coords = curr_cell.value[0].coords
+                                r = int(coords[3])
+                                c = int(coords[5])
+                                sheet_name = curr_cell.text.split('!')[0].replace("'", '')
+                                cell_location_xlref = sheet_name + '!' + self.xlref(row = r,column = c, zero_indexed = False)
+                                self._defined_names[name] = cell_location_xlref
 
         return self._defined_names
 

@@ -22,6 +22,8 @@ from XLMMacroDeobfuscator.__init__ import __version__
 import copy
 import linecache
 
+from build.lib.XLMMacroDeobfuscator.deobfuscator import EvalResult
+
 try:
     from XLMMacroDeobfuscator.xls_wrapper import XLSWrapper
 
@@ -207,6 +209,7 @@ class XLMInterpreter:
             'CONCATENATE': self.concatenate_handler,
             'COUNTA': self.counta_handler,
             'DAY': self.day_handler,
+            'DEFINE.NAME': self.define_name_handler,
             'DIRECTORY': self.directory_handler,
             'ERROR': self.error_handler,
             'FILES': self.files_handler,
@@ -217,6 +220,7 @@ class XLMInterpreter:
             'FWRITELN': self.fwriteln_handler,
             'GOTO': self.goto_handler,
             'HALT': self.halt_handler,
+            'INDEX': self.index_handler,
             'HLOOKUP': self.hlookup_handler,
             'IF': self.if_handler,
             'INT': self.int_handler,
@@ -236,6 +240,7 @@ class XLMInterpreter:
             'ROUND': self.round_handler,
             'ROUNDUP': self.roundup_handler,
             'RUN': self.run_handler,
+            'ROWS' : self.rows_handler,
             'SEARCH': self.search_handler,
             'SELECT': self.select_handler,
             'SUM': self.sum_handler,
@@ -816,8 +821,9 @@ class XLMInterpreter:
         arg_eval_result1 = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         arg_eval_result2 = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
         value = 0
+        status = EvalStatus.PartialEvaluation
         # Initial implementation for integer
-        if int(arg_eval_result2.text.strip('\"')) == 0:
+        if arg_eval_result1.status == EvalStatus.FullEvaluation and int(arg_eval_result2.text.strip('\"')) == 0:
             status = EvalStatus.FullEvaluation
             value = int(arg_eval_result1.value)
 
@@ -1205,7 +1211,8 @@ class XLMInterpreter:
                 return_val = 0
             text = str(return_val)
         else:
-            return_val = text = 'ISNUMBER({})'.format(eval_result.get_text())
+            text = 'ISNUMBER({})'.format(eval_result.get_text())
+            return_val = 1 # true
 
         return EvalResult(None, eval_result.status, return_val, text)
 
@@ -1432,6 +1439,52 @@ class XLMInterpreter:
             status = EvalStatus.PartialEvaluation
         return EvalResult(None, status, return_val, text)
 
+    def define_name_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        arg_name_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        status = EvalStatus.PartialEvaluation
+        if arg_name_eval_result.status == EvalStatus.FullEvaluation:
+            arg_val_eval_result = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
+            status = EvalStatus.FullEvaluation
+            name = EvalResult.unwrap_str_literal(arg_name_eval_result.text).lower()
+            if EvalResult.is_int( arg_val_eval_result.value):
+                self.defined_names[name] = int(arg_val_eval_result.value)
+            elif EvalResult.is_float( arg_val_eval_result.value):
+                self.defined_names[name] = float(arg_val_eval_result.value)
+            else:
+                self.defined_names[name] = arg_val_eval_result.value
+            return_val = self.defined_names[name]
+            text = "DEFINE.NAME({},{})".format(EvalResult.wrap_str_literal(name), str(return_val))
+        else:
+            return_val = text = self.convert_ptree_to_str(parse_tree_root)
+        return EvalResult(None, status, return_val, text)
+
+    def index_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        array_arg_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        status = EvalStatus.PartialEvaluation
+        if array_arg_result.status == EvalStatus.FullEvaluation and \
+                isinstance(array_arg_result.value, list):
+            index_arg_result = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
+            return_val = array_arg_result.value[int(float(index_arg_result.value))-1]  # index starts at 1 in excel
+            text = str(return_val)
+            status = EvalStatus.FullEvaluation
+        else:
+            return_val = text = self.convert_ptree_to_str(parse_tree_root)
+        return EvalResult(None, status, return_val, text)
+
+    def rows_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        status = EvalStatus.PartialEvaluation
+
+        if arg_eval_result.status == EvalStatus.FullEvaluation and \
+            isinstance(arg_eval_result.value, list):
+            status = EvalStatus.FullEvaluation
+            return_val = len(arg_eval_result.value)
+            text = str(return_val)
+        else:
+            return_val = text = self.convert_ptree_to_str(parse_tree_root)
+
+        return EvalResult(None, status, return_val, text)
+
     def counta_handler(self, arguments, current_cell, interactive, parse_tree_root):
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         sheet_name, startcolumn, startrow, endcolumn, endrow = Cell.parse_range_addr(arg_eval_result.text)
@@ -1564,6 +1617,7 @@ class XLMInterpreter:
             return_val = self.evaluate_parse_tree(current_cell, arguments, False)
 
         return EvalResult(None, status, return_val, str(return_val))
+
 
     def register_handler(self, arguments, current_cell, interactive, parse_tree_root):
         if len(arguments) >= 4:
@@ -1800,6 +1854,23 @@ class XLMInterpreter:
                 break
         return result
 
+    def evaluate_defined_name(self, current_cell, name, interactive):
+        result = None
+        lname = name.lower()
+        if lname in self.defined_names:
+            val = self.defined_names[lname]
+            if isinstance(val, Tree) and val.data == 'cell':
+                eval_res = self.evaluate_cell(current_cell, interactive, val)
+                result = eval_res.value
+            elif isinstance(val, list):
+                result = val
+            else:
+                parsed_formula = self.xlm_parser.parse('=' + str(val))
+                eval_result = self.evaluate_parse_tree(current_cell,parsed_formula, interactive)
+                result = eval_result.value
+
+        return result
+
     def evaluate_parse_tree(self, current_cell, parse_tree_root, interactive=True):
         next_cell = None
         status = EvalStatus.NotImplemented
@@ -1811,11 +1882,12 @@ class XLMInterpreter:
                 # this formula has a defined name that can be changed
                 # current formula must be removed from cache
                 self._remove_current_formula_from_cache = True
-                parse_tree_root.value = self.defined_names[parse_tree_root.value.lower()]
+                #parse_tree_root.value = self.defined_names[parse_tree_root.value.lower()]
+                parse_tree_root.value = self.evaluate_defined_name(current_cell, parse_tree_root.value, interactive)
 
-            text = parse_tree_root.value
+            return_val = parse_tree_root.value
             status = EvalStatus.FullEvaluation
-            return_val = text
+            text = str(return_val)
             result = EvalResult(next_cell, status, return_val, text)
 
         elif type(parse_tree_root) is list:
@@ -1955,7 +2027,11 @@ class XLMInterpreter:
 
         if sheet_name is not None:
             cell_addr = col + str(row)
-            sheet = self.xlm_wrapper.get_macrosheets()[sheet_name]
+
+            if sheet_name in self.xlm_wrapper.get_macrosheets():
+                sheet = self.xlm_wrapper.get_macrosheets()[sheet_name]
+            else:
+                sheet = self.xlm_wrapper.get_worksheets()[sheet_name]
 
             if cell_addr not in sheet.cells and (sheet_name, cell_addr) in self.cell_with_unsuccessfull_set:
                 if interactive:
@@ -1965,20 +2041,19 @@ class XLMInterpreter:
 
             if cell_addr in sheet.cells:
                 cell = sheet.cells[cell_addr]
-                if cell.value is not None and \
-                        (not isinstance(cell.value, str) or not cell.value.startswith("=")) and\
-                        cell.value != cell.formula:
-                    text = EvalResult.wrap_str_literal(cell.value)
-                    return_val = text
-                    status = EvalStatus.FullEvaluation
 
-                elif cell.formula is not None:
+                if cell.formula is not None:
                     parse_tree = self.xlm_parser.parse(cell.formula)
                     eval_result = self.evaluate_parse_tree(cell, parse_tree, False)
                     return_val = eval_result.value
                     text = eval_result.get_text()
                     status = eval_result.status
-
+                elif cell.value is not None and \
+                        (not isinstance(cell.value, str) or not cell.value.startswith("=")) and\
+                        cell.value != cell.formula:
+                    text = EvalResult.wrap_str_literal(cell.value)
+                    return_val = text
+                    status = EvalStatus.FullEvaluation
                 else:
                     text = "{}".format(cell_addr)
             else:
