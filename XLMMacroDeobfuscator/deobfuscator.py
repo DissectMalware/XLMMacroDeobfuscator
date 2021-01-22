@@ -383,7 +383,12 @@ class XLMInterpreter:
 
             label = cell_parse_tree.value.lower()
             if label in names:
-                res_sheet, res_col, res_row = Cell.parse_cell_addr(names[label])
+                name_val = names[label]
+                if isinstance(name_val, Tree):
+                    # example: 6a8045bc617df5f2b8f9325ed291ef05ac027144f1fda84e78d5084d26847902
+                    res_sheet, res_col, res_row = self.get_cell_addr(current_cell,name_val)
+                else:
+                    res_sheet, res_col, res_row = Cell.parse_cell_addr(name_val)
             elif label.strip('"') in names:
                 res_sheet, res_col, res_row = Cell.parse_cell_addr(names[label.strip('"')])
             else:
@@ -1865,7 +1870,7 @@ class XLMInterpreter:
             elif isinstance(val, list):
                 result = val
             else:
-                # example: c7e40628fb6beb52d9d73a3b3afd1dca5d2335713593b698637e1a47b42bfc71
+                # example: c7e40628fb6beb52d9d73a3b3afd1dca5d2335713593b698637e1a47b42bfc71  password: 2021
                 parsed_formula = self.xlm_parser.parse('=' + EvalResult.wrap_str_literal(val))
                 eval_result = self.evaluate_parse_tree(current_cell,parsed_formula, interactive)
                 result = eval_result.value
