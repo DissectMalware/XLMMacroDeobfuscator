@@ -1480,11 +1480,17 @@ class XLMInterpreter:
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         status = EvalStatus.PartialEvaluation
 
-        if arg_eval_result.status == EvalStatus.FullEvaluation and \
-            isinstance(arg_eval_result.value, list):
-            status = EvalStatus.FullEvaluation
-            return_val = len(arg_eval_result.value)
+        if arg_eval_result.status == EvalStatus.FullEvaluation:
+            if isinstance(arg_eval_result.value, list):
+                # example: f9adf499bc16bfd096e00bc59c3233f022dec20c20440100d56e58610e4aded3
+                return_val = len(arg_eval_result.value)
+            else:
+                # example: c7e40628fb6beb52d9d73a3b3afd1dca5d2335713593b698637e1a47b42bfc71
+                parsed_range = Cell.parse_range_addr(arg_eval_result.value)
+                return_val = int(parsed_range[4]) - int(parsed_range[2])
             text = str(return_val)
+            status = EvalStatus.FullEvaluation
+
         else:
             return_val = text = self.convert_ptree_to_str(parse_tree_root)
 
