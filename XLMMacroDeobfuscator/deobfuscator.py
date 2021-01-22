@@ -1865,7 +1865,8 @@ class XLMInterpreter:
             elif isinstance(val, list):
                 result = val
             else:
-                parsed_formula = self.xlm_parser.parse('=' + str(val))
+                # example: c7e40628fb6beb52d9d73a3b3afd1dca5d2335713593b698637e1a47b42bfc71
+                parsed_formula = self.xlm_parser.parse('=' + EvalResult.wrap_str_literal(val))
                 eval_result = self.evaluate_parse_tree(current_cell,parsed_formula, interactive)
                 result = eval_result.value
 
