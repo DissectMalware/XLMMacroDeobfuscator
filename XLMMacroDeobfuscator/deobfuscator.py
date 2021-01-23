@@ -22,8 +22,6 @@ from XLMMacroDeobfuscator.__init__ import __version__
 import copy
 import linecache
 
-from build.lib.XLMMacroDeobfuscator.deobfuscator import EvalResult
-
 try:
     from XLMMacroDeobfuscator.xls_wrapper import XLSWrapper
 
