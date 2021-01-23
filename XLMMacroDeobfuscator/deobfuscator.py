@@ -1507,7 +1507,7 @@ class XLMInterpreter:
                 # example: 6a8045bc617df5f2b8f9325ed291ef05ac027144f1fda84e78d5084d26847902
                 range = EvalResult.unwrap_str_literal(arg_eval_result.value)
                 parsed_range = Cell.parse_range_addr(range)
-                return_val = int(parsed_range[4]) - int(parsed_range[2])
+                return_val = int(parsed_range[4]) - int(parsed_range[2]) + 1
             text = str(return_val)
             status = EvalStatus.FullEvaluation
 
