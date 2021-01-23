@@ -1915,9 +1915,12 @@ class XLMInterpreter:
                 else:
                     # example: c7e40628fb6beb52d9d73a3b3afd1dca5d2335713593b698637e1a47b42bfc71  password: 2021
                     data = val
-                parsed_formula = self.xlm_parser.parse('=' + EvalResult.wrap_str_literal(data))
-                eval_result = self.evaluate_parse_tree(current_cell,parsed_formula, interactive)
-                result = eval_result.value
+                try:
+                    parsed_formula = self.xlm_parser.parse('=' + str(data))
+                    eval_result = self.evaluate_parse_tree(current_cell,parsed_formula, interactive)
+                    result = eval_result.text
+                except:
+                    result = str(data)
 
         return result
 
