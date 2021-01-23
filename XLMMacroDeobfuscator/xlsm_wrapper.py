@@ -22,6 +22,7 @@ class XLSMWrapper(ExcelWrapper):
         self._workbook_style = None
         self._defined_names = None
         self._macrosheets = None
+        self._worksheets = None
         self._shared_strings = None
         self.xl_international_flags = {XlApplicationInternational.xlLeftBracket: '[',
                                        XlApplicationInternational.xlListSeparator: ',',
@@ -68,6 +69,7 @@ class XLSMWrapper(ExcelWrapper):
             result = self.xl_international_flags[flag_name]
 
         return result
+
 
     def get_files(self, file_name_filters=None):
         input_zip = ZipFile(self.xlsm_doc_path)
@@ -202,7 +204,7 @@ class XLSMWrapper(ExcelWrapper):
 
         return self._defined_names
 
-    def get_macrosheet_infos(self):
+    def get_sheet_infos(self, types):
         result = []
         workbook_obj = self.get_workbook()
         sheet_names = set()
@@ -215,7 +217,7 @@ class XLSMWrapper(ExcelWrapper):
             sheet_type, rel_path = self.get_sheet_info(rId)
             if rel_path is not None:
                 path = base_dir + '/' + rel_path
-                if sheet_type == 'Macrosheet' and name not in sheet_names:
+                if sheet_type in types and name not in sheet_names:
                     sheet = Boundsheet(name, sheet_type)
                     result.append({'sheet': sheet,
                                    'sheet_path': path,
@@ -225,6 +227,12 @@ class XLSMWrapper(ExcelWrapper):
                 print("Sheet('{}') does not have a valid rId('{}')".format(name, rId))
 
         return result
+
+    def get_macrosheet_infos(self):
+        return self.get_sheet_infos(['Macrosheet'])
+
+    def get_worksheet_infos(self):
+        return self.get_sheet_infos(['Worksheet'])
 
     def get_shared_strings(self):
         if self._shared_strings is None:
@@ -239,11 +247,52 @@ class XLSMWrapper(ExcelWrapper):
                             self._shared_strings.append(str.t.cdata)
         return self._shared_strings
 
-    def load_cells(self, macrosheet, macrosheet_obj):
+    def load_macro_cells(self, macrosheet, macrosheet_obj):
         strings = self.get_shared_strings()
         if not hasattr(macrosheet_obj.xm_macrosheet.sheetData, 'row'):
             return
         for row in macrosheet_obj.xm_macrosheet.sheetData.row:
+            row_attribs = {}
+            for attr in row._attributes:
+                if attr == 'ht':
+                    row_attribs[RowAttribute.Height] = row.get_attribute('ht')
+                elif attr == 'spans':
+                    row_attribs[RowAttribute.Spans] = row.get_attribute('spans')
+            if len(row_attribs) > 0:
+                macrosheet.row_attributes[row.get_attribute('r')] = row_attribs
+            if hasattr(row, 'c'):
+                for cell_elm in row.c:
+                    formula_text = None
+                    if hasattr(cell_elm, 'f'):
+                        formula = cell_elm.f
+                        formula_text = ('=' + formula.cdata) if formula is not None else None
+                    value_text = None
+                    is_string = False
+                    if 't' in cell_elm._attributes and cell_elm.get_attribute('t')=='s':
+                        is_string = True
+
+                    if hasattr(cell_elm, 'v'):
+                        value = cell_elm.v
+                        value_text = value.cdata if value is not None else None
+                        if value_text is not None and is_string:
+                            value_text = strings[int(value_text)]
+                    location = cell_elm.get_attribute('r')
+                    cell = Cell()
+                    sheet_name, cell.column, cell.row = Cell.parse_cell_addr(location)
+                    cell.sheet = macrosheet
+                    cell.formula = formula_text
+                    cell.value = value_text
+                    macrosheet.cells[location] = cell
+
+                    for attrib in cell_elm._attributes:
+                        if attrib != 'r':
+                            cell.attributes[attrib] = cell_elm._attributes[attrib]
+
+    def load_worksheet_cells(self, macrosheet, macrosheet_obj):
+        strings = self.get_shared_strings()
+        if not hasattr(macrosheet_obj.worksheet.sheetData, 'row'):
+            return
+        for row in macrosheet_obj.worksheet.sheetData.row:
             row_attribs = {}
             for attr in row._attributes:
                 if attr == 'ht':
@@ -299,13 +348,26 @@ class XLSMWrapper(ExcelWrapper):
             self._macrosheets = {}
             macrosheets = self.get_macrosheet_infos()
             for macrosheet in macrosheets:
-                self.load_cells(macrosheet['sheet'], macrosheet['sheet_xml'])
+                self.load_macro_cells(macrosheet['sheet'], macrosheet['sheet_xml'])
                 if hasattr(macrosheet['sheet_xml'].xm_macrosheet, 'sheetFormatPr'):
                     macrosheet['sheet'].default_height = macrosheet['sheet_xml'].xm_macrosheet.sheetFormatPr.get_attribute('defaultRowHeight')
 
                 self._macrosheets[macrosheet['sheet'].name] = macrosheet['sheet']
 
         return self._macrosheets
+
+    def get_worksheets(self):
+        if self._worksheets is None:
+            self._worksheets = {}
+            _worksheets = self.get_worksheet_infos()
+            for worksheet in _worksheets:
+                self.load_worksheet_cells(worksheet['sheet'], worksheet['sheet_xml'])
+                if hasattr(worksheet['sheet_xml'].worksheet, 'sheetFormatPr'):
+                    worksheet['sheet'].default_height = worksheet['sheet_xml'].worksheet.sheetFormatPr.get_attribute('defaultRowHeight')
+
+                self._worksheets[worksheet['sheet'].name] = worksheet['sheet']
+
+        return self._worksheets
 
     def get_color_index(self, rgba_str):
 
