@@ -5,7 +5,7 @@ It supports both xls, xlsm, and xlsb formats.
 
 It uses [xlrd2](https://github.com/DissectMalware/xlrd2), [pyxlsb2](https://github.com/DissectMalware/pyxlsb2) and its own parser to extract cells and other information from xls, xlsb and xlsm files, respectively.
 
-You can also find XLM grammar in xlm-macro-en.lark
+You can also find XLM grammar in [xlm-macro-lark.template](XLMMacroDeobfuscator/xlm-macro.lark.template)
 
 # Installing the emulator
 
@@ -80,7 +80,7 @@ default.config file must be a valid json file, such as:
   (______/ (_______/(_______)|/ \___/ |/       (_______)\_______)(_______/|/     \|   )_(   (_______)|/   \__/
 
     
-XLMMacroDeobfuscator(v0.1.6) - https://github.com/DissectMalware/XLMMacroDeobfuscator
+XLMMacroDeobfuscator(v0.1.7) - https://github.com/DissectMalware/XLMMacroDeobfuscator
 
 usage: deobfuscator.py [-h] [-c FILE_PATH] [-f FILE_PATH] [-n] [-x] [-2]
                        [--with-ms-excel] [-s] [-d DAY]
