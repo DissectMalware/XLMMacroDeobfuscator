@@ -1990,6 +1990,11 @@ class XLMInterpreter:
                             value_right = right_arg_eval_res.value.value
                         else:
                             value_right = right_arg_eval_res.value
+                            if isinstance(value_right, str):
+                                if value_right.lower()== 'true':
+                                    value_right = 1
+                                elif value_right.lower()== 'false':
+                                    value_right = 0
 
                         if self.is_float(value_left) and self.is_float(value_right):
                             if op_str in self._operators:
@@ -2053,7 +2058,16 @@ class XLMInterpreter:
                         left_arg = parse_tree_root.children[index]
                         left_arg_eval_res = self.evaluate_parse_tree(current_cell, left_arg, interactive)
                         text_left = left_arg_eval_res.get_text(unwrap=True)
-                        value_left = left_arg_eval_res.value
+                        if isinstance(left_arg_eval_res.value, Cell):
+                            value_left = left_arg_eval_res.value.value
+                        else:
+                            value_left = left_arg_eval_res.value
+                            if isinstance(value_left, str):
+                                if value_left.lower()== 'true':
+                                    value_left = 1
+                                elif value_left.lower()== 'false':
+                                    value_left = 0
+
 
             if concat_status == EvalStatus.PartialEvaluation and left_arg_eval_res.status == EvalStatus.FullEvaluation:
                 left_arg_eval_res.status = concat_status
