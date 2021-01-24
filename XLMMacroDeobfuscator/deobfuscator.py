@@ -495,6 +495,8 @@ class XLMInterpreter:
 
             if text.startswith('='):
                 cell.formula = text
+            else:
+                cell.formula = None
 
             cell.value = text
 
@@ -675,6 +677,7 @@ class XLMInterpreter:
         if isinstance(function_name, Tree) and function_name.data == 'cell':
             self._function_call_stack.append(current_cell)
             return self.goto_handler([function_name], current_cell, interactive, parse_tree_root)
+
 
         if self.ignore_processing and function_name != 'NEXT':
             if function_name == 'WHILE':
@@ -1300,9 +1303,10 @@ class XLMInterpreter:
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         return_val = int(0)
         if arg_eval_result.status == EvalStatus.FullEvaluation:
-            if arg_eval_result.value.lower() == "true":
+            text =str(arg_eval_result.value).lower()
+            if text == "true":
                 return_val = int(1)
-            elif arg_eval_result.value.lower() == "false":
+            elif text == "false":
                 return_val = int(0)
             else:
                 return_val = int(arg_eval_result.value)
@@ -2113,15 +2117,19 @@ class XLMInterpreter:
             if cell_addr in sheet.cells:
                 cell = sheet.cells[cell_addr]
 
-                if cell.formula is not None:
-                    parse_tree = self.xlm_parser.parse(cell.formula)
-                    eval_result = self.evaluate_parse_tree(cell, parse_tree, False)
-                    return_val = eval_result.value
-                    text = eval_result.get_text()
-                    status = eval_result.status
-                elif cell.value is not None and \
-                        (not isinstance(cell.value, str) or not cell.value.startswith("=")) and\
-                        cell.value != cell.formula:
+                if cell.formula is not None and cell.formula!= cell.value:
+                    try:
+                        parse_tree = self.xlm_parser.parse(cell.formula)
+                        eval_result = self.evaluate_parse_tree(cell, parse_tree, False)
+                        return_val = eval_result.value
+                        text = eval_result.get_text()
+                        status = eval_result.status
+                    except:
+                        return_val = cell.formula
+                        text = EvalResult.wrap_str_literal(cell.formula)
+                        status = EvalStatus.FullEvaluation
+
+                elif cell.value is not None:
                     text = EvalResult.wrap_str_literal(cell.value)
                     return_val = text
                     status = EvalStatus.FullEvaluation
