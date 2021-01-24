@@ -495,6 +495,8 @@ class XLMInterpreter:
 
             if text.startswith('='):
                 cell.formula = text
+            else:
+                cell.formula = None
 
             cell.value = text
 
@@ -636,7 +638,10 @@ class XLMInterpreter:
         return EvalResult(None, status, return_val, text)
 
     def evaluate_function(self, current_cell, parse_tree_root, interactive):
-        function_name = EvalResult.unwrap_str_literal( parse_tree_root.children[0])
+        # function name can be a string literal (double quoted or unqouted), and Tree (defined name, cell, function_call)
+
+        function_name = parse_tree_root.children[0]
+        function_name_literal = EvalResult.unwrap_str_literal(function_name)
 
         # OFFSET()()
         if isinstance(function_name, Tree) and function_name.data == 'function_call':
@@ -650,10 +655,10 @@ class XLMInterpreter:
 
         # handle alias name for a function (REGISTER)
         # c45ed3a0ce5df27ac29e0fab99dc4d462f61a0d0c025e9161ced3b2c913d57d8
-        if function_name in self._registered_functions:
+        if function_name_literal in self._registered_functions:
             parse_tree_root.children[0] = parse_tree_root.children[0].update(None,
-                                                                             self._registered_functions[function_name][
-                                                                                 'name'])
+                                                                             self._registered_functions[function_name_literal][
+                                                                             'name'])
             return self.evaluate_function(current_cell, parse_tree_root, interactive)
 
         # cell_function_call
@@ -661,23 +666,39 @@ class XLMInterpreter:
             self._function_call_stack.append(current_cell)
             return self.goto_handler([function_name], current_cell, interactive, parse_tree_root)
 
-        if function_name.lower() in self.defined_names:
+        # test()
+        if function_name_literal.lower() in self.defined_names:
             try:
-                ref_parsed = self.xlm_parser.parse('=' + self.defined_names[function_name.lower()])
+                ref_parsed = self.xlm_parser.parse('=' + self.defined_names[function_name_literal.lower()])
                 if isinstance(ref_parsed.children[0], Tree) and ref_parsed.children[0].data == 'cell':
                     function_name = ref_parsed.children[0]
                 else:
                     raise Exception
             except:
-                function_name = self.defined_names[function_name.lower()]
+                function_name = self.defined_names[function_name_literal.lower()]
+
+        # x!test()
+        if isinstance(function_name, Tree) and function_name.data == 'defined_name':
+            function_lable = function_name.children[-1].value
+            if function_lable.lower() in self.defined_names:
+                try:
+                    ref_parsed = self.xlm_parser.parse('=' + self.defined_names[function_lable.lower()])
+                    if isinstance(ref_parsed.children[0], Tree) and ref_parsed.children[0].data == 'cell':
+                        function_name = ref_parsed.children[0]
+                    else:
+                        raise Exception
+                except:
+                    function_name = self.defined_names[function_name_literal.lower()]
+
 
         # cell_function_call
         if isinstance(function_name, Tree) and function_name.data == 'cell':
             self._function_call_stack.append(current_cell)
             return self.goto_handler([function_name], current_cell, interactive, parse_tree_root)
 
-        if self.ignore_processing and function_name != 'NEXT':
-            if function_name == 'WHILE':
+
+        if self.ignore_processing and function_name_literal != 'NEXT':
+            if function_name_literal == 'WHILE':
                 self.next_count += 1
             return EvalResult(None, EvalStatus.IGNORED, 0, '')
 
@@ -689,15 +710,15 @@ class XLMInterpreter:
                 else:
                     arguments.append(i.children)
 
-        if function_name in self._handlers:
-            eval_result = self._handlers[function_name](arguments, current_cell, interactive, parse_tree_root)
+        if function_name_literal in self._handlers:
+            eval_result = self._handlers[function_name_literal](arguments, current_cell, interactive, parse_tree_root)
 
         else:
-            eval_result = self.evaluate_argument_list(current_cell, function_name, arguments)
+            eval_result = self.evaluate_argument_list(current_cell, function_name_literal, arguments)
 
-        if function_name in XLMInterpreter.jump_functions:
+        if function_name_literal in XLMInterpreter.jump_functions:
             eval_result.output_level = 0
-        elif function_name in XLMInterpreter.important_functions:
+        elif function_name_literal in XLMInterpreter.important_functions:
             eval_result.output_level = 2
         else:
             eval_result.output_level = 1
@@ -1300,9 +1321,10 @@ class XLMInterpreter:
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         return_val = int(0)
         if arg_eval_result.status == EvalStatus.FullEvaluation:
-            if arg_eval_result.value.lower() == "true":
+            text =str(arg_eval_result.value).lower()
+            if text == "true":
                 return_val = int(1)
-            elif arg_eval_result.value.lower() == "false":
+            elif text == "false":
                 return_val = int(0)
             else:
                 return_val = int(arg_eval_result.value)
@@ -2113,15 +2135,19 @@ class XLMInterpreter:
             if cell_addr in sheet.cells:
                 cell = sheet.cells[cell_addr]
 
-                if cell.formula is not None:
-                    parse_tree = self.xlm_parser.parse(cell.formula)
-                    eval_result = self.evaluate_parse_tree(cell, parse_tree, False)
-                    return_val = eval_result.value
-                    text = eval_result.get_text()
-                    status = eval_result.status
-                elif cell.value is not None and \
-                        (not isinstance(cell.value, str) or not cell.value.startswith("=")) and\
-                        cell.value != cell.formula:
+                if cell.formula is not None and cell.formula!= cell.value:
+                    try:
+                        parse_tree = self.xlm_parser.parse(cell.formula)
+                        eval_result = self.evaluate_parse_tree(cell, parse_tree, False)
+                        return_val = eval_result.value
+                        text = eval_result.get_text()
+                        status = eval_result.status
+                    except:
+                        return_val = cell.formula
+                        text = EvalResult.wrap_str_literal(cell.formula)
+                        status = EvalStatus.FullEvaluation
+
+                elif cell.value is not None:
                     text = EvalResult.wrap_str_literal(cell.value)
                     return_val = text
                     status = EvalStatus.FullEvaluation
