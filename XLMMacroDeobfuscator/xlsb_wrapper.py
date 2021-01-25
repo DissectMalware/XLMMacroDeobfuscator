@@ -79,7 +79,7 @@ class XLSBWrapper(ExcelWrapper):
                         self.load_cells(macrosheet)
                         self._macrosheets[macrosheet.name] = macrosheet
 
-                # self.load_cells(macrosheet, workbook)
+                # self.load_macro_cells(macrosheet, workbook)
                 # self._macrosheets[workbook.name] = macrosheet
 
         return self._macrosheets
