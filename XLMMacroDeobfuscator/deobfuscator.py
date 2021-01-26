@@ -206,6 +206,7 @@ class XLMInterpreter:
             'CODE': self.code_handler,
             'CONCATENATE': self.concatenate_handler,
             'COUNTA': self.counta_handler,
+            'COUNT': self.count_handler,
             'DAY': self.day_handler,
             'DEFINE.NAME': self.define_name_handler,
             'DIRECTORY': self.directory_handler,
@@ -492,7 +493,7 @@ class XLMInterpreter:
 
         return result
 
-    def set_cell(self, sheet_name, col, row, text):
+    def set_cell(self, sheet_name, col, row, text, set_value_only=False):
         sheets = self.xlm_wrapper.get_macrosheets()
         if sheet_name in sheets:
             sheet = sheets[sheet_name]
@@ -508,10 +509,11 @@ class XLMInterpreter:
 
             text = EvalResult.unwrap_str_literal(text)
 
-            if text.startswith('='):
-                cell.formula = text
-            else:
-                cell.formula = None
+            if not set_value_only:
+                if text.startswith('='):
+                    cell.formula = text
+                else:
+                    cell.formula = None
 
             cell.value = text
 
@@ -574,7 +576,7 @@ class XLMInterpreter:
             result = self._cell_defaults[number]
         return result
 
-    def evaluate_formula(self, current_cell, name, arguments, interactive, destination_arg=1):
+    def evaluate_formula(self, current_cell, name, arguments, interactive, destination_arg=1, set_value_only=False):
         source, destination = (arguments[0], arguments[1]) if destination_arg == 1 else (arguments[1], arguments[0])
 
         src_eval_result = self.evaluate_parse_tree(current_cell, source, interactive)
@@ -620,7 +622,8 @@ class XLMInterpreter:
                     self.set_cell(dst_start_sheet,
                                   Cell.convert_to_column_name(col),
                                   str(row),
-                                  str(src_eval_result.value))
+                                  str(src_eval_result.value),
+                                  set_value_only)
         else:
             for row in range(int(dst_start_row), int(dst_end_row) + 1):
                 for col in range(Cell.convert_to_column_index(dst_start_col),
@@ -1448,7 +1451,7 @@ class XLMInterpreter:
         return self.evaluate_formula(current_cell, 'FORMULA.FILL', arguments, interactive)
 
     def set_value_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        return self.evaluate_formula(current_cell, 'SET.VALUE', arguments, interactive, destination_arg=2)
+        return self.evaluate_formula(current_cell, 'SET.VALUE', arguments, interactive, destination_arg=2, set_value_only=True)
 
     def error_handler(self, arguments, current_cell, interactive, parse_tree_root):
         return EvalResult(None, EvalStatus.FullEvaluation, 0, XLMInterpreter.convert_ptree_to_str(parse_tree_root))
@@ -1649,6 +1652,12 @@ class XLMInterpreter:
         return_val = val_item_count
         status = EvalStatus.FullEvaluation
         text = str(return_val)
+        return EvalResult(None, status, return_val, text)
+
+    def count_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        return_val = len(arguments)
+        text = str(return_val)
+        status = EvalStatus.FullEvaluation
         return EvalResult(None, status, return_val, text)
 
     def trunc_handler(self, arguments, current_cell, interactive, parse_tree_root):
@@ -2019,9 +2028,13 @@ class XLMInterpreter:
                     # example: c7e40628fb6beb52d9d73a3b3afd1dca5d2335713593b698637e1a47b42bfc71  password: 2021
                     data = val
                 try:
-                    parsed_formula = self.xlm_parser.parse('=' + str(data))
+                    formula_str = str(data) if str(data).startswith('=') else '=' + str(data)
+                    parsed_formula = self.xlm_parser.parse(formula_str)
                     eval_result = self.evaluate_parse_tree(current_cell,parsed_formula, interactive)
-                    result = str(eval_result.value)
+                    if isinstance(eval_result.value, list):
+                        result = eval_result.value
+                    else:
+                        result = str(eval_result.value)
                 except:
                     result = str(data)
 
@@ -2059,6 +2072,9 @@ class XLMInterpreter:
 
         elif parse_tree_root.data == 'range':
             result = self.evaluate_range(current_cell, interactive, parse_tree_root)
+
+        elif parse_tree_root.data == 'array':
+            result = self.evaluate_array(current_cell, interactive, parse_tree_root)
 
         elif parse_tree_root.data in self._expr_rule_names:
             text_left = None
@@ -2262,6 +2278,22 @@ class XLMInterpreter:
 
         return EvalResult(None, status, return_val, text)
 
+    def evaluate_array(self, current_cell, interactive, parse_tree_root):
+        status = EvalStatus.PartialEvaluation
+        array_elements = []
+        for index, array_elm in enumerate(parse_tree_root.children):
+            # skip semicolon (;)
+            if index % 2 == 1:
+                continue
+            if array_elm.type == 'NUMBER':
+                array_elements.append(float(array_elm))
+            else:
+                array_elements.append(str(array_elm))
+        text = str(array_elements)
+        return_val = array_elements
+
+        return EvalResult(None, status, return_val, text)
+
     def interactive_shell(self, current_cell, message):
         print('\nProcess Interruption:')
         print('CELL:{:10}{}'.format(current_cell.get_local_address(), current_cell.formula))
@@ -2450,8 +2482,8 @@ def test_parser():
     macro_grammar = open(grammar_file_path, 'r', encoding='utf_8').read()
     xlm_parser = Lark(macro_grammar, parser='lalr')
 
-    print("\n=HALT()")
-    print(xlm_parser.parse("=HALT()"))
+    print("\n={12,13,14}")
+    print(xlm_parser.parse("={12;13;14}"))
     print("\n=171*GET.CELL(19,A81)")
     print(xlm_parser.parse("=171*GET.CELL(19,A81)"))
     print("\n=FORMULA($ET$1796&$BE$1701&$DB$1527&$BU$714&$CT$1605)")
