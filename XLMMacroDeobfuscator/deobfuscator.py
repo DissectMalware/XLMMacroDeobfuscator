@@ -225,6 +225,8 @@ class XLMInterpreter:
             'ISERROR': self.iserror_handler,
             'ISNUMBER': self.is_number_handler,
             'LEN': self.len_handler,
+            'MAX': self.max_handler,
+            'MIN': self.min_handler,
             'MOD': self.mod_handler,
             'MID': self.mid_handler,
             'NEXT': self.next_handler,
@@ -232,6 +234,7 @@ class XLMInterpreter:
             'NOW': self.now_handler,
             'OR': self.or_handler,
             'OFFSET': self.offset_handler,
+            'PRODUCT': self.product_handler,
             'QUOTIENT': self.quotient_handler,
             'RANDBETWEEN': self.randbetween_handler,
             'REGISTER': self.register_handler,
@@ -329,6 +332,18 @@ class XLMInterpreter:
             return True
         except (ValueError, TypeError, AttributeError):
             return False
+
+    def convert_float(self, text):
+        result = None
+        text = text.lower()
+        if text == 'false':
+            result = 0
+        elif text == 'true':
+            result = 1
+        else:
+            result = float(text)
+        return result
+
 
     def get_parser(self):
         xlm_parser = None
@@ -938,7 +953,7 @@ class XLMInterpreter:
         return EvalResult(None, status, 'END.IF', 'END.IF')
 
     def get_workspace_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        status = EvalStatus.Error
+        status = EvalStatus.PartialEvaluation
         if len(arguments) == 1:
             arg1_eval_Result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
 
@@ -950,7 +965,7 @@ class XLMInterpreter:
                 status = EvalStatus.FullEvaluation
                 next_cell = None
 
-        if status == EvalStatus.Error:
+        if status == EvalStatus.PartialEvaluation:
             return_val = text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
         return EvalResult(None, status, return_val, text)
 
@@ -1015,7 +1030,7 @@ class XLMInterpreter:
 
     def app_maximize_handler(self, arguments, current_cell, interactive, parse_tree_root):
         status = EvalStatus.FullEvaluation
-        return_val = 0
+        return_val = True
         text = str(return_val)
         return EvalResult(None, status, return_val, text)
 
@@ -1185,6 +1200,74 @@ class XLMInterpreter:
             text = 'MID({},{},{})'.format(XLMInterpreter.convert_ptree_to_str(arguments[0]),
                                           XLMInterpreter.convert_ptree_to_str(arguments[1]),
                                           XLMInterpreter.convert_ptree_to_str(arguments[2]))
+        return EvalResult(None, status, return_val, text)
+
+    def min_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        min = None
+        status = EvalStatus.PartialEvaluation
+
+        for argument in arguments:
+            arg_eval_result = self.evaluate_parse_tree(current_cell, argument, interactive)
+            if arg_eval_result.status == EvalStatus.FullEvaluation:
+                if not min or arg_eval_result < min:
+                    min = self.convert_float(arg_eval_result.value)
+            else:
+                min = None
+                break
+
+        if min:
+            return_val = min
+            text = str(min)
+            status = EvalStatus.FullEvaluation
+        else:
+            text = return_val = self.convert_ptree_to_str(parse_tree_root)
+
+        return EvalResult(None, status, return_val, text)
+
+    def max_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        max = None
+        status = EvalStatus.PartialEvaluation
+
+        for argument in arguments:
+            arg_eval_result = self.evaluate_parse_tree(current_cell,argument, interactive)
+            if arg_eval_result.status == EvalStatus.FullEvaluation:
+                if not max or arg_eval_result > max:
+                    max = self.convert_float(arg_eval_result.value)
+            else:
+                max = None
+                break
+
+        if max:
+            return_val = max
+            text = str(max)
+            status = EvalStatus.FullEvaluation
+        else:
+            text = return_val = self.convert_ptree_to_str(parse_tree_root)
+
+        return EvalResult(None, status, return_val, text)
+
+    def product_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        total = None
+        status = EvalStatus.PartialEvaluation
+
+        for argument in arguments:
+            arg_eval_result = self.evaluate_parse_tree(current_cell,argument, interactive)
+            if arg_eval_result.status == EvalStatus.FullEvaluation:
+                if not total:
+                    total = self.convert_float(arg_eval_result.value)
+                else:
+                    total *= self.convert_float(arg_eval_result.value)
+            else:
+                total = None
+                break
+
+        if total:
+            return_val = total
+            text = str(total)
+            status = EvalStatus.FullEvaluation
+        else:
+            text = return_val = self.convert_ptree_to_str(parse_tree_root)
+
         return EvalResult(None, status, return_val, text)
 
     def mod_handler(self, arguments, current_cell, interactive, parse_tree_root):
@@ -1938,7 +2021,7 @@ class XLMInterpreter:
                 try:
                     parsed_formula = self.xlm_parser.parse('=' + str(data))
                     eval_result = self.evaluate_parse_tree(current_cell,parsed_formula, interactive)
-                    result = eval_result.text
+                    result = str(eval_result.value)
                 except:
                     result = str(data)
 
@@ -2175,7 +2258,7 @@ class XLMInterpreter:
             self.selected_range = (start_address, end_address, selected)
             status = EvalStatus.FullEvaluation
         text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
-        return_val = 0
+        return_val = text
 
         return EvalResult(None, status, return_val, text)
 
