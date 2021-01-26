@@ -825,7 +825,7 @@ class XLMInterpreter:
         it = 0
         for arg in arguments:
             arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[it], interactive)
-            value = value + int(arg_eval_result.value)
+            value = value + float(arg_eval_result.value)
             status = arg_eval_result.status
             it = it + 1
 
