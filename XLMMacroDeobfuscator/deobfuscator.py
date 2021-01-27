@@ -180,6 +180,8 @@ class XLMInterpreter:
         self._iserror_count = 0
         self._iserror_loc = None
         self._iserror_val = False
+        self._now_count = 0
+        self._now_step = 2
 
 
         self._handlers = {
@@ -962,7 +964,7 @@ class XLMInterpreter:
 
             if arg1_eval_Result.status == EvalStatus.FullEvaluation and self.is_float(arg1_eval_Result.get_text()):
                 workspace_param = self.get_workspace(int(float(arg1_eval_Result.get_text())))
-                current_cell.value = workspace_param
+                # current_cell.value = workspace_param
                 text = 'GET.WORKSPACE({})'.format(arg1_eval_Result.get_text())
                 return_val = workspace_param
                 status = EvalStatus.FullEvaluation
@@ -979,7 +981,7 @@ class XLMInterpreter:
 
             if arg_eval_result.status == EvalStatus.FullEvaluation and self.is_float(arg_eval_result.get_text()):
                 window_param = self.get_window(int(float(arg_eval_result.get_text())))
-                current_cell.value = window_param
+                # current_cell.value = window_param
                 text = window_param  # XLMInterpreter.convert_ptree_to_str(parse_tree_root)
                 return_val = window_param
 
@@ -1107,7 +1109,8 @@ class XLMInterpreter:
         return return_val, status, text
 
     def now_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        return_val = text = datetime.datetime.now()
+        return_val = text = datetime.datetime.now() + datetime.timedelta(seconds=self._now_count * self._now_step)
+        self._now_count += 1
         status = EvalStatus.FullEvaluation
         return EvalResult(None, status, return_val, text)
 
@@ -1379,8 +1382,8 @@ class XLMInterpreter:
         if arg_eval_result.status == EvalStatus.FullEvaluation:
             if 0 <= float(arg_eval_result.text) <= 255:
                 return_val = text = chr(int(float(arg_eval_result.text)))
-                cell = self.get_formula_cell(current_cell.sheet, current_cell.column, current_cell.row)
-                cell.value = text
+                # cell = self.get_formula_cell(current_cell.sheet, current_cell.column, current_cell.row)
+                # cell.value = text
                 status = EvalStatus.FullEvaluation
             else:
                 return_val = text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
@@ -2051,7 +2054,6 @@ class XLMInterpreter:
                 # this formula has a defined name that can be changed
                 # current formula must be removed from cache
                 self._remove_current_formula_from_cache = True
-                #parse_tree_root.value = self.defined_names[parse_tree_root.value.lower()]
                 parse_tree_root.value = self.evaluate_defined_name(current_cell, parse_tree_root.value, interactive)
 
             return_val = parse_tree_root.value
@@ -2136,6 +2138,7 @@ class XLMInterpreter:
                             timestamp2 = datetime.datetime.strptime(text_right.strip('\"'), "%Y-%m-%d %H:%M:%S.%f")
                             op_res = self._operators[op_str](float(timestamp1.timestamp()),
                                                              float(timestamp2.timestamp()))
+                            op_res += 1000
                             if type(op_res) == bool:
                                 value_left = str(op_res)
                             elif EvalResult.is_datetime(op_res):
