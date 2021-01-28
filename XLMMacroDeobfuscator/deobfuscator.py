@@ -582,6 +582,7 @@ class XLMInterpreter:
         source, destination = (arguments[0], arguments[1]) if destination_arg == 1 else (arguments[1], arguments[0])
 
         src_eval_result = self.evaluate_parse_tree(current_cell, source, interactive)
+
         if isinstance(destination, Token):
             # TODO: get_defined_name must return a list; currently it returns list or one item
 
@@ -596,7 +597,7 @@ class XLMInterpreter:
             else:
                 destination = self.xlm_parser.parse('=' + defined_name_formula).children[0]
 
-        if destination.data == 'concat_expression':
+        if destination.data == 'concat_expression' or destination.data == 'function_call':
             destination_str = self.evaluate_parse_tree(current_cell, destination, interactive).text
             dst_start_sheet, dst_start_col, dst_start_row = Cell.parse_cell_addr(destination_str)
             dst_end_sheet, dst_end_col, dst_end_row = dst_start_sheet, dst_start_col, dst_start_row
@@ -2316,7 +2317,7 @@ class XLMInterpreter:
                         break
                 except ParseError as exp:
                     print("Invalid XLM macro")
-                except KeyboardInterrupt:
+                except Exception:
                     sys.exit()
             else:
                 break
@@ -2960,7 +2961,7 @@ def main():
                                                     line.strip(),
                                                     exc_obj))
 
-        except KeyboardInterrupt:
+        except Exception:
             pass
 
 
