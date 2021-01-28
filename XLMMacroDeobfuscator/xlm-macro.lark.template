@@ -10,7 +10,9 @@ defined_name: (NAME EXCLAMATION| "'" /[^']+/i "'" EXCLAMATION| EXCLAMATION) NAME
 ?concat_expression: additive_expression (CONCATOP additive_expression)*
 ?additive_expression:   multiplicative_expression (ADDITIVEOP multiplicative_expression)*
 ?multiplicative_expression: final (MULTIOP final)*
-?final: L_PRA expression R_PRA | function_call | cell | range | atom | NAME  | defined_name
+?final: L_PRA expression R_PRA | function_call | cell | range | atom | NAME  | defined_name | array
+array: "{" (constant ARRAY_SEPARATOR)* constant "}"
+?constant: STRING | NUMBER
 ?range: cell COLON cell | cell COLON cell COLON cell
 ?atom: NUMBER | STRING | BOOLEAN | ERROR
 ADDITIVEOP: "+" | "-"
@@ -30,6 +32,7 @@ R_BRAC: "{{XLRIGHTBRACKET}}"
 EXCLAMATION: "!"
 DOT: "."
 LIST_SEPARATOR: "{{XLLISTSEPARATOR}}"
+ARRAY_SEPARATOR: ";"
 REF: L_BRAC SIGNED_INT  R_BRAC
 %import common.SIGNED_INT -> SIGNED_INT
 %import common.INT -> INT
