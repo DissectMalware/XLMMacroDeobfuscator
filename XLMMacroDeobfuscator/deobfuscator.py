@@ -180,6 +180,8 @@ class XLMInterpreter:
         self._iserror_count = 0
         self._iserror_loc = None
         self._iserror_val = False
+        self._now_count = 0
+        self._now_step = 2
 
 
         self._handlers = {
@@ -206,6 +208,7 @@ class XLMInterpreter:
             'CODE': self.code_handler,
             'CONCATENATE': self.concatenate_handler,
             'COUNTA': self.counta_handler,
+            'COUNT': self.count_handler,
             'DAY': self.day_handler,
             'DEFINE.NAME': self.define_name_handler,
             'DIRECTORY': self.directory_handler,
@@ -225,6 +228,8 @@ class XLMInterpreter:
             'ISERROR': self.iserror_handler,
             'ISNUMBER': self.is_number_handler,
             'LEN': self.len_handler,
+            'MAX': self.max_handler,
+            'MIN': self.min_handler,
             'MOD': self.mod_handler,
             'MID': self.mid_handler,
             'NEXT': self.next_handler,
@@ -232,6 +237,7 @@ class XLMInterpreter:
             'NOW': self.now_handler,
             'OR': self.or_handler,
             'OFFSET': self.offset_handler,
+            'PRODUCT': self.product_handler,
             'QUOTIENT': self.quotient_handler,
             'RANDBETWEEN': self.randbetween_handler,
             'REGISTER': self.register_handler,
@@ -329,6 +335,18 @@ class XLMInterpreter:
             return True
         except (ValueError, TypeError, AttributeError):
             return False
+
+    def convert_float(self, text):
+        result = None
+        text = text.lower()
+        if text == 'false':
+            result = 0
+        elif text == 'true':
+            result = 1
+        else:
+            result = float(text)
+        return result
+
 
     def get_parser(self):
         xlm_parser = None
@@ -477,7 +495,7 @@ class XLMInterpreter:
 
         return result
 
-    def set_cell(self, sheet_name, col, row, text):
+    def set_cell(self, sheet_name, col, row, text, set_value_only=False):
         sheets = self.xlm_wrapper.get_macrosheets()
         if sheet_name in sheets:
             sheet = sheets[sheet_name]
@@ -493,10 +511,11 @@ class XLMInterpreter:
 
             text = EvalResult.unwrap_str_literal(text)
 
-            if text.startswith('='):
-                cell.formula = text
-            else:
-                cell.formula = None
+            if not set_value_only:
+                if text.startswith('='):
+                    cell.formula = text
+                else:
+                    cell.formula = None
 
             cell.value = text
 
@@ -559,10 +578,11 @@ class XLMInterpreter:
             result = self._cell_defaults[number]
         return result
 
-    def evaluate_formula(self, current_cell, name, arguments, interactive, destination_arg=1):
+    def evaluate_formula(self, current_cell, name, arguments, interactive, destination_arg=1, set_value_only=False):
         source, destination = (arguments[0], arguments[1]) if destination_arg == 1 else (arguments[1], arguments[0])
 
         src_eval_result = self.evaluate_parse_tree(current_cell, source, interactive)
+
         if isinstance(destination, Token):
             # TODO: get_defined_name must return a list; currently it returns list or one item
 
@@ -577,7 +597,7 @@ class XLMInterpreter:
             else:
                 destination = self.xlm_parser.parse('=' + defined_name_formula).children[0]
 
-        if destination.data == 'concat_expression':
+        if destination.data == 'concat_expression' or destination.data == 'function_call':
             destination_str = self.evaluate_parse_tree(current_cell, destination, interactive).text
             dst_start_sheet, dst_start_col, dst_start_row = Cell.parse_cell_addr(destination_str)
             dst_end_sheet, dst_end_col, dst_end_row = dst_start_sheet, dst_start_col, dst_start_row
@@ -605,7 +625,8 @@ class XLMInterpreter:
                     self.set_cell(dst_start_sheet,
                                   Cell.convert_to_column_name(col),
                                   str(row),
-                                  str(src_eval_result.value))
+                                  str(src_eval_result.value),
+                                  set_value_only)
         else:
             for row in range(int(dst_start_row), int(dst_end_row) + 1):
                 for col in range(Cell.convert_to_column_index(dst_start_col),
@@ -825,7 +846,7 @@ class XLMInterpreter:
         it = 0
         for arg in arguments:
             arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[it], interactive)
-            value = value + int(arg_eval_result.value)
+            value = value + float(arg_eval_result.value)
             status = arg_eval_result.status
             it = it + 1
 
@@ -938,19 +959,19 @@ class XLMInterpreter:
         return EvalResult(None, status, 'END.IF', 'END.IF')
 
     def get_workspace_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        status = EvalStatus.Error
+        status = EvalStatus.PartialEvaluation
         if len(arguments) == 1:
             arg1_eval_Result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
 
             if arg1_eval_Result.status == EvalStatus.FullEvaluation and self.is_float(arg1_eval_Result.get_text()):
                 workspace_param = self.get_workspace(int(float(arg1_eval_Result.get_text())))
-                current_cell.value = workspace_param
+                # current_cell.value = workspace_param
                 text = 'GET.WORKSPACE({})'.format(arg1_eval_Result.get_text())
                 return_val = workspace_param
                 status = EvalStatus.FullEvaluation
                 next_cell = None
 
-        if status == EvalStatus.Error:
+        if status == EvalStatus.PartialEvaluation:
             return_val = text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
         return EvalResult(None, status, return_val, text)
 
@@ -961,7 +982,7 @@ class XLMInterpreter:
 
             if arg_eval_result.status == EvalStatus.FullEvaluation and self.is_float(arg_eval_result.get_text()):
                 window_param = self.get_window(int(float(arg_eval_result.get_text())))
-                current_cell.value = window_param
+                # current_cell.value = window_param
                 text = window_param  # XLMInterpreter.convert_ptree_to_str(parse_tree_root)
                 return_val = window_param
 
@@ -1015,7 +1036,7 @@ class XLMInterpreter:
 
     def app_maximize_handler(self, arguments, current_cell, interactive, parse_tree_root):
         status = EvalStatus.FullEvaluation
-        return_val = 0
+        return_val = True
         text = str(return_val)
         return EvalResult(None, status, return_val, text)
 
@@ -1089,7 +1110,8 @@ class XLMInterpreter:
         return return_val, status, text
 
     def now_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        return_val = text = datetime.datetime.now()
+        return_val = text = datetime.datetime.now() + datetime.timedelta(seconds=self._now_count * self._now_step)
+        self._now_count += 1
         status = EvalStatus.FullEvaluation
         return EvalResult(None, status, return_val, text)
 
@@ -1185,6 +1207,74 @@ class XLMInterpreter:
             text = 'MID({},{},{})'.format(XLMInterpreter.convert_ptree_to_str(arguments[0]),
                                           XLMInterpreter.convert_ptree_to_str(arguments[1]),
                                           XLMInterpreter.convert_ptree_to_str(arguments[2]))
+        return EvalResult(None, status, return_val, text)
+
+    def min_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        min = None
+        status = EvalStatus.PartialEvaluation
+
+        for argument in arguments:
+            arg_eval_result = self.evaluate_parse_tree(current_cell, argument, interactive)
+            if arg_eval_result.status == EvalStatus.FullEvaluation:
+                if not min or arg_eval_result < min:
+                    min = self.convert_float(arg_eval_result.value)
+            else:
+                min = None
+                break
+
+        if min:
+            return_val = min
+            text = str(min)
+            status = EvalStatus.FullEvaluation
+        else:
+            text = return_val = self.convert_ptree_to_str(parse_tree_root)
+
+        return EvalResult(None, status, return_val, text)
+
+    def max_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        max = None
+        status = EvalStatus.PartialEvaluation
+
+        for argument in arguments:
+            arg_eval_result = self.evaluate_parse_tree(current_cell,argument, interactive)
+            if arg_eval_result.status == EvalStatus.FullEvaluation:
+                if not max or arg_eval_result > max:
+                    max = self.convert_float(arg_eval_result.value)
+            else:
+                max = None
+                break
+
+        if max:
+            return_val = max
+            text = str(max)
+            status = EvalStatus.FullEvaluation
+        else:
+            text = return_val = self.convert_ptree_to_str(parse_tree_root)
+
+        return EvalResult(None, status, return_val, text)
+
+    def product_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        total = None
+        status = EvalStatus.PartialEvaluation
+
+        for argument in arguments:
+            arg_eval_result = self.evaluate_parse_tree(current_cell,argument, interactive)
+            if arg_eval_result.status == EvalStatus.FullEvaluation:
+                if not total:
+                    total = self.convert_float(arg_eval_result.value)
+                else:
+                    total *= self.convert_float(arg_eval_result.value)
+            else:
+                total = None
+                break
+
+        if total:
+            return_val = total
+            text = str(total)
+            status = EvalStatus.FullEvaluation
+        else:
+            text = return_val = self.convert_ptree_to_str(parse_tree_root)
+
         return EvalResult(None, status, return_val, text)
 
     def mod_handler(self, arguments, current_cell, interactive, parse_tree_root):
@@ -1293,8 +1383,8 @@ class XLMInterpreter:
         if arg_eval_result.status == EvalStatus.FullEvaluation:
             if 0 <= float(arg_eval_result.text) <= 255:
                 return_val = text = chr(int(float(arg_eval_result.text)))
-                cell = self.get_formula_cell(current_cell.sheet, current_cell.column, current_cell.row)
-                cell.value = text
+                # cell = self.get_formula_cell(current_cell.sheet, current_cell.column, current_cell.row)
+                # cell.value = text
                 status = EvalStatus.FullEvaluation
             else:
                 return_val = text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
@@ -1365,7 +1455,7 @@ class XLMInterpreter:
         return self.evaluate_formula(current_cell, 'FORMULA.FILL', arguments, interactive)
 
     def set_value_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        return self.evaluate_formula(current_cell, 'SET.VALUE', arguments, interactive, destination_arg=2)
+        return self.evaluate_formula(current_cell, 'SET.VALUE', arguments, interactive, destination_arg=2, set_value_only=True)
 
     def error_handler(self, arguments, current_cell, interactive, parse_tree_root):
         return EvalResult(None, EvalStatus.FullEvaluation, 0, XLMInterpreter.convert_ptree_to_str(parse_tree_root))
@@ -1569,6 +1659,12 @@ class XLMInterpreter:
         return_val = val_item_count
         status = EvalStatus.FullEvaluation
         text = str(return_val)
+        return EvalResult(None, status, return_val, text)
+
+    def count_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        return_val = len(arguments)
+        text = str(return_val)
+        status = EvalStatus.FullEvaluation
         return EvalResult(None, status, return_val, text)
 
     def trunc_handler(self, arguments, current_cell, interactive, parse_tree_root):
@@ -1939,9 +2035,13 @@ class XLMInterpreter:
                     # example: c7e40628fb6beb52d9d73a3b3afd1dca5d2335713593b698637e1a47b42bfc71  password: 2021
                     data = val
                 try:
-                    parsed_formula = self.xlm_parser.parse('=' + str(data))
+                    formula_str = str(data) if str(data).startswith('=') else '=' + str(data)
+                    parsed_formula = self.xlm_parser.parse(formula_str)
                     eval_result = self.evaluate_parse_tree(current_cell,parsed_formula, interactive)
-                    result = eval_result.text
+                    if isinstance(eval_result.value, list):
+                        result = eval_result.value
+                    else:
+                        result = str(eval_result.value)
                 except:
                     result = str(data)
 
@@ -1958,7 +2058,6 @@ class XLMInterpreter:
                 # this formula has a defined name that can be changed
                 # current formula must be removed from cache
                 self._remove_current_formula_from_cache = True
-                #parse_tree_root.value = self.defined_names[parse_tree_root.value.lower()]
                 parse_tree_root.value = self.evaluate_defined_name(current_cell, parse_tree_root.value, interactive)
 
             return_val = parse_tree_root.value
@@ -1979,6 +2078,9 @@ class XLMInterpreter:
 
         elif parse_tree_root.data == 'range':
             result = self.evaluate_range(current_cell, interactive, parse_tree_root)
+
+        elif parse_tree_root.data == 'array':
+            result = self.evaluate_array(current_cell, interactive, parse_tree_root)
 
         elif parse_tree_root.data in self._expr_rule_names:
             text_left = None
@@ -2040,6 +2142,7 @@ class XLMInterpreter:
                             timestamp2 = datetime.datetime.strptime(text_right.strip('\"'), "%Y-%m-%d %H:%M:%S.%f")
                             op_res = self._operators[op_str](float(timestamp1.timestamp()),
                                                              float(timestamp2.timestamp()))
+                            op_res += 1000
                             if type(op_res) == bool:
                                 value_left = str(op_res)
                             elif EvalResult.is_datetime(op_res):
@@ -2178,7 +2281,23 @@ class XLMInterpreter:
             self.selected_range = (start_address, end_address, selected)
             status = EvalStatus.FullEvaluation
         text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
-        return_val = 0
+        return_val = text
+
+        return EvalResult(None, status, return_val, text)
+
+    def evaluate_array(self, current_cell, interactive, parse_tree_root):
+        status = EvalStatus.PartialEvaluation
+        array_elements = []
+        for index, array_elm in enumerate(parse_tree_root.children):
+            # skip semicolon (;)
+            if index % 2 == 1:
+                continue
+            if array_elm.type == 'NUMBER':
+                array_elements.append(float(array_elm))
+            else:
+                array_elements.append(str(array_elm))
+        text = str(array_elements)
+        return_val = array_elements
 
         return EvalResult(None, status, return_val, text)
 
@@ -2201,7 +2320,7 @@ class XLMInterpreter:
                         break
                 except ParseError as exp:
                     print("Invalid XLM macro")
-                except KeyboardInterrupt:
+                except Exception:
                     sys.exit()
             else:
                 break
@@ -2370,8 +2489,8 @@ def test_parser():
     macro_grammar = open(grammar_file_path, 'r', encoding='utf_8').read()
     xlm_parser = Lark(macro_grammar, parser='lalr')
 
-    print("\n=HALT()")
-    print(xlm_parser.parse("=HALT()"))
+    print("\n={12,13,14}")
+    print(xlm_parser.parse("={12;13;14}"))
     print("\n=171*GET.CELL(19,A81)")
     print(xlm_parser.parse("=171*GET.CELL(19,A81)"))
     print("\n=FORMULA($ET$1796&$BE$1701&$DB$1527&$BU$714&$CT$1605)")
@@ -2845,7 +2964,7 @@ def main():
                                                     line.strip(),
                                                     exc_obj))
 
-        except KeyboardInterrupt:
+        except Exception:
             pass
 
 
