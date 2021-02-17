@@ -1,28 +1,29 @@
 import argparse
 import base64
+import copy
+import datetime
 import hashlib
 import json
-import msoffcrypto
-import os
-import sys
-import json
-import time
+import linecache
 import math
+import msoffcrypto
+import operator
+import os
 import random
-from datetime import datetime
-from _ast import arguments
-from tempfile import mkstemp
+import sys
+import time
 
-from PIL.ImageChops import offset
+
+from enum import Enum
 from lark import Lark
 from lark.exceptions import ParseError
 from lark.lexer import Token
 from lark.tree import Tree
+from tempfile import mkstemp
+
+from XLMMacroDeobfuscator.__init__ import __version__
 from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
 from XLMMacroDeobfuscator.xlsm_wrapper import XLSMWrapper
-from XLMMacroDeobfuscator.__init__ import __version__
-import copy
-import linecache
 
 try:
     from XLMMacroDeobfuscator.xls_wrapper import XLSWrapper
@@ -34,13 +35,7 @@ except:
 
 from XLMMacroDeobfuscator.xls_wrapper_2 import XLSWrapper2
 from XLMMacroDeobfuscator.xlsb_wrapper import XLSBWrapper
-from enum import Enum
-import time
-import datetime
 from XLMMacroDeobfuscator.boundsheet import *
-import os
-import operator
-import copy
 from distutils.util import strtobool
 
 
