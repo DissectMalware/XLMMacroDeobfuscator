@@ -5,7 +5,7 @@ from win32com.client import Dispatch
 import pywintypes
 from enum import Enum
 import os
-
+import re
 
 class XlCellType(Enum):
     xlCellTypeFormulas = -4123
