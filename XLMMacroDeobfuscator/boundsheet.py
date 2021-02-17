@@ -2,11 +2,14 @@ import re
 
 
 class Cell:
-    _cell_addr_regex_str = r"((?P<sheetname>[^\s]+?|'.+?')!)?\$?(?P<column>[a-zA-Z]+)\$?(?P<row>\d+)"
-    _cell_addr_regex = re.compile(_cell_addr_regex_str)
+    _a1_cell_addr_regex_str = r"((?P<sheetname>[^\s]+?|'.+?')!)?\$?(?P<column>[a-zA-Z]+)\$?(?P<row>\d+)"
+    _a1_cell_addr_regex = re.compile(_a1_cell_addr_regex_str)
 
-    _alternate_cell_addr_regex_str = "((?P<sheetname>[^\s]+?|'.+?')!)?\$?R(?P<row>\d+)\$?C(?P<column>\d+)"
-    _alternate_cell_addr_regex = re.compile(_alternate_cell_addr_regex_str)
+    _r1c1_abs_cell_addr_regex_str = r"((?P<sheetname>[^\s]+?|'.+?')!)?R(?P<row>\d+)C(?P<column>\d+)"
+    _r1c1_abs_cell_addr_regex = re.compile(_r1c1_abs_cell_addr_regex_str)
+
+    _r1c1_cell_addr_regex_str = r"((?P<sheetname>[^\s]+?|'.+?')!)?R(\[?(?P<row>-?\d+)\]?)?C(\[?(?P<column>-?\d+)\]?)?"
+    _r1c1_cell_addr_regex = re.compile(_r1c1_cell_addr_regex_str)
 
     _range_addr_regex_str = r"((?P<sheetname>[^\s]+?|'.+?')[!|$])?\$?(?P<column1>[a-zA-Z]+)\$?(?P<row1>\d+)\:?\$?(?P<column2>[a-zA-Z]+)\$?(?P<row2>\d+)"
     _range_addr_regex = re.compile(_range_addr_regex_str)
@@ -64,7 +67,7 @@ class Cell:
     @staticmethod
     def parse_cell_addr(cell_addr_str):
         cell_addr_str = cell_addr_str.strip('\"')
-        alternate_res = Cell._alternate_cell_addr_regex.match(cell_addr_str)
+        alternate_res = Cell._r1c1_abs_cell_addr_regex.match(cell_addr_str)
         if alternate_res is not None:
             sheet_name = alternate_res.group('sheetname')
             sheet_name = sheet_name.strip('\'') if sheet_name is not None else sheet_name
@@ -72,7 +75,7 @@ class Cell:
             row = alternate_res.group('row')
             return sheet_name, column, row
         else:
-            res = Cell._cell_addr_regex.match(cell_addr_str)
+            res = Cell._a1_cell_addr_regex.match(cell_addr_str)
             if res is not None:
                 sheet_name = res.group('sheetname')
                 sheet_name = sheet_name.strip('\'') if sheet_name is not None else sheet_name
@@ -101,6 +104,20 @@ class Cell:
         # A twip is 1/20 of a point
         point = int(twips) * 0.05
         return point
+
+    @staticmethod
+    def get_abs_addr(base_addr, offset_addr):
+        _, base_col, base_row = Cell.parse_cell_addr(base_addr)
+        offset_addr_match = Cell._r1c1_cell_addr_regex.match(offset_addr)
+        column_offset = row_offset = 0
+        if offset_addr_match is not None:
+            column_offset = int(offset_addr_match.group('column'))
+            row_offset = int(offset_addr_match.group('row'))
+
+        res_col_index = Cell.convert_to_column_index(base_col) + column_offset
+        res_row_index = int(base_row) + row_offset
+
+        return Cell.convert_to_column_name(res_col_index)+str(res_row_index)
 
 
 class Boundsheet:
@@ -131,3 +148,4 @@ class Boundsheet:
         if local_address in self.cells:
             result = self.cells[local_address]
         return
+
