@@ -2511,7 +2511,7 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except KeyboardInterrupt as exp:
+                except Exception as exp:
                     exc_type, exc_obj, traceback = sys.exc_info()
                     frame = traceback.tb_frame
                     lineno = traceback.tb_lineno
@@ -2993,7 +2993,7 @@ def main():
             # Convert args to kwarg dict
             try:
                 process_file(**vars(args))
-            except KeyboardInterrupt as exp:
+            except Exception as exp:
                 exc_type, exc_obj, traceback = sys.exc_info()
                 frame = traceback.tb_frame
                 lineno = traceback.tb_lineno
@@ -3005,7 +3005,7 @@ def main():
                                                     line.strip(),
                                                     exc_obj))
 
-        except KeyboardInterrupt:
+        except Exception:
             pass
 
 
