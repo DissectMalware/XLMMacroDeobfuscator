@@ -1,26 +1,29 @@
 import argparse
 import base64
+import copy
+import datetime
 import hashlib
 import json
-import msoffcrypto
-import os
-import sys
-import json
-import time
+import linecache
 import math
+import msoffcrypto
+import operator
+import os
 import random
-from datetime import datetime
-from _ast import arguments
-from tempfile import mkstemp
+import sys
+import time
+
+
+from enum import Enum
 from lark import Lark
 from lark.exceptions import ParseError
 from lark.lexer import Token
 from lark.tree import Tree
+from tempfile import mkstemp
+
+from XLMMacroDeobfuscator.__init__ import __version__
 from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational
 from XLMMacroDeobfuscator.xlsm_wrapper import XLSMWrapper
-from XLMMacroDeobfuscator.__init__ import __version__
-import copy
-import linecache
 
 try:
     from XLMMacroDeobfuscator.xls_wrapper import XLSWrapper
@@ -32,13 +35,7 @@ except:
 
 from XLMMacroDeobfuscator.xls_wrapper_2 import XLSWrapper2
 from XLMMacroDeobfuscator.xlsb_wrapper import XLSBWrapper
-from enum import Enum
-import time
-import datetime
 from XLMMacroDeobfuscator.boundsheet import *
-import os
-import operator
-import copy
 from distutils.util import strtobool
 
 
@@ -200,6 +197,7 @@ class XLMInterpreter:
 
             # functions
             'ABS': self.abs_handler,
+            'ABSREF': self.absref_handler,
             'ADDRESS': self.address_handler,
             'AND': self.and_handler,
             'CALL': self.call_handler,
@@ -224,6 +222,7 @@ class XLMInterpreter:
             'INDEX': self.index_handler,
             'HLOOKUP': self.hlookup_handler,
             'IF': self.if_handler,
+            'INDIRECT': self.indirect_handler,
             'INT': self.int_handler,
             'ISERROR': self.iserror_handler,
             'ISNUMBER': self.is_number_handler,
@@ -1137,7 +1136,7 @@ class XLMInterpreter:
             if stack_frame[0].get_local_address() == current_cell.get_local_address():
                 visited = True
         if visited is False:
-            self._indent_level += 1
+            # self._indent_level += 1
             size = len(arguments)
             if size == 3:
                 cond_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
@@ -1216,8 +1215,9 @@ class XLMInterpreter:
         for argument in arguments:
             arg_eval_result = self.evaluate_parse_tree(current_cell, argument, interactive)
             if arg_eval_result.status == EvalStatus.FullEvaluation:
-                if not min or arg_eval_result < min:
-                    min = self.convert_float(arg_eval_result.value)
+                cur_val = self.convert_float(arg_eval_result.value)
+                if not min or cur_val < min:
+                    min = cur_val
             else:
                 min = None
                 break
@@ -1238,8 +1238,9 @@ class XLMInterpreter:
         for argument in arguments:
             arg_eval_result = self.evaluate_parse_tree(current_cell,argument, interactive)
             if arg_eval_result.status == EvalStatus.FullEvaluation:
-                if not max or arg_eval_result > max:
-                    max = self.convert_float(arg_eval_result.value)
+                cur_val = self.convert_float(arg_eval_result.value)
+                if not max or cur_val > max:
+                    max = cur_val
             else:
                 max = None
                 break
@@ -1714,6 +1715,22 @@ class XLMInterpreter:
             status = EvalStatus.PartialEvaluation
         return EvalResult(None, status, return_val, text)
 
+    def absref_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        arg_ref_txt_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        status = EvalStatus.PartialEvaluation
+        if arg_ref_txt_eval_result.status == EvalStatus.FullEvaluation and \
+            (isinstance(arguments[1],Tree) and arguments[1].data == 'cell'):
+            offset_addr_text = arg_ref_txt_eval_result.value
+            base_addr_text = self.convert_ptree_to_str(arguments[1])
+            return_val = Cell.get_abs_addr(base_addr_text, offset_addr_text)
+            status = EvalStatus.FullEvaluation
+        else:
+            return_val = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
+
+        return EvalResult(None, status, return_val, str(return_val))
+
+
+
     def address_handler(self, arguments, current_cell, interactive, parse_tree_root):
         arg_row_num_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         arg_col_num_eval_result = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
@@ -1745,7 +1762,7 @@ class XLMInterpreter:
             else:
                 optional_args = False
         else:
-            sheet_name = current_cell.sheet
+            sheet_name = current_cell.sheet.name
 
         return_val = ''
         if arg_row_num_eval_result.status == EvalStatus.FullEvaluation and \
@@ -1772,11 +1789,31 @@ class XLMInterpreter:
                 elif abs_num == 4:
                     cell_addr_tmpl = '{}{}'
 
-                return_val += cell_addr_tmpl.format(Cell.convert_to_column_name(int(arg_row_num_eval_result.value)),
-                                                    arg_col_num_eval_result.text)
+                return_val += cell_addr_tmpl.format(Cell.convert_to_column_name(int(arg_col_num_eval_result.value)),
+                                                    arg_row_num_eval_result.text)
             status = EvalStatus.FullEvaluation
         else:
             status = EvalStatus.PartialEvaluation
+            return_val = self.evaluate_parse_tree(current_cell, arguments, False)
+
+        return EvalResult(None, status, return_val, str(return_val))
+
+    def indirect_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        arg_addr_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+
+        status = EvalStatus.PartialEvaluation
+        if arg_addr_eval_result.status == EvalStatus.FullEvaluation:
+            a1 = "TRUE"
+            if len(arguments) ==2:
+                arg_a1_eval_result = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
+                if arg_a1_eval_result.status == EvalStatus.FullEvaluation:
+                    a1 = arg_a1_eval_result.value
+
+            sheet_name, col, row = Cell.parse_cell_addr(arg_addr_eval_result.value)
+            indirect_cell = self.get_cell(sheet_name, col, row)
+            return_val = indirect_cell.value
+            status = EvalStatus.FullEvaluation
+        else:
             return_val = self.evaluate_parse_tree(current_cell, arguments, False)
 
         return EvalResult(None, status, return_val, str(return_val))
@@ -2402,6 +2439,7 @@ class XLMInterpreter:
                                         parse_tree = self._formula_cache[formula]
                                 else:
                                     parse_tree = formula
+
                                 if stack_record:
                                     previous_indent = self._indent_level - 1 if self._indent_level > 0 else 0
                                 else:
@@ -2431,6 +2469,7 @@ class XLMInterpreter:
 
                                 if evaluation_result.value is not None:
                                     current_cell.value = str(evaluation_result.value)
+
                                 if evaluation_result.next_cell is None and \
                                         (evaluation_result.status == EvalStatus.FullEvaluation or
                                          evaluation_result.status == EvalStatus.PartialEvaluation or
