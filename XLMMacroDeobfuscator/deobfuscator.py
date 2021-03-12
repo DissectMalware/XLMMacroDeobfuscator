@@ -1107,9 +1107,14 @@ class XLMInterpreter:
         return_val = text
         status = EvalStatus.FullEvaluation
         return return_val, status, text
+    #https://stackoverflow.com/questions/9574793/how-to-convert-a-python-datetime-datetime-to-excel-serial-date-number
+    def excel_date(self, date1):
+            temp = datetime.datetime(1899, 12, 30)    # Note, not 31st Dec but 30th!
+            delta = date1 - temp
+            return float(delta.days) + (float(delta.seconds) / 86400)
 
     def now_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        return_val = text = datetime.datetime.now() + datetime.timedelta(seconds=self._now_count * self._now_step)
+        return_val = text = self.excel_date(datetime.datetime.now() + datetime.timedelta(seconds=self._now_count * self._now_step))
         self._now_count += 1
         status = EvalStatus.FullEvaluation
         return EvalResult(None, status, return_val, text)
