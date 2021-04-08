@@ -1,4 +1,5 @@
-start:  "=" expression
+start:  statements
+statements: "=" expression | "=" expression statements
 function_call:  [NAME|STRING] L_PRA arglist R_PRA | cell L_PRA arglist R_PRA | defined_name L_PRA arglist R_PRA | function_call  L_PRA arglist R_PRA
 arglist:    (argument LIST_SEPARATOR)* argument
 argument:   expression |
