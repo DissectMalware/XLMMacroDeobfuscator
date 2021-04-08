@@ -2241,11 +2241,18 @@ class XLMInterpreter:
 
         else:
             status = EvalStatus.FullEvaluation
+            child_eval_result = EvalResult(None, EvalStatus.Error, "","")
+            count = 0
             for child_node in parse_tree_root.children:
                 if child_node is not None:
-                    child_eval_result = self.evaluate_parse_tree(current_cell, child_node, interactive)
-                    if child_eval_result.status != EvalStatus.FullEvaluation:
-                        status = child_eval_result.status
+                    count+=1
+                    child_eval_result_tmp = self.evaluate_parse_tree(current_cell, child_node, interactive)
+                    if child_eval_result_tmp.status != EvalStatus.FullEvaluation:
+                        status = child_eval_result_tmp.status
+                    if count>1:
+                        child_eval_result.text += ' ={}'.format(child_eval_result_tmp.text)
+                    else:
+                        child_eval_result.text += child_eval_result_tmp.text
 
             result = EvalResult(child_eval_result.next_cell, status, child_eval_result.value, child_eval_result.text)
             result.output_level = child_eval_result.output_level
