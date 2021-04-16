@@ -32,7 +32,8 @@ try:
     HAS_XLSWrapper = True
 except:
     HAS_XLSWrapper = False
-    uprint('pywin32 is not installed (only is required if you want to use MS Excel)', SILENT)
+    if not SILENT:
+        print('pywin32 is not installed (only is required if you want to use MS Excel)')
 
 from XLMMacroDeobfuscator.xls_wrapper_2 import XLSWrapper2
 from XLMMacroDeobfuscator.xlsb_wrapper import XLSBWrapper
@@ -2868,14 +2869,14 @@ def process_file(**kwargs):
                     uprint('Memory: base {}, size {}\n{}\n'.format(mem_record['base'],
                                                                    mem_record['size'],
                                                                    bytearray(mem_record['data']).hex()),
-                                                                   silent_mode=SILENT)
+                           silent_mode=SILENT)
                 uprint('\nFiles:\n')
                 for file in interpreter._files:
                     if len(interpreter._files[file]['file_content']) > 0:
                         uprint('Files: path {}, access {}\n{}\n'.format(file,
                                                                         interpreter._files[file]['file_access'],
                                                                         interpreter._files[file]['file_content']),
-                                                                        silent_mode=SILENT)
+                               silent_mode=SILENT)
 
             uprint('[END of Deobfuscation]', silent_mode=SILENT)
 
