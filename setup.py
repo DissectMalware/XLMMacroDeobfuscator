@@ -29,7 +29,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/DissectMalware/XLMMacroDeobfuscator",
-    packages=["XLMMacroDeobfuscator"],
+    packages=["XLMMacroDeobfuscator", "XLMMacroDeobfuscator.configs"],
     entry_points=entry_points,
     license='Apache License 2.0',
     python_requires='>=3.4',
@@ -59,5 +59,5 @@ setup(
         "Topic :: Security",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
-    package_data={'XLMMacroDeobfuscator':['xlm-macro.lark.template', 'configs/get_workspace.conf', 'configs/get_cell.conf', 'configs/get_window.conf' ]},
+    package_data={'XLMMacroDeobfuscator': ['xlm-macro.lark.template', 'configs/get_workspace.conf', 'configs/get_cell.conf', 'configs/get_window.conf']},
 )
