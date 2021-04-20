@@ -2860,7 +2860,7 @@ def process_file(**kwargs):
                 elif kwargs.get("export_json"):
                     interpreted_lines.append(step)
                 else:
-                    uprint(get_formula_output(step, output_format, not kwargs.get("no_indent")))
+                    uprint(get_formula_output(step, output_format, not kwargs.get("no_indent")), silent_mode=SILENT)
             if interpreter.day_of_month is not None:
                 uprint('[Day of Month] {}'.format(interpreter.day_of_month), silent_mode=SILENT)
 
