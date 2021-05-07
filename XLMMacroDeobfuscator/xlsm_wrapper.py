@@ -108,6 +108,8 @@ class XLSMWrapper(ExcelWrapper):
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml']
         elif 'application/vnd.ms-excel.sheet.macroEnabled.main+xml' in self._types:
             workbook_path = self._types['application/vnd.ms-excel.sheet.macroEnabled.main+xml']
+        if workbook_path == 'xml': # type has extension and not filename
+            workbook_path = 'xl/workbook.xml'
         workbook_path = workbook_path.lstrip('/')
 
         path=''
