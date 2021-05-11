@@ -2766,7 +2766,7 @@ def process_file(**kwargs):
                       'If you want to use MS-Excel, use --with-ms-excel')
 
             if not kwargs.get("with_ms_excel", False):
-                excel_doc = XLSWrapper2(file_path)
+                excel_doc = XLSWrapper2(file_path) if not SILENT else XLSWrapper2(file_path, logfile=None)
             else:
                 try:
                     excel_doc = XLSWrapper(file_path)
@@ -2853,7 +2853,7 @@ def process_file(**kwargs):
             if kwargs.get("timeout"):
                 timeout = kwargs.get("timeout")
 
-            for step in interpreter.deobfuscate_macro(interactive, start_point, timeout=timeout):
+            for step in interpreter.deobfuscate_macro(interactive, start_point, timeout=timeout, silent_mode=SILENT):
                 if kwargs.get("return_deobfuscated"):
                     deobfuscated.append(
                         get_formula_output(step, output_format, not kwargs.get("no_indent")))

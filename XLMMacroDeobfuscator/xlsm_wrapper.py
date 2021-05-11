@@ -31,7 +31,6 @@ class XLSMWrapper(ExcelWrapper):
         self._types = self._get_types()
         self.color_maps = None
 
-
     def _get_types(self):
         result = {}
         if self._types is None:
@@ -70,7 +69,6 @@ class XLSMWrapper(ExcelWrapper):
 
         return result
 
-
     def get_files(self, file_name_filters=None):
         input_zip = ZipFile(self.xlsm_doc_path)
         result = {}
@@ -108,11 +106,9 @@ class XLSMWrapper(ExcelWrapper):
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml']
         elif 'application/vnd.ms-excel.sheet.macroEnabled.main+xml' in self._types:
             workbook_path = self._types['application/vnd.ms-excel.sheet.macroEnabled.main+xml']
-        if workbook_path == 'xml': # type has extension and not filename
-            workbook_path = 'xl/workbook.xml'
         workbook_path = workbook_path.lstrip('/')
 
-        path=''
+        path = ''
         name = workbook_path
 
         if '/' in workbook_path:
@@ -154,7 +150,7 @@ class XLSMWrapper(ExcelWrapper):
             style_type = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles'
             relationships = self._get_relationships()
             if style_type in relationships:
-                style_sheet_path= relationships[style_type]
+                style_sheet_path = relationships[style_type]
                 _, base_dir, _ = self._get_workbook_path()
                 style_sheet = self.get_xml_file(base_dir+'/'+style_sheet_path)
             self._workbook_style = style_sheet
@@ -200,9 +196,10 @@ class XLSMWrapper(ExcelWrapper):
         if self._defined_names is None:
             workbook_obj = self.get_workbook()
             self._defined_names = {}
-            if hasattr(workbook_obj.workbook, 'definedNames'):
+            if hasattr(workbook_obj, 'workbook') and hasattr(workbook_obj.workbook, 'definedNames'):
                 for defined_name in workbook_obj.workbook.definedNames.definedName:
-                    self._defined_names[defined_name.get_attribute('name').replace('_xlnm.', '').lower()] = defined_name.cdata
+                    self._defined_names[defined_name.get_attribute(
+                        'name').replace('_xlnm.', '').lower()] = defined_name.cdata
 
         return self._defined_names
 
@@ -212,21 +209,21 @@ class XLSMWrapper(ExcelWrapper):
         sheet_names = set()
 
         _, base_dir, _ = self._get_workbook_path()
-
-        for sheet_elm in workbook_obj.workbook.sheets.sheet:
-            rId = sheet_elm.get_attribute('r:id')
-            name = sheet_elm.get_attribute('name')
-            sheet_type, rel_path = self.get_sheet_info(rId)
-            if rel_path is not None:
-                path = base_dir + '/' + rel_path
-                if sheet_type in types and name not in sheet_names:
-                    sheet = Boundsheet(name, sheet_type)
-                    result.append({'sheet': sheet,
-                                   'sheet_path': path,
-                                   'sheet_xml': self.get_xml_file(path)})
-                    sheet_names.add(name)
-            else:
-                print("Sheet('{}') does not have a valid rId('{}')".format(name, rId))
+        if hasattr(workbook_obj, 'workbook'):
+            for sheet_elm in workbook_obj.workbook.sheets.sheet:
+                rId = sheet_elm.get_attribute('r:id')
+                name = sheet_elm.get_attribute('name')
+                sheet_type, rel_path = self.get_sheet_info(rId)
+                if rel_path is not None:
+                    path = base_dir + '/' + rel_path
+                    if sheet_type in types and name not in sheet_names:
+                        sheet = Boundsheet(name, sheet_type)
+                        result.append({'sheet': sheet,
+                                       'sheet_path': path,
+                                       'sheet_xml': self.get_xml_file(path)})
+                        sheet_names.add(name)
+                else:
+                    print("Sheet('{}') does not have a valid rId('{}')".format(name, rId))
 
         return result
 
@@ -270,7 +267,7 @@ class XLSMWrapper(ExcelWrapper):
                         formula_text = ('=' + formula.cdata) if formula is not None else None
                     value_text = None
                     is_string = False
-                    if 't' in cell_elm._attributes and cell_elm.get_attribute('t')=='s':
+                    if 't' in cell_elm._attributes and cell_elm.get_attribute('t') == 's':
                         is_string = True
 
                     if hasattr(cell_elm, 'v'):
@@ -311,7 +308,7 @@ class XLSMWrapper(ExcelWrapper):
                         formula_text = ('=' + formula.cdata) if formula is not None else None
                     value_text = None
                     is_string = False
-                    if 't' in cell_elm._attributes and cell_elm.get_attribute('t')=='s':
+                    if 't' in cell_elm._attributes and cell_elm.get_attribute('t') == 's':
                         is_string = True
 
                     if hasattr(cell_elm, 'v'):
@@ -352,7 +349,8 @@ class XLSMWrapper(ExcelWrapper):
             for macrosheet in macrosheets:
                 self.load_macro_cells(macrosheet['sheet'], macrosheet['sheet_xml'])
                 if hasattr(macrosheet['sheet_xml'].xm_macrosheet, 'sheetFormatPr'):
-                    macrosheet['sheet'].default_height = macrosheet['sheet_xml'].xm_macrosheet.sheetFormatPr.get_attribute('defaultRowHeight')
+                    macrosheet['sheet'].default_height = macrosheet['sheet_xml'].xm_macrosheet.sheetFormatPr.get_attribute(
+                        'defaultRowHeight')
 
                 self._macrosheets[macrosheet['sheet'].name] = macrosheet['sheet']
 
@@ -365,7 +363,8 @@ class XLSMWrapper(ExcelWrapper):
             for worksheet in _worksheets:
                 self.load_worksheet_cells(worksheet['sheet'], worksheet['sheet_xml'])
                 if hasattr(worksheet['sheet_xml'].worksheet, 'sheetFormatPr'):
-                    worksheet['sheet'].default_height = worksheet['sheet_xml'].worksheet.sheetFormatPr.get_attribute('defaultRowHeight')
+                    worksheet['sheet'].default_height = worksheet['sheet_xml'].worksheet.sheetFormatPr.get_attribute(
+                        'defaultRowHeight')
 
                 self._worksheets[worksheet['sheet'].name] = worksheet['sheet']
 
@@ -377,35 +376,35 @@ class XLSMWrapper(ExcelWrapper):
             '0x' + rgba_str[6:8], base=16)
 
         if self.color_maps is None:
-            colors =[
-                (0, 0, 0, 1),(255, 255, 255, 2),(255, 0, 0, 3),(0, 255, 0, 4),
-                (0, 0, 255, 5),(255, 255, 0, 6),(255, 0, 255, 7),(0, 255, 255, 8),
-                (128, 0, 0, 9),(0, 128, 0, 10),(0, 0, 128, 11),(128, 128, 0, 12),
-                (128, 0, 128, 13),(0, 128, 128, 14),(192, 192, 192, 15),(128, 128, 128, 16),
-                (153, 153, 255, 17),(153, 51, 102, 18),(255, 255, 204, 19),(204, 255, 255, 20),
-                (102, 0, 102, 21),(255, 128, 128, 22),(0, 102, 204, 23),(204, 204, 255, 24),
-                (0, 0, 128, 25),(255, 0, 255, 26),(255, 255, 0, 27),(0, 255, 255, 28),
-                (128, 0, 128, 29),(128, 0, 0, 30),(0, 128, 128, 31),(0, 0, 255, 32),
-                (0, 204, 255, 33),(204, 255, 255, 34),(204, 255, 204, 35),(255, 255, 153, 36),
-                (153, 204, 255, 37),(255, 153, 204, 38),(204, 153, 255, 39),(255, 204, 153, 40),
-                (51, 102, 255, 41),(51, 204, 204, 42),(153, 204, 0, 43),(255, 204, 0, 44),
-                (255, 153, 0, 45),(255, 102, 0, 46),(102, 102, 153, 47),(150, 150, 150, 48),
-                (0, 51, 102, 49),(51, 153, 102, 50),(0, 51, 0, 51),(51, 51, 0, 52),
-                (153, 51, 0, 53),(153, 51, 102, 54),(51, 51, 153, 55),(51, 51, 51, 56)
+            colors = [
+                (0, 0, 0, 1), (255, 255, 255, 2), (255, 0, 0, 3), (0, 255, 0, 4),
+                (0, 0, 255, 5), (255, 255, 0, 6), (255, 0, 255, 7), (0, 255, 255, 8),
+                (128, 0, 0, 9), (0, 128, 0, 10), (0, 0, 128, 11), (128, 128, 0, 12),
+                (128, 0, 128, 13), (0, 128, 128, 14), (192, 192, 192, 15), (128, 128, 128, 16),
+                (153, 153, 255, 17), (153, 51, 102, 18), (255, 255, 204, 19), (204, 255, 255, 20),
+                (102, 0, 102, 21), (255, 128, 128, 22), (0, 102, 204, 23), (204, 204, 255, 24),
+                (0, 0, 128, 25), (255, 0, 255, 26), (255, 255, 0, 27), (0, 255, 255, 28),
+                (128, 0, 128, 29), (128, 0, 0, 30), (0, 128, 128, 31), (0, 0, 255, 32),
+                (0, 204, 255, 33), (204, 255, 255, 34), (204, 255, 204, 35), (255, 255, 153, 36),
+                (153, 204, 255, 37), (255, 153, 204, 38), (204, 153, 255, 39), (255, 204, 153, 40),
+                (51, 102, 255, 41), (51, 204, 204, 42), (153, 204, 0, 43), (255, 204, 0, 44),
+                (255, 153, 0, 45), (255, 102, 0, 46), (102, 102, 153, 47), (150, 150, 150, 48),
+                (0, 51, 102, 49), (51, 153, 102, 50), (0, 51, 0, 51), (51, 51, 0, 52),
+                (153, 51, 0, 53), (153, 51, 102, 54), (51, 51, 153, 55), (51, 51, 51, 56)
             ]
             self.color_maps = {}
 
             for i in colors:
-                c_r,c_g,c_b,index = i
-                if (c_r,c_g,c_b) not in self.color_maps:
-                    self.color_maps[(c_r,c_g,c_b)] = index
+                c_r, c_g, c_b, index = i
+                if (c_r, c_g, c_b) not in self.color_maps:
+                    self.color_maps[(c_r, c_g, c_b)] = index
 
         color_index = None
 
-        if (r,g,b) in self.color_maps:
-            color_index = self.color_maps[(r,g,b)]
+        if (r, g, b) in self.color_maps:
+            color_index = self.color_maps[(r, g, b)]
 
-        return  color_index
+        return color_index
 
     def get_cell_info(self, sheet_name, col, row, info_type_id):
         data = None
@@ -436,7 +435,7 @@ class XLSMWrapper(ExcelWrapper):
                     index = int(cell.attributes['s'])
                     cell_format = style.styleSheet.cellXfs.xf[index]
                     if 'fontId' in cell_format._attributes:
-                        font_index= int(cell_format.get_attribute('fontId'))
+                        font_index = int(cell_format.get_attribute('fontId'))
                         font = style.styleSheet.fonts.font[font_index]
             else:
                 for cell_style in style.styleSheet.cellStyles.cellStyle:
@@ -451,7 +450,6 @@ class XLSMWrapper(ExcelWrapper):
                             font = style.styleSheet.fonts.font[font_index]
                         break
                 NotImplemented = True
-
 
             if info_type_id == 8:
                 h_align_map = {
@@ -498,7 +496,7 @@ class XLSMWrapper(ExcelWrapper):
                 if hasattr(cell_format, 'alignment'):
                     vertical_alignment = cell_format.alignment.get_attribute('vertical')
                 else:
-                    vertical_alignment = 'bottom' # default
+                    vertical_alignment = 'bottom'  # default
 
                 v_alignment = {
                     'top': 1,
@@ -514,7 +512,6 @@ class XLSMWrapper(ExcelWrapper):
 
         # return None, None, True
         return data, not_exist, not_implemented
-
 
 
 if __name__ == '__main__':
