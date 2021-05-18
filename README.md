@@ -154,7 +154,7 @@ XLMMacroDeofuscator is adopted in the following projects:
 * [CAPE Sandbox](https://github.com/ctxis/CAPE)
 * [FAME](https://certsocietegenerale.github.io/fame/)
 * [REMNUX](https://remnux.org/)
-* [IntlOwl](https://github.com/certego/IntelOwl)
+* [IntelOwl](https://github.com/intelowlproject/IntelOwl)
 * [Assemblyline 4](https://cybercentrecanada.github.io/assemblyline4_docs/) by Canadian Centre for Cyber Security 
 
 Please contact me if you incorporated XLMMacroDeofuscator in your project.
