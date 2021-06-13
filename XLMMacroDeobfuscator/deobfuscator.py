@@ -126,7 +126,7 @@ class EvalResult:
             if unwrap:
                 result = self.unwrap_str_literal(self.text)
             else:
-                result = self.text
+                result = str(self.text)
 
         return result
 
