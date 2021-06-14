@@ -2158,6 +2158,9 @@ class XLMInterpreter:
                                 elif value_right.lower()== 'false':
                                     value_right = 0
 
+                        text_left = str(text_left)
+                        text_right = str(text_right)
+
                         if self.is_float(value_left) and self.is_float(value_right):
                             if op_str in self._operators:
                                 op_res = self._operators[op_str](float(value_left), float(value_right))
