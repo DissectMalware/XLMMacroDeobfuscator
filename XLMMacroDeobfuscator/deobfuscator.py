@@ -31,7 +31,7 @@ try:
     HAS_XLSWrapper = True
 except:
     HAS_XLSWrapper = False
-    print('pywin32 is not installed (only is required if you want to use MS Excel)')
+    print('XLMMacroDeobfuscator: pywin32 is not installed (only is required if you want to use MS Excel)')
 
 from XLMMacroDeobfuscator.xls_wrapper_2 import XLSWrapper2
 from XLMMacroDeobfuscator.xlsb_wrapper import XLSBWrapper
