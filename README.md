@@ -130,7 +130,7 @@ from XLMMacroDeobfuscator.deobfuscator import process_file
 result = process_file(file='path/to/an/excel/file', 
             noninteractive= True, 
             noindent= True, 
-            output_formula_format='[[CELL_ADDR]], [[INT-FORMULA]]',
+            output_formula_format='[[CELL-ADDR]], [[INT-FORMULA]]',
             return_deobfuscated= True,
             timeout= 30)
 
