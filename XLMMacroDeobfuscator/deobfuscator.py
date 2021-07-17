@@ -1524,9 +1524,6 @@ class XLMInterpreter:
 
         self._while_stack.append(stack_record)
 
-        current_cell.visit()
-        if current_cell.visited_too_many_times():
-            stack_record['status'] = False
         if stack_record['status'] == False:
             self.ignore_processing = True
             self.next_count = 0
