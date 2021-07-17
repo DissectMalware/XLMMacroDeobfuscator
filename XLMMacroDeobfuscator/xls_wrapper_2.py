@@ -11,8 +11,12 @@ import math
 class XLSWrapper2(ExcelWrapper):
     XLEXCEL4MACROSHEET = 3
 
-    def __init__(self, xls_doc_path):
-        self.xls_workbook = xlrd2.open_workbook(xls_doc_path, formatting_info=True)
+    def __init__(self, xls_doc_path, logfile="default"):
+        # Not interested in logging
+        if logfile == "default":
+            self.xls_workbook = xlrd2.open_workbook(xls_doc_path, formatting_info=True)
+        else:
+            self.xls_workbook = xlrd2.open_workbook(xls_doc_path, formatting_info=True, logfile=logfile)
         self.xls_workbook_name = os.path.basename(xls_doc_path)
         self._macrosheets = None
         self._worksheets = None
@@ -95,19 +99,17 @@ class XLSWrapper2(ExcelWrapper):
                                 r = int(coords[3])
                                 c = int(coords[5])
                                 sheet_name = curr_cell.text.split('!')[0].replace("'", '')
-                                cell_location_xlref = sheet_name + '!' + self.xlref(row = r,column = c, zero_indexed = False)
+                                cell_location_xlref = sheet_name + '!' + self.xlref(row=r, column=c, zero_indexed=False)
                                 self._defined_names[name] = cell_location_xlref
 
         return self._defined_names
-
 
     def xlref(self, row, column, zero_indexed=True):
 
         if zero_indexed:
             row += 1
             column += 1
-        return '$'+ Cell.convert_to_column_name(column) + '$'+ str(row)
-
+        return '$' + Cell.convert_to_column_name(column) + '$' + str(row)
 
     def get_defined_name(self, name, full_match=True):
         result = []
