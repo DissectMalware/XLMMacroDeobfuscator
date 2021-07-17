@@ -26,7 +26,7 @@ class Cell:
     def get_attribute(self, attribute_name):
         # return default value if attributes doesn't cointain the attribute_name
         pass
-
+    
     def __deepcopy__(self, memodict={}):
         copy = type(self)()
         memodict[id(self)] = copy

@@ -33,7 +33,7 @@ try:
 except:
     HAS_XLSWrapper = False
     if not SILENT:
-        print('pywin32 is not installed (only is required if you want to use MS Excel)')
+        print('XLMMacroDeobfuscator: pywin32 is not installed (only is required if you want to use MS Excel)')
 
 from XLMMacroDeobfuscator.xls_wrapper_2 import XLSWrapper2
 from XLMMacroDeobfuscator.xlsb_wrapper import XLSBWrapper
@@ -128,7 +128,7 @@ class EvalResult:
             if unwrap:
                 result = self.unwrap_str_literal(self.text)
             else:
-                result = self.text
+                result = str(self.text)
 
         return result
 
@@ -1103,9 +1103,14 @@ class XLMInterpreter:
         return_val = text
         status = EvalStatus.FullEvaluation
         return return_val, status, text
+    #https://stackoverflow.com/questions/9574793/how-to-convert-a-python-datetime-datetime-to-excel-serial-date-number
+    def excel_date(self, date1):
+            temp = datetime.datetime(1899, 12, 30)    # Note, not 31st Dec but 30th!
+            delta = date1 - temp
+            return float(delta.days) + (float(delta.seconds) / 86400)
 
     def now_handler(self, arguments, current_cell, interactive, parse_tree_root):
-        return_val = text = datetime.datetime.now() + datetime.timedelta(seconds=self._now_count * self._now_step)
+        return_val = text = self.excel_date(datetime.datetime.now() + datetime.timedelta(seconds=self._now_count * self._now_step))
         self._now_count += 1
         status = EvalStatus.FullEvaluation
         return EvalResult(None, status, return_val, text)
@@ -1422,7 +1427,8 @@ class XLMInterpreter:
 
     def run_handler(self, arguments, current_cell, interactive, parse_tree_root):
         size = len(arguments)
-
+        next_cell = None
+        status = EvalStatus.PartialEvaluation
         if 1 <= size <= 2:
             next_sheet, next_col, next_row = self.get_cell_addr(current_cell, arguments[0])
             if next_sheet is not None and next_sheet in self.xlm_wrapper.get_macrosheets():
@@ -1442,6 +1448,7 @@ class XLMInterpreter:
         else:
             text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
             status = EvalStatus.Error
+            return_val = 1
 
         return EvalResult(next_cell, status, return_val, text)
 
@@ -2150,6 +2157,9 @@ class XLMInterpreter:
                                     value_right = 1
                                 elif value_right.lower() == 'false':
                                     value_right = 0
+
+                        text_left = str(text_left)
+                        text_right = str(text_right)
 
                         if self.is_float(value_left) and self.is_float(value_right):
                             if op_str in self._operators:

@@ -6,11 +6,11 @@ cell:   a1_notation_cell | r1c1_notation_cell
 a1_notation_cell:   [NAME "!" | "'" /[^']+/i "'!"| "!"] /\$?([a-qs-z][a-z]?)\$?\d+\b|\$?(r[a-bd-z]?)\$?\d+\b(?!C)/i
 r1c1_notation_cell: [NAME "!" | "'" /[^']+/i "'!" | "!"] ROW [REF | INT ] COL [REF | INT ]
 defined_name: (NAME EXCLAMATION| "'" /[^']+/i "'" EXCLAMATION| EXCLAMATION) NAME
-?expression:   concat_expression CMPOP concat_expression | concat_expression
+?expression:   concat_expression (CMPOP concat_expression)*
 ?concat_expression: additive_expression (CONCATOP additive_expression)*
 ?additive_expression:   multiplicative_expression (ADDITIVEOP multiplicative_expression)*
 ?multiplicative_expression: final (MULTIOP final)*
-?final: L_PRA expression R_PRA | function_call | cell | range | atom | NAME  | defined_name | array
+?final: L_PRA expression R_PRA  | function_call | cell | range | atom | NAME  | defined_name | array
 array: "{" (constant ARRAY_SEPARATOR)* constant "}"
 ?constant: STRING | NUMBER
 ?range: cell COLON cell | cell COLON cell COLON cell
@@ -36,8 +36,7 @@ ARRAY_SEPARATOR: ";"
 REF: L_BRAC SIGNED_INT  R_BRAC
 %import common.SIGNED_INT -> SIGNED_INT
 %import common.INT -> INT
-%import common.DECIMAL -> DECIMAL
-SIGNED_DECIMAL: ["+"|"-"] DECIMAL
-NUMBER: SIGNED_DECIMAL | SIGNED_INT
+%import common.SIGNED_FLOAT -> SIGNED_FLOAT
+NUMBER: SIGNED_FLOAT | SIGNED_INT
 NAME: /[j-qsu-z](?!\d{1,6}\b)[_\\.?a-z0-9]+\b|t(?!\d{1,6}\b|rue\b)[_\\.?a-z0-9]+\b|[_\\][_\\.?a-z0-9]*\b|r(?!(\[|(\d{0,5}c\d{0,3}\b)|(\d{1,6}\b)))[_\\.?a-z0-9]*\b(?!\[)|c(?!(\[|\d{0,3}r\d{0,5}\b|[a-z]*\d{1,6}\b))[_\\.?a-z0-9]*\b(?!\[)|[a-bd-eg-h](?![a-z]\d{1,5}\b|\d{1,5}\b)[_.\\?a-z0-9]*\b|f(?![a-z]\d{1,5}\b|\d{1,5}\b|alse\b)[_.\\?a-z0-9]*\b|i(?![a-v]\d+\b|\d+\b)[_.\\?a-z0-9]*\b|[_\\a-bd-qs-z]\b/i
 %ignore " "   // Disregard spaces in text

@@ -74,12 +74,16 @@ class XLSMWrapper(ExcelWrapper):
         result = {}
         if not file_name_filters:
             file_name_filters = ['*']
-
         for i in input_zip.namelist():
             for filter in file_name_filters:
                 if i == filter or fnmatch.fnmatch(i, filter):
                     result[i] = input_zip.read(i)
-
+        #Excel Crack is Wack... Excel converts \x5c to \x2f in zip file names and will happily eat it for you. Sample 51762ea84ac51f9e40b1902ebe22c306a732d77a5aa8f03650279d8b21271516
+        if not result:
+            for i in input_zip.namelist():
+                for filter in file_name_filters:            
+                    if i == filter.replace('\x2f','\x5c') or fnmatch.fnmatch(i, filter.replace('\x2f','\x5c')):
+                        result[i.replace('\x5c','\x2f')] = input_zip.read(i)
         return result
 
     def get_xml_file(self, file_name):
@@ -114,7 +118,6 @@ class XLSMWrapper(ExcelWrapper):
         if '/' in workbook_path:
             path = workbook_path[:workbook_path.index('/')]
             name = workbook_path[workbook_path.index('/') + 1:]
-
         return workbook_path, path, name
 
     def get_workbook(self):
@@ -122,7 +125,6 @@ class XLSMWrapper(ExcelWrapper):
             workbook_path, _, _ = self._get_workbook_path()
             workbook = self.get_xml_file(workbook_path)
             self._workbook = workbook
-
         return self._workbook
 
     def get_style(self):
@@ -244,6 +246,9 @@ class XLSMWrapper(ExcelWrapper):
                             self._shared_strings = []
                         if hasattr(str, 't'):
                             self._shared_strings.append(str.t.cdata)
+                        elif hasattr(str, 'r') and len(str.r) > 0 and hasattr(str.r[0], 't'):
+                            self._shared_strings.append(str.r[0].t.cdata)
+
         return self._shared_strings
 
     def load_macro_cells(self, macrosheet, macrosheet_obj):
