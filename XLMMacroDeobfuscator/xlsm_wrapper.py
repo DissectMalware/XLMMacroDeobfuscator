@@ -246,6 +246,9 @@ class XLSMWrapper(ExcelWrapper):
                             self._shared_strings = []
                         if hasattr(str, 't'):
                             self._shared_strings.append(str.t.cdata)
+                        elif hasattr(str, 'r') and len(str.r) > 0 and hasattr(str.r[0], 't'):
+                            self._shared_strings.append(str.r[0].t.cdata)
+
         return self._shared_strings
 
     def load_macro_cells(self, macrosheet, macrosheet_obj):
