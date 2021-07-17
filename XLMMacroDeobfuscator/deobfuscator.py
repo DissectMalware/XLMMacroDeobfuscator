@@ -1431,7 +1431,8 @@ class XLMInterpreter:
 
     def run_handler(self, arguments, current_cell, interactive, parse_tree_root):
         size = len(arguments)
-
+        next_cell = None
+        status = EvalStatus.PartialEvaluation
         if 1 <= size <= 2:
             next_sheet, next_col, next_row = self.get_cell_addr(current_cell, arguments[0])
             if next_sheet is not None and next_sheet in self.xlm_wrapper.get_macrosheets():
@@ -1451,6 +1452,7 @@ class XLMInterpreter:
         else:
             text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
             status = EvalStatus.Error
+            return_val = 1
 
         return EvalResult(next_cell, status, return_val, text)
 
