@@ -21,12 +21,19 @@ class Cell:
         self.formula = None
         self.value = None
         self.attributes = {}
+        self.times_visited = 0
         self.is_set = False
 
     def get_attribute(self, attribute_name):
         # return default value if attributes doesn't cointain the attribute_name
         pass
 
+    def visit(self):
+        self.times_visited += 1
+
+    def visited_too_many_times(self):
+        return (self.times_visited > 1000)
+    
     def __deepcopy__(self, memodict={}):
         copy = type(self)()
         memodict[id(self)] = copy
