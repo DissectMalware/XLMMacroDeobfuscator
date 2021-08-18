@@ -1,7 +1,7 @@
 from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational, RowAttribute
 from zipfile import ZipFile
 from glob import fnmatch
-from xml.etree import ElementTree
+from defusedxml import ElementTree
 from XLMMacroDeobfuscator.excel_wrapper import ExcelWrapper
 from XLMMacroDeobfuscator.boundsheet import *
 import untangle
