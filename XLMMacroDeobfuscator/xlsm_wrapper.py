@@ -1,7 +1,11 @@
 from XLMMacroDeobfuscator.excel_wrapper import XlApplicationInternational, RowAttribute
 from zipfile import ZipFile
 from glob import fnmatch
-from defusedxml import ElementTree
+try:
+    from defusedxml import ElementTree
+except:
+    from xml.etree import ElementTree
+    print('XLMMacroDeobfuscator: defusedxml is not installed (required to securely parse XLSM files)')
 from XLMMacroDeobfuscator.excel_wrapper import ExcelWrapper
 from XLMMacroDeobfuscator.boundsheet import *
 import untangle

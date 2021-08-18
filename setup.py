@@ -40,6 +40,9 @@ setup(
         "untangle==1.1.1",
         "msoffcrypto-tool"
     ],
+    extras_require={
+        "secure": ["defusedxml"],
+    },
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
