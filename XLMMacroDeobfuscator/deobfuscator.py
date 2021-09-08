@@ -151,6 +151,7 @@ class XLMInterpreter:
         self.auto_open_labels = None
         self._branch_stack = []
         self._while_stack = []
+        self._for_iterators = {}
         self._function_call_stack = []
         self._memory = []
         self._files = {}
@@ -215,6 +216,7 @@ class XLMInterpreter:
             'FILES': self.files_handler,
             'FORMULA': self.formula_handler,
             'FOPEN': self.fopen_handler,
+            'FOR.CELL': self.forcell_handler,
             'FSIZE': self.fsize_handler,
             'FWRITE': self.fwrite_handler,
             'FWRITELN': self.fwriteln_handler,
@@ -387,7 +389,7 @@ class XLMInterpreter:
 
     def get_range_parts(self, parse_tree):
         if isinstance(parse_tree, Tree) and parse_tree.data == 'range':
-            return parse_tree.children[0], parse_tree.children[1]
+            return parse_tree.children[0], parse_tree.children[-1]
         else:
             return None, None
 
@@ -1383,8 +1385,11 @@ class XLMInterpreter:
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
 
         if arg_eval_result.status == EvalStatus.FullEvaluation:
-            if 0 <= float(arg_eval_result.text) <= 255:
-                return_val = text = chr(int(float(arg_eval_result.text)))
+            value = arg_eval_result.text
+            if arg_eval_result.value in self.defined_names:
+                value = self.defined_names[arg_eval_result.value].value
+            if 0 <= float(value) <= 255:
+                return_val = text = chr(int(float(value)))
                 # cell = self.get_formula_cell(current_cell.sheet, current_cell.column, current_cell.row)
                 # cell.value = text
                 status = EvalStatus.FullEvaluation
@@ -1504,6 +1509,53 @@ class XLMInterpreter:
 
         return EvalResult(None, status, return_val, text)
 
+    def iterate_range(self, name, start_cell, end_cell):
+        sheet_name = start_cell[0]
+        if start_cell[2] == end_cell[2]:
+            row = int(start_cell[2])
+            col_start = Cell.convert_to_column_index(start_cell[1])
+            col_end = Cell.convert_to_column_index(end_cell[1])
+            for i in range(col_start, col_end+1):
+                next_cell = self.get_cell(sheet_name, Cell.convert_to_column_name(i), row)
+                if next_cell:
+                    yield next_cell
+        elif start_cell[1] == end_cell[1]:
+            col = start_cell[1]
+            row_start = int(start_cell[2])
+            row_end = int(end_cell[2])
+            for i in range(row_start, row_end+1):
+                next_cell = self.get_cell(sheet_name, col, i)
+                if next_cell:
+                    yield next_cell
+
+    def forcell_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        var_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+
+        start_cell_ptree, end_cell_ptree = self.get_range_parts(arguments[1])
+        start_cell = self.get_cell_addr(current_cell, start_cell_ptree)
+        end_cell = self.get_cell_addr(current_cell, end_cell_ptree)
+
+        skip = False
+        if len(arguments) >= 3:
+            skip_eval_result = self.evaluate_parse_tree(current_cell, arguments[2], interactive)
+            skip = bool(skip_eval_result.value)
+
+        variable_name = EvalResult.unwrap_str_literal(var_eval_result.value).lower()
+
+        if len(self._while_stack) > 0 and self._while_stack[-1]['start_point'] == current_cell:
+            iterator = self._while_stack[-1]['iterator']
+        else:
+            iterator = self.iterate_range(variable_name, start_cell, end_cell)
+            stack_record = {'start_point': current_cell, 'status': True, 'iterator': iterator}
+            self._while_stack.append(stack_record)
+
+        try:
+            self.defined_names[variable_name] = next(iterator)
+        except:
+            self._while_stack[-1]['status'] = False
+
+        return EvalResult(None, EvalStatus.FullEvaluation, 0 , self.convert_ptree_to_str(parse_tree_root))
+
     def while_handler(self, arguments, current_cell, interactive, parse_tree_root):
         status = EvalStatus.PartialEvaluation
         text = ''
@@ -1541,6 +1593,8 @@ class XLMInterpreter:
                 top_record = self._while_stack.pop()
                 if top_record['status'] is True:
                     next_cell = top_record['start_point']
+                if 'iterator' in top_record:
+                    self._while_stack.append(top_record)
             self._indent_level = self._indent_level - 1 if self._indent_level > 0 else 0
             self._indent_current_line = True
         else:
@@ -1860,7 +1914,9 @@ class XLMInterpreter:
             access = arg2_eval_res.value
         else:
             access = '1'
-        self._files[arg1_eval_res.get_text(unwrap=True)] = {'file_access': access,
+        file_name = arg1_eval_res.get_text(unwrap=True)
+        if file_name not in self._files:
+            self._files[file_name] = {'file_access': access,
                                                             'file_content': ''}
         text = 'FOPEN({},{})'.format(arg1_eval_res.get_text(unwrap=False),
                                      access)
@@ -1881,7 +1937,7 @@ class XLMInterpreter:
     def fwrite_handler(self, arguments, current_cell, interactive, parse_tree_root, end_line=''):
         arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         arg2_eval_res = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
-        file_name = arg1_eval_res.get_text(unwrap=True)
+        file_name = arg1_eval_res.value
         file_content = arg2_eval_res.get_text(unwrap=True)
         status = EvalStatus.PartialEvaluation
         if file_name in self._files:
