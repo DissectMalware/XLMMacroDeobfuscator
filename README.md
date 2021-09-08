@@ -80,7 +80,7 @@ default.config file must be a valid json file, such as:
   (______/ (_______/(_______)|/ \___/ |/       (_______)\_______)(_______/|/     \|   )_(   (_______)|/   \__/
 
     
-XLMMacroDeobfuscator(v0.1.7) - https://github.com/DissectMalware/XLMMacroDeobfuscator
+XLMMacroDeobfuscator(v0.1.9) - https://github.com/DissectMalware/XLMMacroDeobfuscator
 
 usage: deobfuscator.py [-h] [-c FILE_PATH] [-f FILE_PATH] [-n] [-x] [-2]
                        [--with-ms-excel] [-s] [-d DAY]
