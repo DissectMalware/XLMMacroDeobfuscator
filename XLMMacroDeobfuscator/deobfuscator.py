@@ -1535,15 +1535,12 @@ class XLMInterpreter:
         start_cell = self.get_cell_addr(current_cell, start_cell_ptree)
         end_cell = self.get_cell_addr(current_cell, end_cell_ptree)
 
-
-
         skip = False
         if len(arguments) >= 3:
             skip_eval_result = self.evaluate_parse_tree(current_cell, arguments[2], interactive)
             skip = bool(skip_eval_result.value)
 
-        variable_name = EvalResult.unwrap_str_literal(var_eval_result.value)
-
+        variable_name = EvalResult.unwrap_str_literal(var_eval_result.value).lower()
 
         if len(self._while_stack) > 0 and self._while_stack[-1]['start_point'] == current_cell:
             iterator = self._while_stack[-1]['iterator']
@@ -1557,13 +1554,7 @@ class XLMInterpreter:
         except:
             self._while_stack[-1]['status'] = False
 
-
         return EvalResult(None, EvalStatus.FullEvaluation, 0 , self.convert_ptree_to_str(parse_tree_root))
-
-
-
-
-        p= 10
 
     def while_handler(self, arguments, current_cell, interactive, parse_tree_root):
         status = EvalStatus.PartialEvaluation
