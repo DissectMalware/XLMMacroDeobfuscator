@@ -1511,20 +1511,14 @@ class XLMInterpreter:
 
     def iterate_range(self, name, start_cell, end_cell):
         sheet_name = start_cell[0]
-        if start_cell[2] == end_cell[2]:
-            row = int(start_cell[2])
-            col_start = Cell.convert_to_column_index(start_cell[1])
-            col_end = Cell.convert_to_column_index(end_cell[1])
-            for i in range(col_start, col_end+1):
-                next_cell = self.get_cell(sheet_name, Cell.convert_to_column_name(i), row)
-                if next_cell:
-                    yield next_cell
-        elif start_cell[1] == end_cell[1]:
-            col = start_cell[1]
+
+        col_start = Cell.convert_to_column_index(start_cell[1])
+        col_end = Cell.convert_to_column_index(end_cell[1])
+        for col_index in range(col_start, col_end+1):
             row_start = int(start_cell[2])
             row_end = int(end_cell[2])
-            for i in range(row_start, row_end+1):
-                next_cell = self.get_cell(sheet_name, col, i)
+            for row_index in range(row_start, row_end+1):
+                next_cell = self.get_cell(sheet_name, Cell.convert_to_column_name(col_index), row_index)
                 if next_cell:
                     yield next_cell
 
