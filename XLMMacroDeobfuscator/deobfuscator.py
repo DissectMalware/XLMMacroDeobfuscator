@@ -148,7 +148,7 @@ class XLMInterpreter:
         self.cell_addr_regex = re.compile(self.cell_addr_regex_str)
         self.xlm_parser = self.get_parser()
         self.defined_names = self.xlm_wrapper.get_defined_names()
-        self.auto_open_labels = None
+        self.auto_labels = None
         self._branch_stack = []
         self._while_stack = []
         self._for_iterators = {}
@@ -306,7 +306,7 @@ class XLMInterpreter:
 
     def __copy__(self):
         result = XLMInterpreter(self.xlm_wrapper)
-        result.auto_open_labels = self.auto_open_labels
+        result.auto_labels = self.auto_labels
         result._workspace_defaults = self._workspace_defaults
         result._window_defaults = self._window_defaults
         result._cell_defaults = self._cell_defaults
@@ -2451,20 +2451,22 @@ class XLMInterpreter:
         result = []
         self._start_timestamp = time.time()
 
-        self.auto_open_labels = self.xlm_wrapper.get_defined_name('auto_open', full_match=False)
-        if len(self.auto_open_labels) == 0:
+        self.auto_labels = self.xlm_wrapper.get_defined_name('auto_open', full_match=False)
+        self.auto_labels.extend(self.xlm_wrapper.get_defined_name('auto_close', full_match=False))
+
+        if len(self.auto_labels) == 0:
             if len(start_point) > 0:
-                self.auto_open_labels = [('auto_open', start_point)]
+                self.auto_labels = [('auto_open', start_point)]
             elif interactive:
                 print('There is no entry point, please specify a cell address to start')
                 print('Example: Sheet1!A1')
-                self.auto_open_labels = [('auto_open', input().strip())]
+                self.auto_labels = [('auto_open', input().strip())]
 
-        if self.auto_open_labels is not None and len(self.auto_open_labels) > 0:
+        if self.auto_labels is not None and len(self.auto_labels) > 0:
             macros = self.xlm_wrapper.get_macrosheets()
 
             continue_emulation = True
-            for auto_open_label in self.auto_open_labels:
+            for auto_open_label in self.auto_labels:
                 if not continue_emulation:
                     break
                 try:
@@ -2634,7 +2636,6 @@ def get_file_type(path):
 
 def show_cells(excel_doc):
     macrosheets = excel_doc.get_macrosheets()
-    auto_open_labels = excel_doc.get_defined_name('auto_open', full_match=False)
 
     for macrosheet_name in macrosheets:
         # yield 'SHEET: {}, {}'.format(macrosheets[macrosheet_name].name,
@@ -2851,6 +2852,10 @@ def process_file(**kwargs):
         auto_open_labels = excel_doc.get_defined_name('auto_open', full_match=False)
         for label in auto_open_labels:
             uprint('auto_open: {}->{}'.format(label[0], label[1]), silent_mode=SILENT)
+
+        auto_close_labels = excel_doc.get_defined_name('auto_close', full_match=False)
+        for label in auto_close_labels:
+            uprint('auto_close: {}->{}'.format(label[0], label[1]), silent_mode=SILENT)
 
         if kwargs.get("extract_only"):
             if kwargs.get("export_json"):
