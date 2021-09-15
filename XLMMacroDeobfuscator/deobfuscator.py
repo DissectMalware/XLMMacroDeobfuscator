@@ -482,6 +482,13 @@ class XLMInterpreter:
             addr = col + str(row)
             if addr in sheet.cells:
                 result = sheet.cells[addr]
+        else:
+            sheets = self.xlm_wrapper.get_worksheets()
+            if sheet_name in sheets:
+                sheet = sheets[sheet_name]
+                addr = col + str(row)
+                if addr in sheet.cells:
+                    result = sheet.cells[addr]
 
         return result
 
@@ -1511,13 +1518,12 @@ class XLMInterpreter:
 
     def iterate_range(self, name, start_cell, end_cell):
         sheet_name = start_cell[0]
-
-        col_start = Cell.convert_to_column_index(start_cell[1])
-        col_end = Cell.convert_to_column_index(end_cell[1])
-        for col_index in range(col_start, col_end+1):
-            row_start = int(start_cell[2])
-            row_end = int(end_cell[2])
-            for row_index in range(row_start, row_end+1):
+        row_start = int(start_cell[2])
+        row_end = int(end_cell[2])
+        for row_index in range(row_start, row_end + 1):
+            col_start = Cell.convert_to_column_index(start_cell[1])
+            col_end = Cell.convert_to_column_index(end_cell[1])
+            for col_index in range(col_start, col_end+1):
                 next_cell = self.get_cell(sheet_name, Cell.convert_to_column_name(col_index), row_index)
                 if next_cell:
                     yield next_cell
@@ -1908,13 +1914,18 @@ class XLMInterpreter:
             access = arg2_eval_res.value
         else:
             access = '1'
-        file_name = arg1_eval_res.get_text(unwrap=True)
+
+        if arg1_eval_res.status == EvalStatus.FullEvaluation:
+            file_name = arg1_eval_res.get_text(unwrap=True)
+        else:
+            file_name = "default_name"
+
         if file_name not in self._files:
             self._files[file_name] = {'file_access': access,
                                                             'file_content': ''}
         text = 'FOPEN({},{})'.format(arg1_eval_res.get_text(unwrap=False),
                                      access)
-        return EvalResult(None, arg1_eval_res.status, arg1_eval_res.value, text)
+        return EvalResult(None, arg1_eval_res.status, file_name, text)
 
     def fsize_handler(self, arguments, current_cell, interactive, parse_tree_root, end_line=''):
         arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)

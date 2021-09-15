@@ -10,6 +10,7 @@ class XLSBWrapper(ExcelWrapper):
     def __init__(self, xlsb_doc_path):
         self._xlsb_workbook = open_workbook(xlsb_doc_path)
         self._macrosheets = None
+        self._worksheets = None
         self._defined_names = None
         self.xl_international_flags = {XlApplicationInternational.xlLeftBracket: '[',
                                        XlApplicationInternational.xlListSeparator: ',',
@@ -83,6 +84,18 @@ class XLSBWrapper(ExcelWrapper):
                 # self._macrosheets[workbook.name] = macrosheet
 
         return self._macrosheets
+
+    def get_worksheets(self):
+        if self._worksheets is None:
+            self._worksheets = {}
+            for xlsb_sheet in self._xlsb_workbook.sheets:
+                if xlsb_sheet.type == 'worksheet':
+                    with self._xlsb_workbook.get_sheet_by_name(xlsb_sheet.name) as sheet:
+                        worksheet = Boundsheet(xlsb_sheet.name, 'worksheet')
+                        self.load_cells(worksheet)
+                        self._worksheets[worksheet.name] = worksheet
+
+        return self._worksheets
 
     def get_cell_info(self, sheet_name, col, row, info_type_id):
         data = None
