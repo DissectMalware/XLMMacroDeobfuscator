@@ -359,9 +359,12 @@ class XLSMWrapper(ExcelWrapper):
             macrosheets = self.get_macrosheet_infos()
             for macrosheet in macrosheets:
                 self.load_macro_cells(macrosheet['sheet'], macrosheet['sheet_xml'])
-                if hasattr(macrosheet['sheet_xml'].xm_macrosheet, 'sheetFormatPr'):
-                    macrosheet['sheet'].default_height = macrosheet['sheet_xml'].xm_macrosheet.sheetFormatPr.get_attribute(
-                        'defaultRowHeight')
+                # if the actual file exist
+                if macrosheet['sheet_xml']:
+                    self.load_macro_cells(macrosheet['sheet'], macrosheet['sheet_xml'])
+                    if hasattr(macrosheet['sheet_xml'].xm_macrosheet, 'sheetFormatPr'):
+                        macrosheet['sheet'].default_height = macrosheet['sheet_xml'].xm_macrosheet.sheetFormatPr.get_attribute(
+                            'defaultRowHeight')
 
                 self._macrosheets[macrosheet['sheet'].name] = macrosheet['sheet']
 
