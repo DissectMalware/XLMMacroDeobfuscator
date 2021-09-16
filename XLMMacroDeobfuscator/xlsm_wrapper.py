@@ -202,7 +202,9 @@ class XLSMWrapper(ExcelWrapper):
         if self._defined_names is None:
             workbook_obj = self.get_workbook()
             self._defined_names = {}
-            if hasattr(workbook_obj, 'workbook') and hasattr(workbook_obj.workbook, 'definedNames'):
+            if hasattr(workbook_obj, 'workbook') \
+                    and hasattr(workbook_obj.workbook, 'definedNames')\
+                    and hasattr(workbook_obj.workbook.definedNames, 'definedName'):
                 for defined_name in workbook_obj.workbook.definedNames.definedName:
                     self._defined_names[defined_name.get_attribute(
                         'name').replace('_xlnm.', '').lower()] = defined_name.cdata
