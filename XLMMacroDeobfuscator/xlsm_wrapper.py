@@ -358,7 +358,6 @@ class XLSMWrapper(ExcelWrapper):
             self._macrosheets = {}
             macrosheets = self.get_macrosheet_infos()
             for macrosheet in macrosheets:
-                self.load_macro_cells(macrosheet['sheet'], macrosheet['sheet_xml'])
                 # if the actual file exist
                 if macrosheet['sheet_xml']:
                     self.load_macro_cells(macrosheet['sheet'], macrosheet['sheet_xml'])
