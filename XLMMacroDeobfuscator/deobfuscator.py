@@ -243,6 +243,7 @@ class XLMInterpreter:
             'QUOTIENT': self.quotient_handler,
             'RANDBETWEEN': self.randbetween_handler,
             'REGISTER': self.register_handler,
+            'REGISTER.ID': self.registerid_handler,
             'RETURN': self.return_handler,
             'ROUND': self.round_handler,
             'ROUNDUP': self.roundup_handler,
@@ -1891,6 +1892,30 @@ class XLMInterpreter:
             status = EvalStatus.Error
             text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
         return_val = 0
+
+        return EvalResult(None, status, return_val, text)
+
+    def registerid_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        if len(arguments) >= 3:
+            arg_list = []
+            status = EvalStatus.FullEvaluation
+            for index, arg in enumerate(arguments):
+                if index > 2:
+                    break
+                res_eval = self.evaluate_parse_tree(current_cell, arg, interactive)
+                arg_list.append(res_eval.get_text(unwrap=True))
+            function_name = "{}.{}".format(arg_list[0], arg_list[1])
+            # signature: https://support.office.com/en-us/article/using-the-call-and-register-functions-06fa83c1-2869-4a89-b665-7e63d188307f
+            function_signature = arg_list[2]
+            #function_alias = arg_list[3]
+            # overrides previously registered function
+            #self._registered_functions[function_alias] = {'name': function_name, 'signature': function_signature}
+            text = self.evaluate_argument_list(current_cell, 'REGISTER.ID', arguments).get_text(unwrap=True)
+            return_val = function_name
+        else:
+            status = EvalStatus.Error
+            text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
+            return_val = 0
 
         return EvalResult(None, status, return_val, text)
 
