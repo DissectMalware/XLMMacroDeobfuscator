@@ -90,7 +90,7 @@ class XLSMWrapper(ExcelWrapper):
                         result[i.replace('\x5c','\x2f')] = input_zip.read(i)
         return result
 
-    def get_xml_file(self, file_name):
+    def get_xml_file(self, file_name, ignore_pattern=None):
         if file_name.startswith('/'):
             file_name = file_name[1:]
         result = None
@@ -98,6 +98,8 @@ class XLSMWrapper(ExcelWrapper):
         files = self.get_files([file_name])
         if len(files) == 1:
             workbook_content = files[file_name].decode('utf_8')
+            if ignore_pattern:
+                workbook_content = re.sub(ignore_pattern, "", workbook_content)
             result = untangle.parse(StringIO(workbook_content))
         return result
 
@@ -228,7 +230,7 @@ class XLSMWrapper(ExcelWrapper):
                         sheet = Boundsheet(name, sheet_type)
                         result.append({'sheet': sheet,
                                        'sheet_path': path,
-                                       'sheet_xml': self.get_xml_file(path)})
+                                       'sheet_xml': self.get_xml_file(path, ignore_pattern="<c[^>]+/>")})
                         sheet_names.add(name)
                 else:
                     print("Sheet('{}') does not have a valid rId('{}')".format(name, rId))
