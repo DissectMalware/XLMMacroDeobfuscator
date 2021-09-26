@@ -291,6 +291,10 @@ class XLSMWrapper(ExcelWrapper):
                     if 't' in cell_elm._attributes and cell_elm.get_attribute('t') == 's':
                         is_string = True
 
+                    cached_str = False
+                    if 't' in cell_elm._attributes and cell_elm.get_attribute('t') == 'str':
+                        cached_str = True
+
                     if hasattr(cell_elm, 'v'):
                         value = cell_elm.v
                         value_text = value.cdata if value is not None else None
@@ -301,7 +305,8 @@ class XLSMWrapper(ExcelWrapper):
                         cell = Cell()
                         sheet_name, cell.column, cell.row = Cell.parse_cell_addr(location)
                         cell.sheet = macrosheet
-                        cell.formula = formula_text
+                        if not cached_str:
+                            cell.formula = formula_text
                         cell.value = value_text
                         macrosheet.cells[location] = cell
 
