@@ -295,16 +295,17 @@ class XLSMWrapper(ExcelWrapper):
                         if value_text is not None and is_string:
                             value_text = strings[int(value_text)]
                     location = cell_elm.get_attribute('r')
-                    cell = Cell()
-                    sheet_name, cell.column, cell.row = Cell.parse_cell_addr(location)
-                    cell.sheet = macrosheet
-                    cell.formula = formula_text
-                    cell.value = value_text
-                    macrosheet.cells[location] = cell
+                    if formula_text or value_text:
+                        cell = Cell()
+                        sheet_name, cell.column, cell.row = Cell.parse_cell_addr(location)
+                        cell.sheet = macrosheet
+                        cell.formula = formula_text
+                        cell.value = value_text
+                        macrosheet.cells[location] = cell
 
-                    for attrib in cell_elm._attributes:
-                        if attrib != 'r':
-                            cell.attributes[attrib] = cell_elm._attributes[attrib]
+                        for attrib in cell_elm._attributes:
+                            if attrib != 'r':
+                                cell.attributes[attrib] = cell_elm._attributes[attrib]
 
     def load_worksheet_cells(self, macrosheet, macrosheet_obj):
         strings = self.get_shared_strings()
