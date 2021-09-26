@@ -275,7 +275,15 @@ class XLSMWrapper(ExcelWrapper):
                     formula_text = None
                     if hasattr(cell_elm, 'f'):
                         formula = cell_elm.f
-                        formula_text = ('=' + formula.cdata) if formula is not None else None
+                        if formula.get_attribute('bx') == "1":
+                            text = formula.cdata
+                            formula_text = None
+                            if text:
+                                first_eq_sign = text.find('=')
+                                if first_eq_sign > 0:
+                                    formula_text = '=SET.NAME("{}",{})'.format(text[:first_eq_sign], text[first_eq_sign+1:])
+                        else:
+                            formula_text = ('=' + formula.cdata) if formula is not None else None
                     value_text = None
                     is_string = False
                     if 't' in cell_elm._attributes and cell_elm.get_attribute('t') == 's':
