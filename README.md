@@ -9,7 +9,7 @@ You can also find XLM grammar in [xlm-macro-lark.template](XLMMacroDeobfuscator/
 
 # Installing the emulator
 
-1. Install using pip
+1. Install using pip (not recommended)
 
 ```
 pip install XLMMacroDeobfuscator
