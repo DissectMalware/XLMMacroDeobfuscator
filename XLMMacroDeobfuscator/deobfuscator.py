@@ -2664,7 +2664,7 @@ def get_file_type(path):
     return file_type
 
 
-def show_cells(excel_doc):
+def show_cells(excel_doc, sorted_formulas=False):
     macrosheets = excel_doc.get_macrosheets()
 
     for macrosheet_name in macrosheets:
@@ -2673,10 +2673,20 @@ def show_cells(excel_doc):
 
         yield macrosheets[macrosheet_name].name, macrosheets[macrosheet_name].type
 
-        for formula_loc, info in macrosheets[macrosheet_name].cells.items():
-            if info.formula is not None:
-                yield info, 'EXTRACTED', info.formula, '', info.value
-                # yield 'CELL:{:10}, {:20}, {}'.format(formula_loc, info.formula, info.value)
+        if sorted_formulas:
+            tmp_formulas = []
+            for formula_loc, info in macrosheets[macrosheet_name].cells.items():
+                if info.formula is not None:
+                    tmp_formulas.append((info, 'EXTRACTED', info.formula, '', info.value))
+            tmp_formulas = sorted(tmp_formulas, key=lambda x:(x[0].column,
+                                                              int(x[0].row) if EvalResult.is_int(x[0].row) else x[0].row))
+            for formula in tmp_formulas:
+                yield formula
+        else:
+            for formula_loc, info in macrosheets[macrosheet_name].cells.items():
+                if info.formula is not None:
+                    yield info, 'EXTRACTED', info.formula, '', info.value
+                    # yield 'CELL:{:10}, {:20}, {}'.format(formula_loc, info.formula, info.value)
         for formula_loc, info in macrosheets[macrosheet_name].cells.items():
             if info.formula is None:
                 # yield 'CELL:{:10}, {:20}, {}'.format(formula_loc, str(info.formula), info.value)
@@ -2888,9 +2898,12 @@ def process_file(**kwargs):
             uprint('auto_close: {}->{}'.format(label[0], label[1]), silent_mode=SILENT)
 
         if kwargs.get("extract_only"):
+            sorted = False
+            if kwargs.get("sort_formulas"):
+                sorted = True
             if kwargs.get("export_json"):
                 records = []
-                for i in show_cells(excel_doc):
+                for i in show_cells(excel_doc, sorted):
                     if len(i) == 5:
                         records.append(i)
 
@@ -2910,7 +2923,7 @@ def process_file(**kwargs):
                     return res
             else:
                 res = []
-                for i in show_cells(excel_doc):
+                for i in show_cells(excel_doc, sorted):
                     rec_str = ''
                     if len(i) == 2:
                         rec_str = 'SHEET: {}, {}'.format(i[0], i[1])
@@ -2920,6 +2933,7 @@ def process_file(**kwargs):
                         if not kwargs.get("return_deobfuscated"):
                             uprint(rec_str, silent_mode=SILENT)
                         res.append(rec_str)
+
 
                 if kwargs.get("return_deobfuscated"):
                     return res
@@ -3039,6 +3053,8 @@ def main():
                             help="Disable interactive shell")
     arg_parser.add_argument("-x", "--extract-only", default=False, action='store_true',
                             help="Only extract cells without any emulation")
+    arg_parser.add_argument("--sort-formulas", default=False, action='store_true',
+                            help="Sort extracted formulas based on their cell address (requires -x)")
     arg_parser.add_argument("-2", "--no-ms-excel", default=False, action='store_true',
                             help="[Deprecated] Do not use MS Excel to process XLS files")
     arg_parser.add_argument("--with-ms-excel", default=False, action='store_true',

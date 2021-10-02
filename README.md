@@ -97,6 +97,8 @@ optional arguments:
                         The path of a XLSM file
   -n, --noninteractive  Disable interactive shell
   -x, --extract-only    Only extract cells without any emulation
+  --sort-formulas       Sort extracted formulas based on their cell address
+                        (requires -x)
   -2, --no-ms-excel     [Deprecated] Do not use MS Excel to process XLS files
   --with-ms-excel       Use MS Excel to process XLS files
   -s, --start-with-shell
