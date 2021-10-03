@@ -18,9 +18,9 @@ pip install XLMMacroDeobfuscator
 2. Installing the latest development
 
 ```
-pip install -U https://github.com/DissectMalware/xlrd2/archive/master.zip
-pip install -U https://github.com/DissectMalware/pyxlsb2/archive/master.zip
-pip install -U https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/master.zip
+pip install -U https://github.com/DissectMalware/xlrd2/archive/master.zip --force
+pip install -U https://github.com/DissectMalware/pyxlsb2/archive/master.zip --force
+pip install -U https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/master.zip --force
 ```
 
 # Running the emulator
@@ -99,6 +99,7 @@ optional arguments:
   -x, --extract-only    Only extract cells without any emulation
   --sort-formulas       Sort extracted formulas based on their cell address
                         (requires -x)
+  --defined-names       Extract all defined names
   -2, --no-ms-excel     [Deprecated] Do not use MS Excel to process XLS files
   --with-ms-excel       Use MS Excel to process XLS files
   -s, --start-with-shell

@@ -2897,6 +2897,13 @@ def process_file(**kwargs):
         for label in auto_close_labels:
             uprint('auto_close: {}->{}'.format(label[0], label[1]), silent_mode=SILENT)
 
+        if kwargs.get("defined_names"):
+            uprint("[Defined Names]", silent_mode=SILENT)
+            defined_names = excel_doc.get_defined_names()
+            for name in defined_names:
+                if not kwargs.get("return_deobfuscated"):
+                    uprint("{} --> {}".format(name, defined_names[name]), silent_mode=SILENT)
+
         if kwargs.get("extract_only"):
             sorted = False
             if kwargs.get("sort_formulas"):
@@ -3055,6 +3062,8 @@ def main():
                             help="Only extract cells without any emulation")
     arg_parser.add_argument("--sort-formulas", default=False, action='store_true',
                             help="Sort extracted formulas based on their cell address (requires -x)")
+    arg_parser.add_argument("--defined-names", default=False, action='store_true',
+                            help="Extract all defined names")
     arg_parser.add_argument("-2", "--no-ms-excel", default=False, action='store_true',
                             help="[Deprecated] Do not use MS Excel to process XLS files")
     arg_parser.add_argument("--with-ms-excel", default=False, action='store_true',
