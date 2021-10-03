@@ -1415,7 +1415,10 @@ class XLMInterpreter:
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         return_val = ''
         if arg_eval_result.status == EvalStatus.FullEvaluation:
-            if arg_eval_result.value != 'TRUE' and arg_eval_result.value != 'FALSE':
+            if isinstance(arg_eval_result.value, tuple) and len(arg_eval_result.value) == 3:
+                cell = self.get_cell(arg_eval_result.value[0], arg_eval_result.value[1], arg_eval_result.value[2])
+                return_val = cell.value
+            elif arg_eval_result.value != 'TRUE' and arg_eval_result.value != 'FALSE':
                 return_val = str(arg_eval_result.value)
             status = EvalStatus.FullEvaluation
         else:
