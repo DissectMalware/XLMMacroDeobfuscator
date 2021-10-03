@@ -607,8 +607,13 @@ class XLMInterpreter:
                 destination = self.xlm_parser.parse('=' + defined_name_formula).children[0]
 
         if destination.data == 'concat_expression' or destination.data == 'function_call':
-            destination_str = self.evaluate_parse_tree(current_cell, destination, interactive).text
-            dst_start_sheet, dst_start_col, dst_start_row = Cell.parse_cell_addr(destination_str)
+            res = self.evaluate_parse_tree(current_cell, destination, interactive)
+            if isinstance(res.value, tuple) and len(res.value) == 3:
+                destination_str = "'{}'!{}{}".format(res.value[0], res.value[1], res.value[2])
+                dst_start_sheet, dst_start_col, dst_start_row = res.value
+            else:
+                destination_str = res.text
+                dst_start_sheet, dst_start_col, dst_start_row = Cell.parse_cell_addr(destination_str)
             dst_end_sheet, dst_end_col, dst_end_row = dst_start_sheet, dst_start_col, dst_start_row
 
         else:
@@ -725,8 +730,6 @@ class XLMInterpreter:
             return self.goto_handler([function_name], current_cell, interactive, parse_tree_root)
 
         if self.ignore_processing and function_name_literal != 'NEXT':
-            if function_name_literal == 'WHILE':
-                self.next_count += 1
             return EvalResult(None, EvalStatus.IGNORED, 0, '')
 
         arguments = []
@@ -1558,6 +1561,8 @@ class XLMInterpreter:
         except:
             self._while_stack[-1]['status'] = False
 
+        self._indent_level += 1
+
         return EvalResult(None, EvalStatus.FullEvaluation, 0 , self.convert_ptree_to_str(parse_tree_root))
 
     def while_handler(self, arguments, current_cell, interactive, parse_tree_root):
@@ -1581,7 +1586,6 @@ class XLMInterpreter:
 
         if stack_record['status'] == False:
             self.ignore_processing = True
-            self.next_count = 0
 
         self._indent_level += 1
 
@@ -1590,7 +1594,7 @@ class XLMInterpreter:
     def next_handler(self, arguments, current_cell, interactive, parse_tree_root):
         status = EvalStatus.FullEvaluation
         next_cell = None
-        if self.next_count == 0:
+        if self._indent_level == len(self._while_stack):
             self.ignore_processing = False
             next_cell = None
             if len(self._while_stack) > 0:
@@ -1601,8 +1605,6 @@ class XLMInterpreter:
                     self._while_stack.append(top_record)
             self._indent_level = self._indent_level - 1 if self._indent_level > 0 else 0
             self._indent_current_line = True
-        else:
-            self.next_count -= 1
 
         if next_cell is None:
             status = EvalStatus.IGNORED
@@ -2599,7 +2601,7 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except Exception as exp:
+                except KeyboardInterrupt as exp:
                     exc_type, exc_obj, traceback = sys.exc_info()
                     frame = traceback.tb_frame
                     lineno = traceback.tb_lineno
@@ -2799,7 +2801,7 @@ def try_decrypt(file, password=''):
                     tmp_file_handle.close()
                     os.remove(tmp_file_path)
                     tmp_file_path = None
-    except Exception as exp:
+    except KeyboardInterrupt as exp:
         uprint(str(exp), silent_mode=SILENT)
 
     return tmp_file_path, is_encrypted
@@ -3111,7 +3113,7 @@ def main():
             # Convert args to kwarg dict
             try:
                 process_file(**vars(args))
-            except Exception as exp:
+            except KeyboardInterrupt as exp:
                 exc_type, exc_obj, traceback = sys.exc_info()
                 frame = traceback.tb_frame
                 lineno = traceback.tb_lineno
@@ -3123,7 +3125,7 @@ def main():
                                                     line.strip(),
                                                     exc_obj))
 
-        except Exception:
+        except KeyboardInterrupt:
             pass
 
 
