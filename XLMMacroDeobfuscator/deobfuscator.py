@@ -1987,6 +1987,11 @@ class XLMInterpreter:
         arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         arg2_eval_res = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
         file_name = arg1_eval_res.value
+        if file_name.strip() == "":
+            if len(self._files) > 0:
+                file_name = list(self._files.keys())[0]
+            else:
+                file_name = "default_filename"
         file_content = arg2_eval_res.get_text(unwrap=True)
         status = EvalStatus.PartialEvaluation
         if file_name in self._files:
