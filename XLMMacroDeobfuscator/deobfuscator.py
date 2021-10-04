@@ -234,6 +234,7 @@ class XLMInterpreter:
             'MIN': self.min_handler,
             'MOD': self.mod_handler,
             'MID': self.mid_handler,
+            'SQRT': self.sqrt_handler,
             'NEXT': self.next_handler,
             'NOT': self.not_handler,
             'NOW': self.now_handler,
@@ -1299,6 +1300,19 @@ class XLMInterpreter:
             return_val = float(arg1_eval_res.value) % float(arg2_eval_res.value)
             text = str(return_val)
             status = EvalStatus.FullEvaluation
+        return EvalResult(None, status, return_val, text)
+
+    def sqrt_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        status = EvalStatus.PartialEvaluation
+
+        if arg1_eval_res.status == EvalStatus.FullEvaluation:
+            return_val = math.floor(math.sqrt(float(arg1_eval_res.value)))
+            text = str(return_val)
+            status = EvalStatus.FullEvaluation
+
+        if status == EvalStatus.PartialEvaluation:
+            return_val = text = self.convert_ptree_to_str(parse_tree_root)
         return EvalResult(None, status, return_val, text)
 
     def goto_handler(self, arguments, current_cell, interactive, parse_tree_root):
