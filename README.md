@@ -109,6 +109,9 @@ optional arguments:
   --output-formula-format OUTPUT_FORMULA_FORMAT
                         Specify the format for output formulas ([[CELL-ADDR]],
                         [[INT-FORMULA]], and [[STATUS]]
+  --extract-formula-format EXTRACT_FORMULA_FORMAT
+                        Specify the format for extracted formulas ([[CELL-ADDR]],
+                        [[CELL-FORMULA]], and [[CELL-VALUE]]
   --no-indent           Do not show indent before formulas
   --export-json FILE_PATH
                         Export the output to JSON

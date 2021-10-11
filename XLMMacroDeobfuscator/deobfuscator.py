@@ -2954,12 +2954,19 @@ def process_file(**kwargs):
                     return res
             else:
                 res = []
+                output_format = kwargs.get("extract_formula_format", 'CELL:[[CELL-ADDR]], [[CELL-FORMULA]], [[CELL-VALUE]]')
                 for i in show_cells(excel_doc, sorted):
                     rec_str = ''
                     if len(i) == 2:
                         rec_str = 'SHEET: {}, {}'.format(i[0], i[1])
                     elif len(i) == 5:
-                        rec_str = 'CELL:{:10}, {:20}, {}'.format(i[0].get_local_address(), i[2], i[4])
+                        if output_format is not None:
+                            rec_str = output_format
+                            rec_str = rec_str.replace('[[CELL-ADDR]]', i[0].get_local_address())
+                            rec_str = rec_str.replace('[[CELL-FORMULA]]', i[2])
+                            rec_str = rec_str.replace('[[CELL-VALUE]]', i[4])
+                        else:
+                            rec_str = 'CELL:{:10}, {:20}, {}'.format(i[0].get_local_address(), i[2], i[4])
                     if rec_str:
                         if not kwargs.get("return_deobfuscated"):
                             uprint(rec_str, silent_mode=SILENT)
@@ -3101,6 +3108,11 @@ def main():
                             action='store',
                             help="Specify the format for output formulas "
                                  "([[CELL-ADDR]], [[INT-FORMULA]], and [[STATUS]]", )
+    arg_parser.add_argument("--extract-formula-format", type=str,
+                            default="CELL:[[CELL-ADDR]], [[CELL-FORMULA]], [[CELL-VALUE]]",
+                            action='store',
+                            help="Specify the format for extracted formulas "
+                                 "([[CELL-ADDR]], [[CELL-FORMULA]], and [[CELL-VALUE]]", )
     arg_parser.add_argument("--no-indent", default=False, action='store_true',
                             help="Do not show indent before formulas")
     arg_parser.add_argument("--export-json", type=str, action='store',
