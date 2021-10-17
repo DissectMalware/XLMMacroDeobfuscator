@@ -2967,7 +2967,7 @@ def process_file(**kwargs):
                             rec_str = output_format
                             rec_str = rec_str.replace('[[CELL-ADDR]]', i[0].get_local_address())
                             rec_str = rec_str.replace('[[CELL-FORMULA]]', i[2])
-                            rec_str = rec_str.replace('[[CELL-VALUE]]', i[4])
+                            rec_str = rec_str.replace('[[CELL-VALUE]]', str(i[4]))
                         else:
                             rec_str = 'CELL:{:10}, {:20}, {}'.format(i[0].get_local_address(), i[2], i[4])
                     if rec_str:
