@@ -589,6 +589,9 @@ class XLMInterpreter:
         return result
 
     def evaluate_formula(self, current_cell, name, arguments, interactive, destination_arg=1, set_value_only=False):
+        # hash: fa391403aa028fa7b42a9f3491908f6f25414c35bfd104f8cf186220fb3b4f83" --> =FORMULA()
+        if isinstance(arguments[0], list) and len(arguments[0]) == 0:
+            return EvalResult(None, EvalStatus.FullEvaluation, False, "FORMULA()")
         source, destination = (arguments[0], arguments[1]) if destination_arg == 1 else (arguments[1], arguments[0])
 
         src_eval_result = self.evaluate_parse_tree(current_cell, source, interactive)
@@ -2620,7 +2623,7 @@ class XLMInterpreter:
                                     break
                                 formula = current_cell.formula
                                 stack_record = False
-                except KeyboardInterrupt as exp:
+                except Exception as exp:
                     exc_type, exc_obj, traceback = sys.exc_info()
                     frame = traceback.tb_frame
                     lineno = traceback.tb_lineno
@@ -2820,7 +2823,7 @@ def try_decrypt(file, password=''):
                     tmp_file_handle.close()
                     os.remove(tmp_file_path)
                     tmp_file_path = None
-    except KeyboardInterrupt as exp:
+    except Exception as exp:
         uprint(str(exp), silent_mode=SILENT)
 
     return tmp_file_path, is_encrypted
@@ -3144,7 +3147,7 @@ def main():
             # Convert args to kwarg dict
             try:
                 process_file(**vars(args))
-            except KeyboardInterrupt as exp:
+            except Exception as exp:
                 exc_type, exc_obj, traceback = sys.exc_info()
                 frame = traceback.tb_frame
                 lineno = traceback.tb_lineno
@@ -3156,7 +3159,7 @@ def main():
                                                     line.strip(),
                                                     exc_obj))
 
-        except KeyboardInterrupt:
+        except Exception:
             pass
 
 
