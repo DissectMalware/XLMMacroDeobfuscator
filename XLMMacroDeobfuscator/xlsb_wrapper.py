@@ -9,12 +9,16 @@ from XLMMacroDeobfuscator.boundsheet import *
 class XLSBWrapper(ExcelWrapper):
     def __init__(self, xlsb_doc_path):
         self._xlsb_workbook = open_workbook(xlsb_doc_path)
+        self.xlsb_workbook_name = os.path.basename(xlsb_doc_path)
         self._macrosheets = None
         self._worksheets = None
         self._defined_names = None
         self.xl_international_flags = {XlApplicationInternational.xlLeftBracket: '[',
                                        XlApplicationInternational.xlListSeparator: ',',
                                        XlApplicationInternational.xlRightBracket: ']'}
+
+    def get_workbook_name(self):
+        return self.xlsm_workbook_name
 
     def get_xl_international_char(self, flag_name):
         result = None

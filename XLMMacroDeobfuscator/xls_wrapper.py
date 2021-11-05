@@ -18,7 +18,7 @@ class XLSWrapper(ExcelWrapper):
     def __init__(self, xls_doc_path):
         self._excel = Dispatch("Excel.Application")
         self.xls_workbook = self._excel.Workbooks.Open(xls_doc_path)
-        self.xls_workbook_name = re.search(".*\/([^\/]+)\.",xls_doc_path).group(1)
+        self.xls_workbook_name = os.path.basename(xls_doc_path)
         self._macrosheets = None
         self._defined_names = None
         self.xl_international_flags = {}

@@ -16,6 +16,7 @@ import os
 class XLSMWrapper(ExcelWrapper):
     def __init__(self, xlsm_doc_path):
         self.xlsm_doc_path = xlsm_doc_path
+        self.xlsm_workbook_name = os.path.basename(xlsm_doc_path)
         self._content_types = None
         self._style = None
         self._theme = None
@@ -34,6 +35,9 @@ class XLSMWrapper(ExcelWrapper):
 
         self._types = self._get_types()
         self.color_maps = None
+
+    def get_workbook_name(self):
+        return self.xlsm_workbook_name
 
     def _get_types(self):
         result = {}
