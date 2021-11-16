@@ -30,6 +30,12 @@ To deobfuscate macros in Excel documents:
 xlmdeobfuscator --file document.xlsm
 ```
 
+To only extract macros in Excel documents (with any deobfuscation): 
+
+```
+xlmdeobfuscator --file document.xlsm -x
+```
+
 To only get the deobfuscated macros and without any indentation:
 
 ```
