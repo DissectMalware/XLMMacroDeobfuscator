@@ -18,9 +18,7 @@ pip install XLMMacroDeobfuscator
 2. Installing the latest development
 
 ```
-pip install -U https://github.com/DissectMalware/xlrd2/archive/master.zip --force
-pip install -U https://github.com/DissectMalware/pyxlsb2/archive/master.zip --force
-pip install -U https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/master.zip
+pip install -U https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/master.zip --force
 ```
 
 # Running the emulator
