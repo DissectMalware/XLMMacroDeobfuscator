@@ -2758,6 +2758,8 @@ def convert_to_json_str(file, defined_names, records, memory=None, files=None):
         for key, val in defined_names.items():
             if isinstance(val, Tree):
                 defined_names[key] = XLMInterpreter.convert_ptree_to_str(val)
+            elif isinstance(val, Cell):
+                defined_names[key] = str(val)
 
     res = {'file_path': file, 'md5_hash': md5, 'sha256_hash': sha256, 'analysis_timestamp': int(time.time()),
            'format_version': 1, 'analyzed_by': 'XLMMacroDeobfuscator',
@@ -3118,6 +3120,8 @@ def main():
                                  "([[CELL-ADDR]], [[CELL-FORMULA]], and [[CELL-VALUE]]", )
     arg_parser.add_argument("--no-indent", default=False, action='store_true',
                             help="Do not show indent before formulas")
+    arg_parser.add_argument("--silent", default=False, action='store_true',
+                            help="Do not print output")
     arg_parser.add_argument("--export-json", type=str, action='store',
                             help="Export the output to JSON", metavar=('FILE_PATH'))
     arg_parser.add_argument("--start-point", type=str, default="", action='store',
