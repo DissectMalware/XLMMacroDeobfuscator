@@ -9,7 +9,7 @@ You can also find XLM grammar in [xlm-macro-lark.template](XLMMacroDeobfuscator/
 
 # Installing the emulator
 
-1. Install using pip (not recommended)
+1. Install using pip
 
 ```
 pip install XLMMacroDeobfuscator
@@ -84,18 +84,22 @@ default.config file must be a valid json file, such as:
   (______/ (_______/(_______)|/ \___/ |/       (_______)\_______)(_______/|/     \|   )_(   (_______)|/   \__/
 
     
-XLMMacroDeobfuscator(v0.1.9) - https://github.com/DissectMalware/XLMMacroDeobfuscator
+XLMMacroDeobfuscator(v0.2.0) - https://github.com/DissectMalware/XLMMacroDeobfuscator
 
-usage: deobfuscator.py [-h] [-c FILE_PATH] [-f FILE_PATH] [-n] [-x] [-2]
+Error: --file is missing
+
+usage: deobfuscator.py [-h] [-c FILE_PATH] [-f FILE_PATH] [-n] [-x]
+                       [--sort-formulas] [--defined-names] [-2]
                        [--with-ms-excel] [-s] [-d DAY]
                        [--output-formula-format OUTPUT_FORMULA_FORMAT]
-                       [--no-indent] [--export-json FILE_PATH]
+                       [--extract-formula-format EXTRACT_FORMULA_FORMAT]
+                       [--no-indent] [--silent] [--export-json FILE_PATH]
                        [--start-point CELL_ADDR] [-p PASSWORD]
-                       [-o OUTPUT_LEVEL]
+                       [-o OUTPUT_LEVEL] [--timeout N]
 
 optional arguments:
   -h, --help            show this help message and exit
-  -c FILE_PATH, --config_file FILE_PATH
+  -c FILE_PATH, --config-file FILE_PATH
                         Specify a config file (must be a valid JSON file)
   -f FILE_PATH, --file FILE_PATH
                         The path of a XLSM file
@@ -114,9 +118,10 @@ optional arguments:
                         Specify the format for output formulas ([[CELL-ADDR]],
                         [[INT-FORMULA]], and [[STATUS]]
   --extract-formula-format EXTRACT_FORMULA_FORMAT
-                        Specify the format for extracted formulas ([[CELL-ADDR]],
-                        [[CELL-FORMULA]], and [[CELL-VALUE]]
+                        Specify the format for extracted formulas ([[CELL-
+                        ADDR]], [[CELL-FORMULA]], and [[CELL-VALUE]]
   --no-indent           Do not show indent before formulas
+  --silent              Do not print output
   --export-json FILE_PATH
                         Export the output to JSON
   --start-point CELL_ADDR
@@ -166,6 +171,7 @@ XLMMacroDeofuscator is adopted in the following projects:
 * [REMNUX](https://remnux.org/)
 * [IntelOwl](https://github.com/intelowlproject/IntelOwl)
 * [Assemblyline 4](https://cybercentrecanada.github.io/assemblyline4_docs/) by Canadian Centre for Cyber Security 
+* [oletools](https://github.com/decalage2/oletools) by [@decalage2](https://twitter.com/decalage2)
 
 Please contact me if you incorporated XLMMacroDeofuscator in your project.
 
