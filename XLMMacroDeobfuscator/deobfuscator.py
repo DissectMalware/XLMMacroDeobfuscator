@@ -2868,6 +2868,12 @@ def process_file(**kwargs):
         'timeout': 30
     }
     """
+
+    global SILENT
+
+    if kwargs.get("silent"):
+        SILENT = kwargs.get("silent")
+
     deobfuscated = list()
     interpreted_lines = list()
     file_path = os.path.abspath(kwargs.get('file'))
