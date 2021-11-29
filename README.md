@@ -28,7 +28,7 @@ To deobfuscate macros in Excel documents:
 xlmdeobfuscator --file document.xlsm
 ```
 
-To only extract macros in Excel documents (with any deobfuscation): 
+To only extract macros in Excel documents (without any deobfuscation): 
 
 ```
 xlmdeobfuscator --file document.xlsm -x
