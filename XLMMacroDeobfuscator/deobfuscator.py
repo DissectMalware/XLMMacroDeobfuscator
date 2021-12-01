@@ -1559,6 +1559,9 @@ class XLMInterpreter:
         start_cell = self.get_cell_addr(current_cell, start_cell_ptree)
         end_cell = self.get_cell_addr(current_cell, end_cell_ptree)
 
+        if start_cell[0] != end_cell[0]:
+            end_cell = (start_cell[0], end_cell[1], end_cell[2])
+
         skip = False
         if len(arguments) >= 3:
             skip_eval_result = self.evaluate_parse_tree(current_cell, arguments[2], interactive)
@@ -1990,7 +1993,7 @@ class XLMInterpreter:
         arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
         arg2_eval_res = self.evaluate_parse_tree(current_cell, arguments[1], interactive)
         file_name = arg1_eval_res.value
-        if file_name.strip() == "" or EvalResult.is_int(file_name):
+        if file_name.strip() == "" or EvalResult.is_int(file_name) or EvalResult.is_float(file_name):
             if len(self._files) > 0:
                 file_name = list(self._files.keys())[0]
             else:
@@ -2273,6 +2276,14 @@ class XLMInterpreter:
 
                         text_left = str(text_left)
                         text_right = str(text_right)
+
+                        if text_left == '':
+                            text_left = '0'
+                            value_left = 0
+
+                        if text_right == '':
+                            text_right = '0'
+                            value_right = 0
 
                         if self.is_float(value_left) and self.is_float(value_right):
                             if op_str in self._operators:
