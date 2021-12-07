@@ -102,9 +102,9 @@ class EvalResult:
         return result
 
     @staticmethod
-    def wrap_str_literal(data):
+    def wrap_str_literal(data, must_wrap=False):
         result = ''
-        if EvalResult.is_float(data) or (len(data) > 1 and data.startswith('"') and data.endswith('"')):
+        if EvalResult.is_float(data) or (len(data) > 1 and data.startswith('"') and data.endswith('"') and must_wrap is False):
             result = str(data)
         elif type(data) is float:
             if data.is_integer():
@@ -596,7 +596,7 @@ class XLMInterpreter:
     def evaluate_formula(self, current_cell, name, arguments, interactive, destination_arg=1, set_value_only=False):
         # hash: fa391403aa028fa7b42a9f3491908f6f25414c35bfd104f8cf186220fb3b4f83" --> =FORMULA()
         if isinstance(arguments[0], list) and len(arguments[0]) == 0:
-            return EvalResult(None, EvalStatus.FullEvaluation, False, "FORMULA()")
+            return EvalResult(None, EvalStatus.FullEvaluation, False, "{}()".format(name))
         source, destination = (arguments[0], arguments[1]) if destination_arg == 1 else (arguments[1], arguments[0])
 
         src_eval_result = self.evaluate_parse_tree(current_cell, source, interactive)
@@ -2433,7 +2433,7 @@ class XLMInterpreter:
                         status = EvalStatus.FullEvaluation
 
                 elif cell.value is not None:
-                    text = EvalResult.wrap_str_literal(cell.value)
+                    text = EvalResult.wrap_str_literal(cell.value, must_wrap=True)
                     return_val = text
                     status = EvalStatus.FullEvaluation
                 else:
