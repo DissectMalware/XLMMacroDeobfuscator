@@ -46,7 +46,7 @@ class XLSBWrapper(ExcelWrapper):
                     result.append(cell_address)
         return result
 
-    def load_cells(self, boundsheet):
+    def load_cells(self, boundsheet, shared_table):
         row_cnt = 0
         with self._xlsb_workbook.get_sheet_by_name(boundsheet.name) as sheet:
             for row in sheet:
@@ -60,7 +60,10 @@ class XLSBWrapper(ExcelWrapper):
                     tmp_cell = Cell()
                     tmp_cell.row = cell.row_num + 1
                     tmp_cell.column = Cell.convert_to_column_name(cell.col + 1)
-                    tmp_cell.value = cell.value
+                    if cell.style_id == 1 and cell.formula is None and shared_table and isinstance(cell.value, int) :
+                        tmp_cell.value = shared_table.get_string(cell.value)
+                    else:
+                        tmp_cell.value = cell.value
                     tmp_cell.sheet = boundsheet
                     formula_str = Formula.parse(cell.formula)
                     if formula_str._tokens:
@@ -81,7 +84,7 @@ class XLSBWrapper(ExcelWrapper):
                 if xlsb_sheet.type == 'macrosheet':
                     with self._xlsb_workbook.get_sheet_by_name(xlsb_sheet.name) as sheet:
                         macrosheet = Boundsheet(xlsb_sheet.name, 'macrosheet')
-                        self.load_cells(macrosheet)
+                        self.load_cells(macrosheet, self._xlsb_workbook.stringtable)
                         self._macrosheets[macrosheet.name] = macrosheet
 
                 # self.load_macro_cells(macrosheet, workbook)
@@ -96,7 +99,7 @@ class XLSBWrapper(ExcelWrapper):
                 if xlsb_sheet.type == 'worksheet':
                     with self._xlsb_workbook.get_sheet_by_name(xlsb_sheet.name) as sheet:
                         worksheet = Boundsheet(xlsb_sheet.name, 'worksheet')
-                        self.load_cells(worksheet)
+                        self.load_cells(worksheet, self._xlsb_workbook.stringtable)
                         self._worksheets[worksheet.name] = worksheet
 
         return self._worksheets

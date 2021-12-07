@@ -12,6 +12,7 @@ import os
 import random
 import sys
 import time
+import roman
 
 
 from enum import Enum
@@ -186,7 +187,8 @@ class XLMInterpreter:
         self._handlers = {
             # methods
             'END.IF': self.end_if_handler,
-            'FORMULA.FILL': self.formula_handler,
+            'FORMULA.FILL': self.formula_fill_handler,
+            'FORMULA.ARRAY': self.formula_array_handler,
             'GET.CELL': self.get_cell_handler,
             'GET.DOCUMENT': self.get_document_handler,
             'GET.WINDOW': self.get_window_handler,
@@ -263,6 +265,9 @@ class XLMInterpreter:
             'Kernel32.VirtualAlloc': self.VirtualAlloc_handler,
             'Kernel32.WriteProcessMemory': self.WriteProcessMemory_handler,
             'Kernel32.RtlCopyMemory': self.RtlCopyMemory_handler,
+
+            # Future fuctions
+            '_xlfn.ARABIC': self.arabic_hander,
         }
 
     MAX_ISERROR_LOOPCOUNT = 10
@@ -1494,6 +1499,9 @@ class XLMInterpreter:
     def formula_fill_handler(self, arguments, current_cell, interactive, parse_tree_root):
         return self.evaluate_formula(current_cell, 'FORMULA.FILL', arguments, interactive)
 
+    def formula_array_handler(self, arguments, current_cell, interactive, parse_tree_root):
+        return self.evaluate_formula(current_cell, 'FORMULA.ARRAY', arguments, interactive)
+
     def set_value_handler(self, arguments, current_cell, interactive, parse_tree_root):
         return self.evaluate_formula(
             current_cell, 'SET.VALUE', arguments, interactive, destination_arg=2, set_value_only=True)
@@ -2069,6 +2077,17 @@ class XLMInterpreter:
         text = XLMInterpreter.convert_ptree_to_str(parse_tree_root)
 
         return EvalResult(next, status, value, text)
+
+    def arabic_hander(self, arguments, current_cell, interactive, parse_tree_root, end_line=''):
+        arg1_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
+        if arg1_eval_res.status == EvalStatus.FullEvaluation:
+            roman_number = EvalResult.get_text(arg1_eval_res, unwrap=True)
+            return_val = roman.fromRoman(roman_number)
+            status = EvalStatus.FullEvaluation
+            text = str(return_val)
+        else:
+            return_val = text = self.convert_ptree_to_str(parse_tree_root)
+        return EvalResult(None, status, return_val, text)
 
     def VirtualAlloc_handler(self, arguments, current_cell, interactive, parse_tree_root):
         base_eval_res = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
