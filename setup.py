@@ -38,7 +38,8 @@ setup(
         "lark-parser",
         "xlrd2@https://github.com/DissectMalware/xlrd2/archive/master.zip",
         "untangle==1.1.1",
-        "msoffcrypto-tool"
+        "msoffcrypto-tool",
+        "roman"
     ],
     extras_require={
         "secure": ["defusedxml"],
