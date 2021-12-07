@@ -877,7 +877,7 @@ class XLMInterpreter:
         # Initial implementation for integer
         if arg_eval_result1.status == EvalStatus.FullEvaluation and arg_eval_result2.status == EvalStatus.FullEvaluation:
             status = EvalStatus.FullEvaluation
-            value = random.randint(int(arg_eval_result1.value), int(arg_eval_result2.value))
+            value = random.randint(int(float(arg_eval_result1.value)), int(float(arg_eval_result2.value)))
 
         return EvalResult(None, status, value, str(value))
 
