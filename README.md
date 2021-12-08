@@ -12,7 +12,7 @@ You can also find XLM grammar in [xlm-macro-lark.template](XLMMacroDeobfuscator/
 1. Install using pip
 
 ```
-pip install XLMMacroDeobfuscator
+pip install XLMMacroDeobfuscator --force
 ```
 
 2. Installing the latest development
