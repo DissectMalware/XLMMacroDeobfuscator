@@ -34,9 +34,9 @@ setup(
     license='Apache License 2.0',
     python_requires='>=3.4',
     install_requires=[
-        "pyxlsb2@https://github.com/DissectMalware/pyxlsb2/archive/master.zip",
+        "pyxlsb2",
         "lark-parser",
-        "xlrd2@https://github.com/DissectMalware/xlrd2/archive/master.zip",
+        "xlrd2",
         "untangle==1.1.1",
         "msoffcrypto-tool",
         "roman"
