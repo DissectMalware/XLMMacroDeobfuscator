@@ -265,9 +265,11 @@ class XLSMWrapper(ExcelWrapper):
 
     def load_macro_cells(self, macrosheet, macrosheet_obj):
         strings = self.get_shared_strings()
-        if not hasattr(macrosheet_obj.xm_macrosheet.sheetData, 'row'):
+
+        sheet = macrosheet_obj.xm_macrosheet if hasattr(macrosheet_obj, 'xm_macrosheet') else macrosheet_obj.worksheet
+        if not hasattr(sheet.sheetData, 'row'):
             return
-        for row in macrosheet_obj.xm_macrosheet.sheetData.row:
+        for row in sheet.sheetData.row:
             row_attribs = {}
             for attr in row._attributes:
                 if attr == 'ht':
@@ -381,8 +383,10 @@ class XLSMWrapper(ExcelWrapper):
                 # if the actual file exist
                 if macrosheet['sheet_xml']:
                     self.load_macro_cells(macrosheet['sheet'], macrosheet['sheet_xml'])
-                    if hasattr(macrosheet['sheet_xml'].xm_macrosheet, 'sheetFormatPr'):
-                        macrosheet['sheet'].default_height = macrosheet['sheet_xml'].xm_macrosheet.sheetFormatPr.get_attribute(
+                    sheet = macrosheet['sheet_xml'].xm_macrosheet if hasattr(macrosheet['sheet_xml'],
+                                                                    'xm_macrosheet') else macrosheet['sheet_xml'].worksheet
+                    if hasattr(sheet, 'sheetFormatPr'):
+                        macrosheet['sheet'].default_height = sheet.sheetFormatPr.get_attribute(
                             'defaultRowHeight')
 
                 self._macrosheets[macrosheet['sheet'].name] = macrosheet['sheet']
