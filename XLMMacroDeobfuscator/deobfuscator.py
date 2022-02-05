@@ -608,32 +608,38 @@ class XLMInterpreter:
             if isinstance(destination, list):
                 destination = [] if not destination else destination[0]
 
-        if destination.data == 'defined_name' or destination.data == 'name':
-            defined_name_formula = self.xlm_wrapper.get_defined_name(destination.children[2])
-            if isinstance(defined_name_formula, Tree):
-                destination = defined_name_formula
-            else:
-                destination = self.xlm_parser.parse('=' + defined_name_formula).children[0]
+        if(isinstance(destination, str)):
+            destination = self.xlm_parser.parse('=' + destination).children[0]
 
-        if destination.data == 'concat_expression' or destination.data == 'function_call':
-            res = self.evaluate_parse_tree(current_cell, destination, interactive)
-            if isinstance(res.value, tuple) and len(res.value) == 3:
-                destination_str = "'{}'!{}{}".format(res.value[0], res.value[1], res.value[2])
-                dst_start_sheet, dst_start_col, dst_start_row = res.value
-            else:
-                destination_str = res.text
-                dst_start_sheet, dst_start_col, dst_start_row = Cell.parse_cell_addr(destination_str)
-            dst_end_sheet, dst_end_col, dst_end_row = dst_start_sheet, dst_start_col, dst_start_row
+        if isinstance(destination, Tree):
+            if destination.data == 'defined_name' or destination.data == 'name':
+                defined_name_formula = self.xlm_wrapper.get_defined_name(destination.children[2])
+                if isinstance(defined_name_formula, Tree):
+                    destination = defined_name_formula
+                else:
+                    destination = self.xlm_parser.parse('=' + defined_name_formula).children[0]
 
-        else:
-            if destination.data == 'range':
-                dst_start_sheet, dst_start_col, dst_start_row = self.get_cell_addr(current_cell,
-                                                                                   destination.children[0])
-                dst_end_sheet, dst_end_col, dst_end_row = self.get_cell_addr(current_cell, destination.children[2])
-            else:
-                dst_start_sheet, dst_start_col, dst_start_row = self.get_cell_addr(current_cell, destination)
+            if destination.data == 'concat_expression' or destination.data == 'function_call':
+                res = self.evaluate_parse_tree(current_cell, destination, interactive)
+                if isinstance(res.value, tuple) and len(res.value) == 3:
+                    destination_str = "'{}'!{}{}".format(res.value[0], res.value[1], res.value[2])
+                    dst_start_sheet, dst_start_col, dst_start_row = res.value
+                else:
+                    destination_str = res.text
+                    dst_start_sheet, dst_start_col, dst_start_row = Cell.parse_cell_addr(destination_str)
                 dst_end_sheet, dst_end_col, dst_end_row = dst_start_sheet, dst_start_col, dst_start_row
-            destination_str = XLMInterpreter.convert_ptree_to_str(destination)
+
+            else:
+                if destination.data == 'range':
+                    dst_start_sheet, dst_start_col, dst_start_row = self.get_cell_addr(current_cell,
+                                                                                       destination.children[0])
+                    dst_end_sheet, dst_end_col, dst_end_row = self.get_cell_addr(current_cell, destination.children[2])
+                else:
+                    dst_start_sheet, dst_start_col, dst_start_row = self.get_cell_addr(current_cell, destination)
+                    dst_end_sheet, dst_end_col, dst_end_row = dst_start_sheet, dst_start_col, dst_start_row
+                destination_str = XLMInterpreter.convert_ptree_to_str(destination)
+
+
         text = src_eval_result.get_text(unwrap=True)
         if src_eval_result.status == EvalStatus.FullEvaluation:
             for row in range(int(dst_start_row), int(dst_end_row) + 1):
