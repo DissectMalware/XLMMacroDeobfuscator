@@ -97,6 +97,11 @@ class EvalResult:
     @staticmethod
     def unwrap_str_literal(string):
         result = str(string)
+
+        if result.count('"') % 2 == 1 :
+            # if we have an uneven count of quotes, we should not unwrap (think of a string like ","JJCCBB")
+            return result
+
         if len(result) > 1 and result.startswith('"') and result.endswith('"'):
             result = result[1:-1].replace('""', '"')
         return result
