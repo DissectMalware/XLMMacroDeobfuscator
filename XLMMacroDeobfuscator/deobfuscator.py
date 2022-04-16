@@ -1454,7 +1454,7 @@ class XLMInterpreter:
             status = EvalStatus.FullEvaluation
         else:
             status = EvalStatus.PartialEvaluation
-        return EvalResult(arg_eval_result.next_cell, status, return_val, str(return_val))
+        return EvalResult(arg_eval_result.next_cell, status, return_val, EvalResult.wrap_str_literal(str(return_val), must_wrap=True))
 
     def int_handler(self, arguments, current_cell, interactive, parse_tree_root):
         arg_eval_result = self.evaluate_parse_tree(current_cell, arguments[0], interactive)
