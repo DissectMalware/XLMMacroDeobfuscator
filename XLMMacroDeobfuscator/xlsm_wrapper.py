@@ -263,7 +263,7 @@ class XLSMWrapper(ExcelWrapper):
 
         return self._shared_strings
 
-    def load_macro_cells(self, macrosheet, macrosheet_obj):
+    def load_macro_cells(self, macrosheet, macrosheet_obj, macrosheet_names):
         strings = self.get_shared_strings()
 
         sheet = macrosheet_obj.xm_macrosheet if hasattr(macrosheet_obj, 'xm_macrosheet') else macrosheet_obj.worksheet
@@ -292,6 +292,10 @@ class XLSMWrapper(ExcelWrapper):
                                     formula_text = '=SET.NAME("{}",{})'.format(text[:first_eq_sign], text[first_eq_sign+1:])
                         else:
                             formula_text = ('=' + formula.cdata) if formula is not None else None
+                            
+                    for name in macrosheet_names:
+                        if name.lower() + '!' in formula_text.lower():
+                            formula_text = re.sub('{}\!'.format(name), "'{}'!".format(name), formula_text)
                     value_text = None
                     is_string = False
                     if 't' in cell_elm._attributes and cell_elm.get_attribute('t') == 's':
@@ -379,10 +383,15 @@ class XLSMWrapper(ExcelWrapper):
         if self._macrosheets is None:
             self._macrosheets = {}
             macrosheets = self.get_macrosheet_infos()
+
+            macrosheet_names = []
+            for macrosheet in macrosheets:
+                macrosheet_names.append(macrosheet['sheet'].name)
+
             for macrosheet in macrosheets:
                 # if the actual file exist
                 if macrosheet['sheet_xml']:
-                    self.load_macro_cells(macrosheet['sheet'], macrosheet['sheet_xml'])
+                    self.load_macro_cells(macrosheet['sheet'], macrosheet['sheet_xml'], macrosheet_names)
                     sheet = macrosheet['sheet_xml'].xm_macrosheet if hasattr(macrosheet['sheet_xml'],
                                                                     'xm_macrosheet') else macrosheet['sheet_xml'].worksheet
                     if hasattr(sheet, 'sheetFormatPr'):
