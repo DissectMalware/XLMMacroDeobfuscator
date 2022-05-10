@@ -15,6 +15,12 @@ You can also find XLM grammar in [xlm-macro-lark.template](XLMMacroDeobfuscator/
 pip install XLMMacroDeobfuscator --force
 ```
 
+or
+
+```
+pip install xlmmacrodeobfuscator[defusedxml] --force
+```
+
 2. Installing the latest development
 
 ```
