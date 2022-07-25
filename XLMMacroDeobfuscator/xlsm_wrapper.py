@@ -293,9 +293,10 @@ class XLSMWrapper(ExcelWrapper):
                         else:
                             formula_text = ('=' + formula.cdata) if formula is not None else None
                             
-                    for name in macrosheet_names:
-                        if name.lower() + '!' in formula_text.lower():
-                            formula_text = re.sub('{}\!'.format(name), "'{}'!".format(name), formula_text)
+                    if formula_text:
+                        for name in macrosheet_names:
+                            if name.lower() + '!' in formula_text.lower():
+                                formula_text = re.sub('{}\!'.format(name), "'{}'!".format(name), formula_text)
                     value_text = None
                     is_string = False
                     if 't' in cell_elm._attributes and cell_elm.get_attribute('t') == 's':
