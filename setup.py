@@ -37,7 +37,7 @@ setup(
         "pyxlsb2",
         "lark-parser",
         "xlrd2",
-        "untangle==1.1.1",
+        "untangle==1.2.1",
         "msoffcrypto-tool",
         "roman"
     ],
